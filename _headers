@@ -1,0 +1,8 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://kiexpdaaoegbtesqmaff.supabase.co; media-src blob: https://kiexpdaaoegbtesqmaff.supabase.co; connect-src https://kiexpdaaoegbtesqmaff.supabase.co; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Cache-Control: no-cache
+  X-Robots-Tag: noindex, nofollow
