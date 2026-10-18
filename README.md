@@ -55,11 +55,8 @@ node pruebas/prueba.js   # Chromium real con un Supabase falso; capturas en /tmp
 
 ## Despliegue
 
-Cloudflare Pages, directorio raíz, sin comando de build. Con la URL:
+Cloudflare Pages conectado a este repo: cada push a `main` publica en
+**https://renaware-bienvenida.pages.dev**. Directorio raíz, sin comando de build.
 
-```sql
-insert into plataforma_modulos (id, nombre, descripcion, url, roles, orden, activo)
-values ('bienvenida', 'Bienvenida por WhatsApp', 'Los 5 mensajes para cada nuevo asesor, con sus archivos.',
-        'https://<proyecto>.pages.dev', array['admin','asistente'], 9, true)
-on conflict (id) do update set url = excluded.url;
-```
+En la plataforma aparece como el módulo `bienvenida` de `plataforma_modulos`
+(admin y asistente).
