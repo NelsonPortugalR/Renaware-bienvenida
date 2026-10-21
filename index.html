@@ -24,6 +24,7 @@
   --on-brand: #FFFFFF;
   --brand-soft: #E3EEF9;
   --accent: #A35700;
+  --on-accent: #FFFFFF;
   --accent-soft: #FCEFDC;
   --chat: #E9E2D8;
   --bubble: #D9FDD3;
@@ -34,6 +35,7 @@
   --on-ok: #FFFFFF;
   --ok-soft: #E3F4EA;
   --wa: #187A47;
+  --on-wa: #FFFFFF;
   --danger: #B42318;
   --on-danger: #FFFFFF;
   --danger-soft: #FDECEA;
@@ -46,9 +48,9 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0C141D; --surface: #14202E; --surface-2: #1A2838; --ink: #E4EBF3; --muted: #97A7BA; --line: #26374A;
-    --brand: #62A6EC; --on-brand: #0A1420; --brand-soft: #16304B; --accent: #F0A445; --accent-soft: #33240F;
+    --brand: #62A6EC; --on-brand: #0A1420; --brand-soft: #16304B; --accent: #F0A445; --on-accent: #1F1300; --accent-soft: #33240F;
     --chat: #0B141A; --bubble: #005C4B; --bubble-ink: #E9EDEF; --ph-bg: #F2C455; --ph-ink: #2A1C00;
-    --ok: #55C98E; --on-ok: #08140D; --ok-soft: #12301F; --wa: #4CD38A;
+    --ok: #55C98E; --on-ok: #08140D; --ok-soft: #12301F; --wa: #4CD38A; --on-wa: #06160D;
     --danger: #F97066; --on-danger: #1A0806; --danger-soft: #3A1A17;
     --shadow: rgba(0, 0, 0, 0.35);
     color-scheme: dark;
@@ -190,7 +192,7 @@ h1 {
 .field { display: grid; gap: 6px; min-width: 0; }
 .flabel { font-weight: 600; font-size: 14px; }
 .opt { font-weight: 400; color: var(--muted); }
-input[type="text"], input[type="tel"], input[type="password"], input[type="date"], input[type="time"], input[type="number"], select, textarea {
+input[type="text"], input[type="tel"], input[type="password"], input[type="date"], input[type="time"], input[type="number"], input[type="search"], select, textarea {
   display: block;
   width: 100%;
   min-width: 0;
@@ -226,6 +228,7 @@ details.panel > summary {
   gap: 12px;
 }
 details.panel > summary::-webkit-details-marker { display: none; }
+details.panel:not([open]) { gap: 0; }
 details.panel > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 6px; }
 .sum-side { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sum-note { font-size: 14px; color: var(--muted); text-align: right; overflow-wrap: anywhere; }
@@ -483,6 +486,268 @@ details[open] .chev { transform: rotate(180deg); }
 
 .foot { margin: 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Dos tipos de mensaje: bienvenida (días 1 a 5) y seguimiento (día 6 en adelante) */
+.vista { display: grid; gap: 22px; min-width: 0; }
+.vistas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.vista-tab {
+  font: inherit;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 9px 6px 8px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  min-width: 0;
+}
+.vt-t { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-weight: 800; font-size: 15.5px; }
+.vt-s { font-size: 13px; color: var(--muted); }
+.vista-tab[aria-selected="true"] { background: var(--brand); color: var(--on-brand); }
+.vista-tab[aria-selected="true"] .vt-s { color: var(--on-brand); opacity: 0.85; }
+.vista-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.cuenta {
+  display: inline-grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.cuenta.gris { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.section-h .cuenta, .panel-h .cuenta { margin-left: 4px; vertical-align: 1px; }
+
+/* Para hoy (bienvenida) */
+.hoy { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hoy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.hoy-nom { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.hoy-sub { margin: 0; font-size: 14px; color: var(--muted); }
+.tarde { color: var(--accent); font-weight: 600; }
+.bvst { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.bvst .hint { font-size: 13.5px; }
+.bvst-ok { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; color: var(--ok); }
+
+/* Seguimiento */
+.trato-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.chip.mk { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; padding: 4px 10px; min-height: 32px; }
+.chip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.sg-grupo { display: flex; align-items: center; gap: 8px; margin: 18px 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.sg-grupo:first-of-type { margin-top: 4px; }
+.sg-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sg-item {
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  min-width: 0;
+}
+.sg-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sg-nom {
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.sg-sub { display: block; margin: 0; font-size: 14px; color: var(--muted); }
+.sg-sub.urge { color: var(--danger); font-weight: 600; }
+.sg-prev {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px 3px 10px 10px;
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  font-family: var(--font-chat);
+  font-size: 14.5px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.sg-prev > span { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.sg-prev.abierto > span { display: block; overflow: visible; }
+.sg-nom:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.nw { white-space: nowrap; }
+.sg-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.btn-sm.wa-ok { background: var(--wa); border-color: var(--wa); color: var(--on-wa); }
+.btn-sm.wa-ok:hover { filter: brightness(1.06); }
+.pts { display: inline-flex; gap: 3px; flex: none; }
+.pts i { display: block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.pts i.on { background: var(--brand); border-color: var(--brand); }
+.busca { margin-bottom: 10px; }
+.sg-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.sg-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  padding: 11px 14px;
+  cursor: pointer;
+}
+.sg-lista li:first-child .sg-row { border-top: 0; }
+.sg-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.sg-row-main { display: grid; gap: 1px; min-width: 0; }
+.sg-row-nom { font-weight: 700; overflow-wrap: anywhere; }
+.sg-next { font-size: 14px; font-weight: 600; color: var(--brand); }
+.sg-next.al-dia { font-weight: 400; color: var(--muted); }
+.hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.hist.card { padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.hist li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.hist li > span { min-width: 0; overflow-wrap: anywhere; }
+.hist li > button { flex: none; }
+
+/* Ficha y editor */
+body.con-modal { overflow: hidden; }
+.ov {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 16, 26, 0.55);
+}
+.modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: 92vh;
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 18px 18px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (min-width: 700px) {
+  .ov { align-items: flex-start; padding: 40px 16px; overflow-y: auto; }
+  .modal { border-radius: 18px; max-height: none; }
+}
+.mhead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.mhead h2 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; }
+.msub { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+.x { flex: none; font: inherit; font-size: 28px; line-height: 1; min-width: 44px; min-height: 44px; border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
+.x:focus-visible { outline: 2px solid var(--brand); outline-offset: 0; }
+.mbody { display: grid; gap: 16px; padding: 14px 16px 24px; min-width: 0; }
+.estado { margin: 0; padding: 9px 12px; border-radius: 10px; border-left: 4px solid var(--muted); background: var(--surface-2); font-size: 15px; }
+.estado.ok { background: var(--ok-soft); border-color: var(--ok); }
+.estado.urge { background: var(--danger-soft); border-color: var(--danger); }
+.estado.mal { background: var(--accent-soft); border-color: var(--accent); }
+dl.datos { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px 12px; margin: 0; font-size: 15px; }
+dl.datos dt { font-size: 14px; font-weight: 600; color: var(--muted); }
+dl.datos dd { margin: 0; overflow-wrap: anywhere; }
+.clases-p { list-style: none; margin: 6px 0 0; padding: 0; font-size: 14px; color: var(--muted); }
+.tag { display: inline-block; padding: 0 7px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 700; vertical-align: 1px; }
+.tag.gris { background: var(--surface-2); color: var(--muted); }
+.msec { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); min-width: 0; }
+.msec-h { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.msj-caja { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.lbl { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+.msj-texto { margin: 0; white-space: pre-wrap; font-family: var(--font-chat); font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+.bvdias { list-style: none; margin: 0; padding: 0; display: grid; font-size: 14.5px; }
+.bvdias li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.bvdias li:last-child { border-bottom: 0; }
+.bvd-ok { font-weight: 600; color: var(--ok); }
+.paso { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--line); }
+.paso-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.paso-cab .btn-link { margin-left: auto; }
+.paso.abierto { gap: 10px; margin: 0 -16px; padding: 12px 16px; background: var(--surface-2); }
+.marcas code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; padding: 1px 4px; border-radius: 4px; background: var(--surface-2); }
+textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 15px; line-height: 1.45; }
+.chk { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.chk input { width: 20px; height: 20px; flex: none; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 80;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 24px var(--shadow);
+  transform: translate(-50%, 140%);
+  opacity: 0;
+  transition: transform 0.2s, opacity 0.2s;
+  pointer-events: none;
+}
+.toast.on { transform: translate(-50%, 0); opacity: 1; }
+.toast.mal { background: var(--danger); color: var(--on-danger); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
 </head>
 <body>
@@ -491,7 +756,7 @@ details[open] .chev { transform: rotate(180deg); }
   <div class="login-card">
     <p class="eyebrow">Equipo Arequipa · Nuevos asesores</p>
     <h1>Bienvenida por WhatsApp</h1>
-    <p class="hint">Los 5 mensajes de bienvenida, con sus archivos, listos para enviar.</p>
+    <p class="hint">Los mensajes a cada nuevo asesor: los 5 de bienvenida y el seguimiento del Nivel 0, listos para enviar.</p>
     <form id="form-login" novalidate>
       <label class="flabel" for="clave">Clave de administrador</label>
       <input id="clave" type="password" autocomplete="current-password" placeholder="La misma del panel admin" required>
@@ -508,18 +773,47 @@ details[open] .chev { transform: rotate(180deg); }
       <button type="button" class="ghost" id="salir">Salir</button>
     </div>
     <h1>Bienvenida por WhatsApp</h1>
-    <p class="lead">Cinco mensajes, uno por día, con sus archivos, para que el nuevo asesor aprenda lo básico y venga a capacitarse a la oficina.</p>
+    <p class="lead">Los mensajes para cada nuevo asesor: cinco de bienvenida, uno por día con sus archivos, y luego el seguimiento del Nivel 0 según las clases que lleva.</p>
     <p class="prize">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M10 2.5h4v2.8l1.6 2.6V20a2 2 0 0 1-2 2h-3.2a2 2 0 0 1-2-2V7.9L10 5.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 11.5h6.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
       <span id="premio-txt"><strong>Nivel 0:</strong> 5 capacitaciones en la oficina dentro de su plazo de 30 días = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.</span>
     </p>
   </header>
 
+  <details class="panel" id="horario-panel">
+    <summary>
+      <span class="panel-h" id="horario-h">Horario de capacitaciones</span>
+      <span class="sum-side">
+        <span class="sum-note" id="horario-resumen"></span>
+        <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </summary>
+    <div class="panel-body">
+      <div class="sched" id="sched"></div>
+      <p class="hint" id="horario-hint">Vale para la bienvenida y el seguimiento. Si una semana cambia, edítalo aquí. Al recargar la página vuelve al horario de Nivel Cero.</p>
+    </div>
+  </details>
+
+  <div class="vistas" role="tablist" aria-label="Tipo de mensaje">
+    <button type="button" role="tab" class="vista-tab" id="tab-bv" aria-controls="vista-bv" aria-selected="true">
+      <span class="vt-t">Bienvenida <span class="cuenta" id="cuenta-bv" hidden></span></span>
+      <span class="vt-s">Días 1 a 5</span>
+    </button>
+    <button type="button" role="tab" class="vista-tab" id="tab-sg" aria-controls="vista-sg" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Seguimiento <span class="cuenta" id="cuenta-sg" hidden></span></span>
+      <span class="vt-s">Día 6 en adelante</span>
+    </button>
+  </div>
+
+  <div class="vista" id="vista-bv" role="tabpanel" aria-labelledby="tab-bv">
+
+  <section class="panel" id="bv-hoy" aria-label="Bienvenida para hoy" hidden></section>
+
   <section aria-labelledby="logic-h">
     <h2 class="section-h" id="logic-h">Cómo funciona</h2>
     <ul class="dots">
-      <li><strong>Elige al nuevo asesor.</strong> Sale de Nivel Cero con su fecha de inicio, su celular y su código, si ya lo tiene.</li>
-      <li><strong>Un mensaje por día, con sus archivos.</strong> Cada tarjeta dice qué día enviarla.</li>
+      <li><strong>«Para hoy» dice a quién le toca.</strong> Toca «Preparar»: se cargan sus datos y vas directo a su día.</li>
+      <li><strong>Un mensaje por día, con sus archivos.</strong> Cada tarjeta dice qué día enviarla. Si abres el chat con el botón de WhatsApp, queda anotado.</li>
       <li><strong>No preguntamos si vendrá.</strong> Cada invitación propone las dos capacitaciones más cercanas a la fecha de envío.</li>
     </ul>
   </section>
@@ -553,12 +847,6 @@ details[open] .chev { transform: rotate(180deg); }
       <p class="readout span2" id="readout"></p>
     </div>
     <button type="button" class="ghost" id="reset">Limpiar para otro asesor</button>
-  </section>
-
-  <section class="panel" aria-labelledby="horario-h">
-    <h2 class="panel-h" id="horario-h">Horario de capacitaciones</h2>
-    <div class="sched" id="sched"></div>
-    <p class="hint" id="horario-hint">Si una semana cambia, edítalo aquí. Al recargar la página vuelve al horario de Nivel Cero.</p>
   </section>
 
   <details class="panel" id="aj-panel">
@@ -636,12 +924,19 @@ details[open] .chev { transform: rotate(180deg); }
       <li><strong>Si responde, confírmale el día y la hora</strong> en ese momento.</li>
       <li><strong>Si no responde, llámalo por teléfono</strong>, no por WhatsApp.</li>
       <li><strong>La asistencia se marca en Nivel Cero.</strong> Con 5 clases dentro de su plazo, gana la botella.</li>
+      <li><strong>Desde el día 6 sigue el seguimiento</strong>, en la pestaña de al lado: felicitaciones por cada clase y recordatorios según su plazo.</li>
     </ul>
   </section>
 
-  <p class="foot">Basado en la guía de la Sesión de bienvenida, el folleto de Empiece Ya y la lista de promociones vigente. El horario y el plazo son los de Nivel Cero.</p>
+  </div>
+
+  <div class="vista" id="vista-sg" role="tabpanel" aria-labelledby="tab-sg" hidden></div>
+
+  <p class="foot">Basado en la guía de la Sesión de bienvenida, el folleto de Empiece Ya y la lista de promociones vigente. El horario, el plazo y las clases son los de Nivel Cero.</p>
 </div>
 
+<div id="capa"></div>
+<div class="toast" id="toast" aria-hidden="true"></div>
 <input type="file" id="filepick" class="sr-only" tabindex="-1" aria-hidden="true" accept="video/*,image/*,application/pdf">
 <div class="sr-only" aria-live="polite" id="live"></div>
 
@@ -1079,11 +1374,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
 
   /* ---------------------------------------------------------- red */
-  function rpc(fn, args) {
+  /* `sigue`: la petición sigue aunque se cambie a WhatsApp (keepalive). */
+  function rpc(fn, args, sigue) {
     return fetch(SB_URL + '/rest/v1/rpc/' + fn, {
       method: 'POST',
       headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(args || {})
+      body: JSON.stringify(args || {}),
+      keepalive: !!sigue
     }).then(function (r) {
       return r.text().then(function (t) {
         var j = null;
@@ -1164,7 +1461,12 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     destino: null,
     cache: {},
     listo: {},
-    colas: {}
+    colas: {},
+    plantillas: [],
+    asesoresError: false,
+    vista: 'bv',
+    modal: null,
+    buscaSeg: ''
   };
   function enCola(clave, fn) {
     var p = (S.colas[clave] || Promise.resolve()).catch(function () {}).then(fn);
@@ -1192,6 +1494,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
           '<button type="button" class="copy" data-copy="' + d.n + '" aria-label="Copiar el texto del día ' + d.n + '">' + COPY_LABEL + '</button>' +
           '<a class="wa" id="wa-' + d.n + '" href="https://wa.me/" target="_blank" rel="noopener">' + ICON.wa + '<span>Abrir en WhatsApp</span></a>' +
         '</div>' +
+        '<div class="bvst" id="bvst-' + d.n + '" hidden></div>' +
         '<div class="fallback" id="fbwrap-' + d.n + '" hidden>' +
           '<p>No se pudo copiar automáticamente. Mantén presionado el texto, elige «Seleccionar todo» y luego «Copiar».</p>' +
           '<textarea id="fb-' + d.n + '" rows="9" readonly aria-label="Texto del día ' + d.n + ' para copiar"></textarea>' +
@@ -1238,9 +1541,25 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var ok = hs.filter(function (h) { return h && h.dia != null && /^\d{1,2}:\d{2}/.test(String(h.hora || '')); });
     return ok.length ? ok : HORARIO_BASE;
   }
+  function renderResumenHorario() {
+    var k = function (s) { return (s.dow === 0 ? 7 : s.dow) * 1440 + s.h * 60 + s.m; };
+    var hs = leerHorario().sort(function (a, b) { return k(a) - k(b); });
+    var t = hs.map(function (s) { return '<span class="nw">' + esc(DIAS_CAP[s.dow].slice(0, 3) + ' ' + fmtHora(s.h, s.m)) + '</span>'; }).join(' · ');
+    var r = $('horario-resumen');
+    r.innerHTML = t || 'Sin capacitaciones';
+    r.classList.toggle('is-miss', !t);
+  }
+  /* El horario vale para los dos tipos de mensaje: se repinta todo lo que propone una clase. */
+  function alCambiarHorario() {
+    renderMessages();
+    renderResumenHorario();
+    if (S.vista === 'sg') renderSeg();
+    if (S.modal) refrescarModal();
+  }
   construirHorario(HORARIO_BASE);
-  $('sched').addEventListener('input', renderMessages);
-  $('sched').addEventListener('change', renderMessages);
+  renderResumenHorario();
+  $('sched').addEventListener('input', alCambiarHorario);
+  $('sched').addEventListener('change', alCambiarHorario);
 
   /* ---------------------------------------------------------- datos del asesor (solo en este navegador) */
   var nombre = $('nombre');
@@ -1269,7 +1588,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var actual = asesorSel.value || guardadoAsesor.sel || '';
     var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
     var orden = { en_curso: 0, logro: 1, sin_seguimiento: 2, vencio: 3 };
-    var lista = S.asesores.slice().sort(function (a, b) {
+    var lista = S.asesores.filter(esReciente).sort(function (a, b) {
       return ((orden[a.estado] || 0) - (orden[b.estado] || 0)) || String(b.inicio).localeCompare(String(a.inicio));
     });
     asesorSel.innerHTML = '<option value="">Escribir los datos a mano</option>' + lista.map(function (a) {
@@ -1283,7 +1602,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function pistaAsesor() {
     var a = asesorPorId(asesorSel.value);
     var h = $('asesor-hint');
-    if (!S.asesores.length) {
+    if (!S.asesores.filter(esReciente).length) {
       h.textContent = S.estado === 'cargando' ? 'Cargando los nuevos de Nivel Cero…' : 'No hay afiliados de los últimos 45 días en Nivel Cero. Escribe los datos a mano.';
     } else if (a && !a.codigo) {
       h.textContent = 'Su código de Rena Ware todavía no está en el sistema. Si ya lo tiene, escríbelo.';
@@ -1373,6 +1692,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     $('aj-inicial').textContent = aj.promoPrecio != null && aj.inicialPct != null
       ? 'Inicial de la promoción: S/ ' + fmtSoles(Math.round(aj.promoPrecio * aj.inicialPct / 100))
       : '';
+    renderBvEstados();
   }
 
   /* ---------------------------------------------------------- promoción y oficina (compartido) */
@@ -1828,6 +2148,821 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     Array.prototype.forEach.call(document.querySelectorAll('.day'), function (d) { io.observe(d); });
   }
 
+  /* =====================================================================
+     Envíos anotados y seguimiento del Nivel 0.
+     Días 1 a 5: bienvenida (se anota como bv1…bv5). Desde el día 6: el
+     seguimiento, según las clases que lleva en Nivel Cero y su plazo.
+     Lo enviado queda en n0_mensajes y los textos editados en n0_plantillas,
+     junto a sus datos de Nivel Cero, siempre por las funciones wa_bv_*.
+     ===================================================================== */
+  var LS_VISTA = 'wa-bv-vista';
+  var LS_ENVIOS = 'wa-bv-envios';
+  var DIA_SEG = 6;
+
+  /* Textos originales. Lo que se edite se guarda aparte (vacío = vuelve a este). */
+  var PASOS = [
+    { k: 'clase1', g: 'asis', t: 'Primera clase', cuando: 'Después de su primera clase.',
+      tu: '¡Felicitaciones por tu primera clase, {nombre}! 💪 Ya llevas 1 de 5. Te faltan 4 para ganar tu botella de acero y tienes hasta el {limite}. La próxima es {proxima}.',
+      usted: '¡Felicitaciones por su primera clase, {nombre}! 💪 Ya lleva 1 de 5. Le faltan 4 para ganar su botella de acero y tiene hasta el {limite}. La próxima es {proxima}.' },
+    { k: 'clase2', g: 'asis', t: 'Segunda clase', cuando: 'Después de su segunda clase.',
+      tu: '¡Muy bien, {nombre}! Ya llevas 2 de 5 clases. Sigue así: tienes hasta el {limite} para ganar tu botella de acero. Te esperamos {proxima}.',
+      usted: '¡Muy bien, {nombre}! Ya lleva 2 de 5 clases. Siga así: tiene hasta el {limite} para ganar su botella de acero. Le esperamos {proxima}.' },
+    { k: 'faltan2', g: 'asis', t: 'Le faltan 2', cuando: 'Después de su tercera clase.',
+      tu: '¡Vas muy bien, {nombre}! Llevas 3 de 5: te faltan solo 2 clases para tu botella de acero. Tienes hasta el {limite}. Te esperamos {proxima}.',
+      usted: '¡Va muy bien, {nombre}! Lleva 3 de 5: le faltan solo 2 clases para su botella de acero. Tiene hasta el {limite}. Le esperamos {proxima}.' },
+    { k: 'falta1', g: 'asis', t: 'Le falta 1', cuando: 'Después de su cuarta clase.',
+      tu: '¡Felicitaciones, {nombre}! Estás a 1 clase de ganar tu botella de acero 🏆 Tienes hasta el {limite}. Te esperamos {proxima}.',
+      usted: '¡Felicitaciones, {nombre}! Está a 1 clase de ganar su botella de acero 🏆 Tiene hasta el {limite}. Le esperamos {proxima}.' },
+    { k: 'botella', g: 'asis', t: 'Ganó la botella', cuando: 'Al completar sus 5 clases, si aún no gana el Empiece Ya.',
+      tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases y tu botella de acero ya está asegurada. Ahora ve por tu Empiece Ya: si lo logras, ganas también el utensilio de 1,5 litros. ¡Tú puedes!',
+      usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases y su botella de acero ya está asegurada. Ahora vaya por su Empiece Ya: si lo logra, gana también el utensilio de 1,5 litros. ¡Usted puede!' },
+    { k: 'botella_ey', g: 'asis', t: 'Ganó la botella y ya tiene su Empiece Ya', cuando: 'Al completar sus 5 clases, si ya ganó el Empiece Ya.',
+      tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases y además ya ganaste tu Empiece Ya: tu botella de acero viene junto con tu premio. ¡Sigue así!',
+      usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases y además ya ganó su Empiece Ya: su botella de acero viene junto con su premio. ¡Siga así!' },
+    { k: 'semana1', g: 'falta', t: 'Va una semana', cuando: 'A los 7 días de su inicio, si todavía no vino a ninguna clase.',
+      tu: 'Hola {nombre}, ya pasó tu primera semana y todavía no has venido a ninguna capacitación. Recuerda: si vienes 5 veces hasta el {limite}, aseguras tu botella de acero. ¡Te esperamos {proxima}! Si aún no tienes tu kit, recógelo ese día.',
+      usted: 'Hola {nombre}, ya pasó su primera semana y todavía no ha venido a ninguna capacitación. Recuerde: si viene 5 veces hasta el {limite}, asegura su botella de acero. ¡Le esperamos {proxima}! Si aún no tiene su kit, recójalo ese día.' },
+    { k: 'quedan15', g: 'falta', t: 'Quedan 15 días', cuando: 'A 15 días de su fecha límite, si no vino en la última semana.',
+      tu: 'Hola {nombre}, tienes {dias} para ganar tu botella de acero (hasta el {limite}). {avance} ¡Aprovecha, te esperamos {proxima}!',
+      usted: 'Hola {nombre}, tiene {dias} para ganar su botella de acero (hasta el {limite}). {avance} ¡Aproveche, le esperamos {proxima}!' },
+    { k: 'quedan7', g: 'falta', t: 'Quedan 7 días', cuando: 'A 7 días de su fecha límite, si no vino en la última semana.',
+      tu: 'Hola {nombre}, ¡últimos días! Tienes {dias} para ganar tu botella de acero: tu plazo vence el {limite}. {avance} Te esperamos {proxima}.',
+      usted: 'Hola {nombre}, ¡últimos días! Tiene {dias} para ganar su botella de acero: su plazo vence el {limite}. {avance} Le esperamos {proxima}.' },
+    { k: 'cierre', g: 'falta', t: 'Cumplió sus 30 días', cuando: 'Al terminar sus 30 días sin completar las 5 clases (hasta 10 días después).',
+      tu: 'Hola {nombre}, ya cumpliste tus 30 días del Nivel Cero, pero aún tienes la oportunidad de empezar con todo estos próximos 30 días con los nuevos concursos. ¡Te esperamos {proxima}!',
+      usted: 'Hola {nombre}, ya cumplió sus 30 días del Nivel Cero, pero aún tiene la oportunidad de empezar con todo estos próximos 30 días con los nuevos concursos. ¡Le esperamos {proxima}!' },
+    { k: 'recoger', g: 'otro', t: 'Recoger la botella', cuando: 'Se manda a mano, desde su ficha, para avisarle que la recoja.',
+      tu: 'Hola {nombre}, tu botella de acero ya te espera en la oficina 🏆 Pasa a recogerla cuando vengas.',
+      usted: 'Hola {nombre}, su botella de acero ya le espera en la oficina 🏆 Pase a recogerla cuando venga.' }
+  ];
+  var PASO = {};
+  PASOS.forEach(function (x, i) { x.i = i; PASO[x.k] = x; });
+  var GRUPOS = [['asis', 'Por asistencia'], ['falta', 'Si no viene'], ['otro', 'A mano']];
+  var MARCAS = [['nombre', 'su nombre'], ['limite', 'su fecha límite'], ['dias', 'los días que le quedan'],
+                ['avance', 'cuánto lleva y cuánto le falta'], ['proxima', 'la próxima clase'], ['horarios', 'los horarios de clase'],
+                ['clases', 'clases que lleva'], ['faltan', 'clases que le faltan']];
+  var MARCA = {};
+  MARCAS.forEach(function (m) { MARCA[m[0]] = 1; });
+  function claveMarca(n) { return String(n).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+
+  /* ---------- fechas en texto (aaaa-mm-dd), en la hora del celular */
+  var DIAS_C = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  function isoDe(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function sumarISO(iso, n) { var d = parseISO(iso); return d ? isoDe(addDays(d, n)) : null; }
+  function diasISO(a, b) { var x = parseISO(a), y = parseISO(b); return x && y ? diasEntre(x, y) : null; }
+  function fDia(iso) { var d = parseISO(iso); return d ? DIAS_C[d.getDay()] + ' ' + fCorta(iso) : ''; }
+  function fLargaISO(iso) { var d = parseISO(iso); return d ? fmtLargo(d) : ''; }
+  function plural(n, s, p) { return n + ' ' + (n === 1 ? s : p); }
+  function plano(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+  /* ---------- reglas */
+  function metaClases() { return (S.nivel0 && Number(S.nivel0.meta)) || 5; }
+  function tratoDefecto() { return S.nivel0 && S.nivel0.trato === 'tu' ? 'tu' : 'usted'; }
+  function tratoDe(p) { return p && (p.trato === 'tu' || p.trato === 'usted') ? p.trato : tratoDefecto(); }
+  function diaDe(p) { return p ? diasISO(p.inicio, hoyISO()) : null; }   // 0 = su día 1
+  function esReciente(p) { var d = diaDe(p); return d != null && d <= 45; }
+  function activo(p) { return !!p && (p.estado === 'en_curso' || p.estado === 'logro'); }
+  function enBienvenida(p) { var d = diaDe(p); return activo(p) && d != null && d >= 0 && d < DIA_SEG - 1; }
+  function enSeguimiento(p) {
+    var d = diaDe(p);
+    return !!p && (p.estado === 'en_curso' || p.estado === 'logro' || p.estado === 'vencio') && d != null && d >= DIA_SEG - 1;
+  }
+  function plantilla(k) {
+    var b = PASO[k] || { tu: '', usted: '' };
+    var g = {};
+    (S.plantillas || []).forEach(function (x) { if (x.clave === k) g = x; });
+    return { tu: g.tu || b.tu, usted: g.usted || b.usted, activo: g.activo !== false, editado: !!(g.tu || g.usted) };
+  }
+  function nombrePaso(k) {
+    var m = /^bv([1-5])$/.exec(k || '');
+    if (m) return 'Día ' + m[1] + ' · ' + DAYS[Number(m[1]) - 1].title;
+    if (k === 'bienvenida') return 'Bienvenida de Nivel Cero';
+    return (PASO[k] || { t: k }).t;
+  }
+  function nDias(r) { return r <= 0 ? 'solo hoy' : r === 1 ? '1 día' : r + ' días'; }
+  function avanceTxt(p, tr) {
+    var v = p.validas || 0, m = metaClases(), f = Math.max(m - v, 0), tu = tr === 'tu';
+    if (!v) return tu ? 'Todavía no has venido a ninguna clase.' : 'Todavía no ha venido a ninguna clase.';
+    return (tu ? 'Llevas ' : 'Lleva ') + v + ' de ' + m + ': ' + (tu ? 'te ' : 'le ') + (f === 1 ? 'falta 1.' : 'faltan ' + f + '.');
+  }
+  function horarioOrdenado() {
+    var k = function (s) { return (s.dow === 0 ? 7 : s.dow) * 1440 + s.h * 60 + s.m; };
+    return leerHorario().sort(function (a, b) { return k(a) - k(b); });
+  }
+  function horariosTxt() {
+    var l = horarioOrdenado().map(function (s) { return 'el ' + DIAS[s.dow] + ' ' + aLas(s.h) + ' ' + fmtHora(s.h, s.m); });
+    if (l.length <= 1) return l.join('');
+    return l.slice(0, -1).join(', ') + ' o ' + l[l.length - 1];
+  }
+  /* La próxima clase desde ahora, con el mismo margen de 2 horas de la bienvenida. */
+  function proximaTxt() {
+    var s = proximas({ ahora: new Date(), horario: leerHorario(), fecha: null }, 1, 1)[0];
+    return s ? fraseSesion(s) : (horariosTxt() || 'en la oficina');
+  }
+  function llenar(t, p, tr) {
+    tr = tr || tratoDe(p);
+    var r = diasISO(hoyISO(), p.vence);
+    var v = {
+      nombre: pila(p.nombre), limite: fLargaISO(p.vence), dias: nDias(r == null ? 0 : r),
+      avance: avanceTxt(p, tr), clases: String(p.validas || 0), faltan: String(Math.max(metaClases() - (p.validas || 0), 0)),
+      proxima: proximaTxt(), horarios: horariosTxt()
+    };
+    return String(t || '').replace(/\{([^{}\n]{1,20})\}/g, function (a, n) {
+      var c = claveMarca(n);
+      return Object.prototype.hasOwnProperty.call(v, c) ? v[c] : a;
+    })
+      .replace(/([^.])\.\.(?!\.)/g, '$1.')            // "4:00 p. m." + "." → un solo punto
+      .replace(/[ \t]{2,}/g, ' ').replace(/ +\n/g, '\n').trim();
+  }
+  function textoPaso(k, p, tr) { tr = tr || tratoDe(p); return llenar(plantilla(k)[tr], p, tr); }
+  function textoEnvio(k, p) {
+    var m = /^bv([1-5])$/.exec(k);
+    return m ? messageFor(DAYS[Number(m[1]) - 1], leerCtx()) : textoPaso(k, p);
+  }
+  function fechasValidas(p) {
+    return (p.asistencias || []).filter(function (a) { return a.v; }).map(function (a) { return String(a.f).slice(0, 10); }).sort();
+  }
+  function pasoAvance(v) {
+    var m = metaClases();
+    if (v >= m) return 'botella';
+    if (v === m - 1) return 'falta1';
+    if (v === m - 2) return 'faltan2';
+    if (v === 1) return 'clase1';
+    if (v === 2) return 'clase2';
+    return null;
+  }
+  /* Los pasos que aplican hoy, cada uno con la fecha en que le tocó. Desde su día 6. */
+  function candidatos(p) {
+    var c = [], h = hoyISO(), m = metaClases(), v = p.validas || 0;
+    if (!enSeguimiento(p)) return c;
+    var d = diaDe(p), fv = fechasValidas(p);
+    if (p.estado === 'logro') {
+      var fl = p.logro_fecha || fv[m - 1];
+      if (fl && diasISO(fl, h) <= 10) c.push({ k: p.ey ? 'botella_ey' : 'botella', f: fl });
+    }
+    if (p.estado === 'en_curso') {
+      var ka = v >= 1 ? pasoAvance(v) : null;
+      if (ka) c.push({ k: ka, f: fv[v - 1] });
+      var r = diasISO(h, p.vence), u = fv[fv.length - 1];
+      var quieto = !u || diasISO(u, h) >= 7;       // "si no viene": ninguna clase en la última semana
+      if (!v && d >= 7 && r > 15) c.push({ k: 'semana1', f: sumarISO(p.inicio, 7) });
+      if (quieto && r <= 15 && r > 7) c.push({ k: 'quedan15', f: sumarISO(p.vence, -15) });
+      if (quieto && r <= 7 && r >= 0) c.push({ k: 'quedan7', f: sumarISO(p.vence, -7) });
+    }
+    if (p.estado === 'vencio' && diasISO(p.vence, h) <= 10) c.push({ k: 'cierre', f: sumarISO(p.vence, 1) });
+    return c.filter(function (x) { return x.f && plantilla(x.k).activo; });
+  }
+  function yaMandado(p, k) { return (p.mensajes || []).some(function (x) { return x.paso === k; }); }
+  function envioDe(p, k) {
+    var l = (p.mensajes || []).filter(function (x) { return x.paso === k; });
+    return l.length ? l[l.length - 1] : null;
+  }
+  /* Se propone solo el más reciente: si se pasó uno sin mandar y ya le tocó otro, el viejo ya no va. */
+  function pasoQueToca(p) {
+    var c = candidatos(p);
+    if (!c.length) return null;
+    c.sort(function (a, b) { return a.f < b.f ? -1 : a.f > b.f ? 1 : PASO[a.k].i - PASO[b.k].i; });
+    var u = c[c.length - 1];
+    return yaMandado(p, u.k) ? null : u;
+  }
+  function porEscribir() {
+    var l = [];
+    S.asesores.forEach(function (p) { var x = pasoQueToca(p); if (x) l.push({ p: p, x: x }); });
+    return l;
+  }
+  /* Qué le tocará si no viene, para mostrarlo en la lista y en su ficha. */
+  function proximoAviso(p) {
+    if (p.estado !== 'en_curso') return null;
+    var h = hoyISO(), l = [];
+    if (!p.validas) l.push({ k: 'semana1', f: sumarISO(p.inicio, 7) });
+    l.push({ k: 'quedan15', f: sumarISO(p.vence, -15) }, { k: 'quedan7', f: sumarISO(p.vence, -7) }, { k: 'cierre', f: sumarISO(p.vence, 1) });
+    return l.filter(function (x) { return x.f > h && plantilla(x.k).activo && !yaMandado(p, x.k); })[0] || null;
+  }
+  /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Solo en sus días 1 a 5. */
+  function bvPendiente(p) {
+    if (!enBienvenida(p)) return null;
+    var d = diaDe(p);
+    for (var n = 1; n <= d + 1 && n <= DAYS.length; n++) if (!yaMandado(p, 'bv' + n)) return { n: n, atraso: d + 1 - n };
+    return null;
+  }
+  function bvPorEnviar() {
+    var l = [];
+    S.asesores.forEach(function (p) { var x = bvPendiente(p); if (x) l.push({ p: p, x: x }); });
+    return l;
+  }
+  function celularWA(p) { var c = celLocal(p && p.celular); return /^9\d{8}$/.test(c) ? c : null; }
+  function linkWA(p, texto) { var c = celularWA(p); return c ? 'https://wa.me/51' + c + (texto ? '?text=' + encodeURIComponent(texto) : '') : null; }
+  function lineaEstado(p) {
+    var m = metaClases(), v = p.validas || 0;
+    if (p.estado === 'en_curso') {
+      var d = diasISO(hoyISO(), p.vence);
+      return { txt: v + ' de ' + m + ' · ' + (d <= 0 ? 'vence hoy' : d === 1 ? 'le queda 1 día' : 'le quedan ' + d + ' días') + ' (' + fCorta(p.vence) + ')',
+               cls: d <= 5 && v < m ? 'urge' : '' };
+    }
+    if (p.estado === 'logro') {
+      return { txt: 'Logró sus ' + m + ' clases el ' + fCorta(p.logro_fecha) + ' · ' +
+        (p.botella_entregada_en ? 'botella entregada' : p.ey ? 'su botella va con el Empiece Ya' : 'botella por recoger'), cls: 'ok' };
+    }
+    if (p.estado === 'vencio') return { txt: 'Venció el ' + fCorta(p.vence) + ' con ' + v + ' de ' + m, cls: 'mal' };
+    if (p.estado === 'sin_seguimiento') return { txt: 'Se inscribió antes del seguimiento del Nivel Cero', cls: '' };
+    return { txt: '', cls: '' };
+  }
+
+  /* ---------- avisos */
+  function aviso(msg, mal) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast on' + (mal ? ' mal' : '');
+    clearTimeout(aviso.t);
+    aviso.t = setTimeout(function () { t.className = 'toast' + (mal ? ' mal' : ''); }, 2800);
+    anunciar(msg);
+  }
+
+  /* ---------- anotar envíos. Va con keepalive para que llegue aunque se abra WhatsApp; si falla la red,
+     queda en este celular y se manda al volver. */
+  function enviosPend() { try { return JSON.parse(lsGet(LS_ENVIOS) || '[]') || []; } catch (e) { return []; } }
+  function guardarEnviosPend(l) { lsSet(LS_ENVIOS, l.length ? JSON.stringify(l) : null); }
+  function anotarEnvio(x) {
+    var args = { p_token: S.token, p_inscrito: x.pid, p_paso: x.k, p_modo: x.modo, p_texto: x.texto };
+    return rpc('wa_bv_envio_registrar', args, true).catch(function (e) {
+      if (e instanceof TypeError) return rpc('wa_bv_envio_registrar', args);
+      throw e;
+    });
+  }
+  function ponerAsesor(fila) {
+    if (!fila || !fila.id) return;
+    for (var i = 0; i < S.asesores.length; i++) {
+      if (String(S.asesores[i].id) === String(fila.id)) { S.asesores[i] = fila; return; }
+    }
+    S.asesores.push(fila);
+  }
+  function ponerEnviosPend() {
+    enviosPend().forEach(function (x) {
+      var p = asesorPorId(x.pid);
+      if (p && !yaMandado(p, x.k)) p.mensajes = (p.mensajes || []).concat([{ id: x.t, paso: x.k, modo: x.modo, en: x.en || hoyISO(), tmp: true }]);
+    });
+  }
+  function reintentarEnvios() {
+    var l = enviosPend();
+    if (!l.length || !S.token || S.estado !== 'ok') return;
+    guardarEnviosPend([]);
+    l.forEach(function (x) {
+      anotarEnvio(x).then(function (fila) { ponerAsesor(fila); repintar(); }).catch(function (e) {
+        if (e instanceof TypeError) guardarEnviosPend(enviosPend().concat([x]));
+        else if (S.token) aviso('No se anotó un mensaje: ' + bonito(e.message), true);
+      });
+    });
+  }
+  /* El enlace de WhatsApp se abre igual; la página se repinta un instante después. */
+  function registrarEnvio(pid, k, modo, texto) {
+    var p = asesorPorId(pid);
+    if (!p || !k || !S.token) return;
+    if ((p.mensajes || []).some(function (m) { return m.tmp && m.paso === k; })) return;   // doble toque: ya va en camino
+    var tmp = { id: 'tmp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), paso: k, modo: modo, en: hoyISO(), tmp: true };
+    var x = { pid: p.id, k: k, modo: modo, texto: modo === 'omitido' ? null : (texto || null), t: tmp.id, en: tmp.en };
+    p.mensajes = (p.mensajes || []).concat([tmp]);
+    anotarEnvio(x).then(function (fila) {
+      ponerAsesor(fila);
+      repintar();
+    }).catch(function (e) {
+      if (e instanceof TypeError) {
+        guardarEnviosPend(enviosPend().concat([x]));
+        aviso('Sin conexión: se anotará cuando vuelva la señal', true);
+        return;
+      }
+      var q = asesorPorId(pid);
+      if (q) q.mensajes = (q.mensajes || []).filter(function (m) { return m.id !== tmp.id; });
+      repintar();
+      if (S.token) aviso('No se anotó el mensaje: ' + bonito(e.message), true);
+    });
+    setTimeout(repintar, 400);
+    aviso(modo === 'omitido' ? 'Omitido: ' + nombrePaso(k) : modo === 'aviso' ? 'Anotado: le avisaste en persona' : 'Anotado como enviado');
+  }
+  function anularEnvio(mid) {
+    if (!mid || /^tmp/.test(mid) || !S.token) return;
+    rpc('wa_bv_envio_anular', { p_token: S.token, p_id: mid }).then(function (fila) {
+      ponerAsesor(fila);
+      repintar();
+      aviso('Deshecho: vuelve a quedar pendiente');
+    }).catch(function (e) { if (S.token) aviso(bonito(e.message), true); });
+  }
+  function guardarTrato(pid, t) {
+    var p = asesorPorId(pid);
+    if (!p || tratoDe(p) === t && p.trato) return;
+    rpc('wa_bv_trato_guardar', { p_token: S.token, p_inscrito: pid, p_trato: t }).then(function (fila) {
+      ponerAsesor(fila);
+      repintar();
+      aviso('A ' + pila(p.nombre) + ' le escribirás de ' + (t === 'tu' ? 'tú' : 'usted'));
+    }).catch(function (e) { if (S.token) aviso(bonito(e.message), true); });
+  }
+  function guardarTratoDefecto(t) {
+    if (t === tratoDefecto()) return;
+    rpc('wa_bv_trato_defecto', { p_token: S.token, p_trato: t }).then(function (r) {
+      S.nivel0 = Object.assign({}, S.nivel0 || {}, { trato: r && r.trato });
+      repintar();
+      aviso('Por defecto: ' + (tratoDefecto() === 'tu' ? 'tú' : 'usted'));
+    }).catch(function (e) { if (S.token) aviso(bonito(e.message), true); });
+  }
+  function guardarPlantilla(k, tu, usted, activo, msg) {
+    if (S.guardando) return;
+    S.guardando = true;
+    rpc('wa_bv_plantilla_guardar', { p_token: S.token, p_clave: k, p_tu: tu, p_usted: usted, p_activo: activo }).then(function (l) {
+      S.guardando = false;
+      S.plantillas = Array.isArray(l) ? l : [];
+      if (S.modal && S.modal.tipo === 'editor') S.modal.abierto = null;
+      repintar();
+      aviso(msg);
+    }).catch(function (e) { S.guardando = false; if (S.token) aviso(bonito(e.message), true); });
+  }
+
+  /* ---------- pestañas */
+  function cambiarVista(v) {
+    S.vista = v === 'sg' ? 'sg' : 'bv';
+    lsSet(LS_VISTA, S.vista);
+    $('vista-bv').hidden = S.vista !== 'bv';
+    $('vista-sg').hidden = S.vista !== 'sg';
+    [['tab-bv', 'bv'], ['tab-sg', 'sg']].forEach(function (t) {
+      var b = $(t[0]);
+      b.setAttribute('aria-selected', String(S.vista === t[1]));
+      b.tabIndex = S.vista === t[1] ? 0 : -1;
+    });
+    if (S.vista === 'sg') renderSeg();
+  }
+  function pintarCuenta(id, n) {
+    var c = $(id);
+    c.hidden = !n;
+    c.innerHTML = n ? n + '<span class="sr-only"> para hoy</span>' : '';
+  }
+  function renderTabs() {
+    var ok = S.estado === 'ok';
+    pintarCuenta('cuenta-bv', ok ? bvPorEnviar().length : 0);
+    pintarCuenta('cuenta-sg', ok ? porEscribir().length : 0);
+  }
+  function repintar() {
+    renderTabs();
+    renderBvHoy();
+    renderBvEstados();
+    if (S.vista === 'sg') renderSeg();
+    if (S.modal) refrescarModal();
+  }
+  $('tab-bv').addEventListener('click', function () { cambiarVista('bv'); });
+  $('tab-sg').addEventListener('click', function () { cambiarVista('sg'); });
+  document.querySelector('.vistas').addEventListener('keydown', function (ev) {
+    if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+    ev.preventDefault();
+    cambiarVista(S.vista === 'bv' ? 'sg' : 'bv');
+    $(S.vista === 'bv' ? 'tab-bv' : 'tab-sg').focus();
+  });
+
+  /* ---------- bienvenida: para hoy y lo enviado en cada día */
+  function filaBvHoy(y) {
+    var p = y.p, n = y.x.n, f = sumarISO(p.inicio, n - 1);
+    var tarde = y.x.atraso === 1 ? 'tocaba ayer' : y.x.atraso > 1 ? 'tocaba el ' + fDia(f) : '';
+    return '<li class="hoy-row"><div><p class="hoy-nom"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button></p>' +
+      '<p class="hoy-sub">' + esc(nombrePaso('bv' + n)) + (tarde ? ' · <span class="tarde">' + esc(tarde) + '</span>' : '') + (celularWA(p) ? '' : ' · sin celular') + '</p></div>' +
+      '<button type="button" class="btn-sm primary" data-sg="preparar" data-id="' + esc(p.id) + '" data-n="' + n + '">Preparar</button></li>';
+  }
+  function renderBvHoy() {
+    var box = $('bv-hoy');
+    if (S.estado !== 'ok') { box.hidden = true; return; }
+    var pend = bvPorEnviar(), h0 = hoyISO(), hechos = [];
+    S.asesores.forEach(function (p) {
+      (p.mensajes || []).forEach(function (m) { if (m.en === h0 && /^bv[1-5]$/.test(m.paso)) hechos.push({ p: p, m: m }); });
+    });
+    var enVentana = S.asesores.filter(enBienvenida).length;
+    pend.sort(function (a, b) { return (b.x.atraso - a.x.atraso) || titulo(a.p.nombre).localeCompare(titulo(b.p.nombre), 'es'); });
+    var h = '<h2 class="panel-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
+    if (!pend.length) h += '<p class="hint">' + (enVentana ? 'Al día: hoy no toca ningún mensaje de bienvenida.' : 'Nadie está en sus primeros 5 días.') + '</p>';
+    else h += '<ul class="hoy">' + pend.map(filaBvHoy).join('') + '</ul>';
+    if (hechos.length) {
+      h += '<h3 class="sg-grupo">Enviados hoy <span class="cuenta gris">' + hechos.length + '</span></h3><ul class="hist">' + hechos.reverse().map(function (y) {
+        return '<li><span>' + esc(titulo(y.p.nombre) + ' · Día ' + y.m.paso.slice(2) + ' · ' + modoTxt(y.m.modo)) + '</span>' +
+          (y.m.tmp ? '' : '<button type="button" class="btn-link" data-sg="anular" data-m="' + esc(y.m.id) + '">deshacer</button>') + '</li>';
+      }).join('') + '</ul>';
+    }
+    box.innerHTML = h;
+    box.hidden = false;
+  }
+  /* En cada tarjeta, si el asesor viene de Nivel Cero: si ya se le mandó ese día o un botón para anotarlo. */
+  function renderBvEstados() {
+    var p = asesorPorId(asesorSel.value);
+    DAYS.forEach(function (d) {
+      var el = $('bvst-' + d.n), a = $('wa-' + d.n);
+      if (p) { a.setAttribute('data-envio', 'bv' + d.n); a.setAttribute('data-id', p.id); }
+      else { a.removeAttribute('data-envio'); a.removeAttribute('data-id'); }
+      if (!p) { el.hidden = true; el.innerHTML = ''; return; }
+      var m = envioDe(p, 'bv' + d.n);
+      el.hidden = false;
+      el.innerHTML = m
+        ? '<span class="bvst-ok">' + ICON.check + '<span>' + esc((m.modo === 'omitido' ? 'Omitido' : 'Enviado') + ' el ' + fDia(m.en)) + '</span></span>' +
+          (m.tmp ? '' : '<button type="button" class="btn-link" data-sg="anular" data-m="' + esc(m.id) + '">Deshacer</button>')
+        : '<button type="button" class="btn-sm" data-sg="bvMarcar" data-id="' + esc(p.id) + '" data-n="' + d.n + '">Ya lo envié</button>' +
+          '<span class="hint">Si abres el chat con el botón de WhatsApp, queda anotado solo.</span>';
+    });
+  }
+  function prepararBienvenida(id, n) {
+    var p = asesorPorId(id);
+    if (!p) return;
+    S.modal = null;
+    renderModal();
+    cambiarVista('bv');
+    if (asesorSel.value !== String(p.id)) {
+      asesorSel.value = String(p.id);
+      if (asesorSel.value !== String(p.id)) { aviso('No está entre los nuevos de los últimos 45 días', true); return; }
+      asesorSel.dispatchEvent(new Event('change'));
+    }
+    var card = $('dia-' + Math.max(1, Math.min(n || 1, DAYS.length)));
+    setTimeout(function () { card.scrollIntoView({ block: 'start' }); }, 30);
+  }
+
+  /* ---------- seguimiento */
+  function puntos(n) {
+    var m = metaClases(), h = '<span class="pts" role="img" aria-label="' + n + ' de ' + m + ' clases">';
+    for (var i = 0; i < m; i++) h += '<i class="' + (i < n ? 'on' : '') + '"></i>';
+    return h + '</span>';
+  }
+  function chipsTrato(accion, actual) {
+    return ['tu', 'usted'].map(function (t) {
+      return '<button type="button" class="chip' + (actual === t ? ' on' : '') + '" aria-pressed="' + (actual === t) + '" data-sg="' + accion + '" data-t="' + t + '">' + (t === 'tu' ? 'Tú' : 'Usted') + '</button>';
+    }).join('');
+  }
+  function modoTxt(m) { return m === 'omitido' ? 'omitido' : m === 'aviso' ? 'en persona' : 'WhatsApp'; }
+  function botonEnviar(p, k) {
+    var u = linkWA(p, textoPaso(k, p));
+    if (!u) return '';
+    return '<a class="btn-sm wa-ok" href="' + esc(u) + '" target="_blank" rel="noopener" data-envio="' + esc(k) + '" data-id="' + esc(p.id) + '">' + ICON.wa + '<span>WhatsApp</span></a>';
+  }
+  function botonesPaso(p, k, conOmitir) {
+    var id = esc(p.id), kk = esc(k);
+    return (celularWA(p) ? botonEnviar(p, k)
+        : '<button type="button" class="btn-sm" data-sg="copiar" data-id="' + id + '" data-k="' + kk + '">' + ICON.copy + '<span>Copiar texto</span></button>') +
+      '<button type="button" class="btn-sm" data-sg="aviso" data-id="' + id + '" data-k="' + kk + '">Le avisé en persona</button>' +
+      (conOmitir ? '<button type="button" class="btn-link" data-sg="omitir" data-id="' + id + '" data-k="' + kk + '">Omitir</button>' : '');
+  }
+  function itemHoy(y) {
+    var p = y.p, k = y.x.k, e = lineaEstado(p);
+    return '<li class="sg-item">' +
+      '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button>' + puntos(Math.min(p.validas || 0, metaClases())) + '</div>' +
+      '<p class="sg-sub' + (e.cls === 'urge' ? ' urge' : '') + '">' + esc(e.txt + (celularWA(p) ? '' : ' · sin celular')) + '</p>' +
+      '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoPaso(k, p)) + '</span></p>' +
+      '<div class="sg-acts">' + botonesPaso(p, k, true) + '</div></li>';
+  }
+  function filaSeg(p) {
+    var e = lineaEstado(p), toca = pasoQueToca(p), px = toca ? null : proximoAviso(p);
+    var sig = toca ? '<span class="sg-next">Hoy le toca: ' + esc(nombrePaso(toca.k)) + '</span>'
+      : p.estado === 'en_curso' ? '<span class="sg-next al-dia">' + esc(px ? 'Al día · si no viene, el ' + fDia(px.f) + ': ' + nombrePaso(px.k) : 'Al día') + '</span>'
+      : '';
+    return '<li><button type="button" class="sg-row" data-sg="ficha" data-id="' + esc(p.id) + '">' +
+      '<span class="sg-row-main"><span class="sg-row-nom">' + esc(titulo(p.nombre)) + '</span>' +
+      '<span class="sg-sub' + (e.cls === 'urge' ? ' urge' : '') + '">' + esc(e.txt) + '</span>' + sig + '</span>' +
+      puntos(Math.min(p.validas || 0, metaClases())) + '</button></li>';
+  }
+  function listaSeg() {
+    var q = plano(S.buscaSeg.trim());
+    var l = S.asesores.filter(enSeguimiento);
+    if (q) l = l.filter(function (p) { return plano(p.nombre).indexOf(q) >= 0; });
+    var ord = { en_curso: 0, logro: 1, vencio: 2 };
+    l.sort(function (a, b) {
+      var x = ord[a.estado] - ord[b.estado];
+      if (x) return x;
+      if (a.estado === 'en_curso') x = String(a.vence).localeCompare(String(b.vence)) || ((a.validas || 0) - (b.validas || 0));
+      else if (a.estado === 'logro') x = String(b.logro_fecha || '').localeCompare(String(a.logro_fecha || ''));
+      else x = String(b.vence).localeCompare(String(a.vence));
+      return x || titulo(a.nombre).localeCompare(titulo(b.nombre), 'es');
+    });
+    if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre.' : 'Todavía nadie llega a su día 6.') + '</p>';
+    return '<ul class="sg-lista">' + l.map(filaSeg).join('') + '</ul>';
+  }
+  function renderSeg() {
+    var box = $('vista-sg');
+    if (S.estado !== 'ok') {
+      box.innerHTML = '<section class="panel"><p class="' + (S.estado === 'error' ? 'status is-err' : 'hint') + '">' +
+        esc(S.estado === 'error' ? (S.errorCarga || 'No se pudo cargar.') + ' Recarga la página.' : 'Cargando el seguimiento…') + '</p></section>';
+      return;
+    }
+    var act = document.activeElement, enBusca = !!(act && act.id === 'sg-busca'), pos = enBusca ? act.selectionStart : null;
+    var pend = porEscribir(), h0 = hoyISO(), hechos = [];
+    S.asesores.forEach(function (p) {
+      (p.mensajes || []).forEach(function (m) { if (m.en === h0 && !/^bv[1-5]$/.test(m.paso)) hechos.push({ p: p, m: m }); });
+    });
+    var h = S.asesoresError ? '<p class="status is-err">No se pudo leer la lista de Nivel Cero. Recarga la página.</p>' : '';
+    h += '<section aria-labelledby="sg-hoy-h"><h2 class="section-h" id="sg-hoy-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
+    if (!pend.length) h += '<p class="hint">Al día: hoy no toca ningún mensaje de seguimiento.</p>';
+    PASOS.forEach(function (ps) {
+      var g = pend.filter(function (y) { return y.x.k === ps.k; });
+      if (!g.length) return;
+      g.sort(function (a, b) { return String(a.p.vence).localeCompare(String(b.p.vence)) || titulo(a.p.nombre).localeCompare(titulo(b.p.nombre), 'es'); });
+      h += '<h3 class="sg-grupo">' + esc(ps.t) + ' <span class="cuenta">' + g.length + '</span></h3><ul class="sg-items">' + g.map(itemHoy).join('') + '</ul>';
+    });
+    if (hechos.length) {
+      h += '<h3 class="sg-grupo">Mandados hoy <span class="cuenta gris">' + hechos.length + '</span></h3><ul class="hist card">' + hechos.reverse().map(function (y) {
+        return '<li><span>' + esc(titulo(y.p.nombre) + ' · ' + nombrePaso(y.m.paso) + ' · ' + modoTxt(y.m.modo)) + '</span>' +
+          (y.m.tmp ? '' : '<button type="button" class="btn-link" data-sg="anular" data-m="' + esc(y.m.id) + '">deshacer</button>') + '</li>';
+      }).join('') + '</ul>';
+    }
+    h += '</section>';
+    var n = S.asesores.filter(enSeguimiento).length, enBv = S.asesores.filter(enBienvenida).length;
+    h += '<section aria-labelledby="sg-lista-h"><h2 class="section-h" id="sg-lista-h">Del día 6 en adelante <span class="cuenta gris">' + n + '</span></h2>' +
+      '<label class="sr-only" for="sg-busca">Buscar por nombre</label>' +
+      '<input type="search" id="sg-busca" class="busca" placeholder="Buscar por nombre" autocomplete="off" enterkeyhint="search" value="' + esc(S.buscaSeg) + '">' +
+      '<div id="sg-lista">' + listaSeg() + '</div>' +
+      (enBv ? '<p class="hint" style="margin-top:10px">' + esc(plural(enBv, 'asesor está', 'asesores están') + ' en sus primeros 5 días: ' + (enBv === 1 ? 'le toca' : 'les toca') + ' la bienvenida.') + '</p>' : '') +
+      '</section>';
+    h += '<section class="panel" aria-labelledby="sg-h"><h2 class="panel-h" id="sg-h">Cómo funciona el seguimiento</h2>' +
+      '<p class="hint">Desde el día 6 hasta su fecha límite. Cada mensaje sale de las clases que lleva en Nivel Cero y de los días que le quedan; si se pasó uno sin mandar, se propone solo el más reciente.</p>' +
+      '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>' +
+      '<button type="button" class="ghost" data-sg="editor">Ver y editar los mensajes</button></section>';
+    box.innerHTML = h;
+    if (enBusca) {
+      var b = $('sg-busca');
+      b.focus();
+      try { b.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  }
+
+  /* ---------- ficha de cada asesor y editor de mensajes */
+  function abrirModal(md) {
+    S.modal = md;
+    renderModal();
+    var x = document.querySelector('#capa .x');
+    if (x) x.focus();
+  }
+  function cerrarModal() {
+    if (!S.modal) return;
+    var id = S.modal.tipo === 'ficha' ? S.modal.id : null;
+    S.modal = null;
+    renderModal();
+    var b = id && document.querySelector('[data-sg="ficha"][data-id="' + String(id).replace(/"/g, '') + '"]');
+    if (b) b.focus();
+  }
+  function renderModal() {
+    var capa = $('capa');
+    if (!S.modal) { capa.innerHTML = ''; document.body.classList.remove('con-modal'); return; }
+    var cont = S.modal.tipo === 'ficha' ? modalFicha() : modalEditor();
+    capa.innerHTML = '<div class="ov" data-sg="fondo"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-t">' + cont + '</div></div>';
+    document.body.classList.add('con-modal');
+  }
+  function refrescarModal() {
+    var caja = document.querySelector('#capa .modal');
+    var y = caja ? caja.scrollTop : 0;
+    renderModal();
+    caja = document.querySelector('#capa .modal');
+    if (caja) caja.scrollTop = y;
+  }
+  function cabModal(t, sub) {
+    return '<div class="mhead"><div><h2 id="modal-t">' + esc(t) + '</h2>' + (sub ? '<p class="msub">' + esc(sub) + '</p>' : '') + '</div>' +
+      '<button type="button" class="x" data-sg="cerrar" aria-label="Cerrar">×</button></div>';
+  }
+  function listaClases(p) {
+    var l = p.asistencias || [];
+    if (!l.length) return '';
+    return '<ul class="clases-p">' + l.map(function (a) {
+      return '<li>' + esc(fDia(a.f)) + (a.v ? '' : ' <span class="tag gris">fuera de plazo</span>') + '</li>';
+    }).join('') + '</ul>';
+  }
+  function bloqueBienvenida(p, d) {
+    var h = '<section class="msec"><h3 class="msec-h">Bienvenida · días 1 a 5</h3>';
+    if (d == null || d > 6) {                                 // ya pasó: solo el resumen de lo que se le mandó
+      var env = DAYS.filter(function (day) { var x = envioDe(p, 'bv' + day.n); return x && x.modo !== 'omitido'; }).map(function (day) { return day.n; });
+      return h + '<p class="hint">' + (env.length === DAYS.length ? 'Se le mandaron los 5 días.'
+        : env.length ? (env.length === 1 ? 'Se le mandó el día ' : 'Se le mandaron los días ') + unirY(env.map(String)) + '.'
+        : 'No hay mensajes de bienvenida anotados.') + '</p></section>';
+    }
+    h += '<ul class="bvdias">';
+    DAYS.forEach(function (day) {
+      var k = 'bv' + day.n, x = envioDe(p, k), f = sumarISO(p.inicio, day.n - 1);
+      var st = x
+        ? '<span class="bvd-ok">' + esc((x.modo === 'omitido' ? 'Omitido' : '✓ Enviado') + ' el ' + fCorta(x.en)) + '</span>' +
+          (x.tmp ? '' : ' <button type="button" class="btn-link" data-sg="anular" data-m="' + esc(x.id) + '">deshacer</button>')
+        : d != null && day.n <= d + 1
+          ? '<button type="button" class="btn-sm" data-sg="bvMarcar" data-id="' + esc(p.id) + '" data-n="' + day.n + '">Ya lo envié</button>'
+          : '<span class="hint">toca el ' + esc(fDia(f)) + '</span>';
+      h += '<li><span>' + esc(nombrePaso(k)) + '</span><span>' + st + '</span></li>';
+    });
+    h += '</ul>';
+    var pend = bvPendiente(p), n = pend ? pend.n : Math.max(1, Math.min(d + 1, DAYS.length));
+    h += '<button type="button" class="ghost" data-sg="preparar" data-id="' + esc(p.id) + '" data-n="' + n + '">Abrir su bienvenida, con sus archivos</button>';
+    return h + '</section>';
+  }
+  function bloqueSeguimiento(p, d) {
+    var md = S.modal, toca = pasoQueToca(p), k = md.paso || (toca && toca.k);
+    var h = '<section class="msec"><h3 class="msec-h">Seguimiento · desde el día 6</h3>';
+    if (k) {
+      h += '<div class="msj-caja"><p class="lbl">' + esc((md.paso ? 'Elegiste: ' : 'Le toca: ') + nombrePaso(k)) + '</p>' +
+        '<p class="msj-texto">' + esc(textoPaso(k, p)) + '</p>' +
+        '<div class="sg-acts">' + botonesPaso(p, k, !md.paso) +
+        (md.paso ? '<button type="button" class="btn-link" data-sg="elegirPaso" data-k="">Cancelar</button>' : '') + '</div></div>';
+    } else if (activo(p) && d != null && d < DIA_SEG - 1) {
+      h += '<p class="hint">Empieza el ' + esc(fLargaISO(sumarISO(p.inicio, DIA_SEG - 1))) + ', su día 6. Hasta entonces le toca la bienvenida.</p>';
+    } else {
+      var px = proximoAviso(p);
+      h += '<p class="hint">' + (activo(p) ? 'Al día: hoy no le toca mensaje.' : 'Sin mensajes pendientes.') +
+        (px ? ' Si no viene, el ' + esc(fLargaISO(px.f)) + ' le toca «' + esc(nombrePaso(px.k)) + '».' : '') + '</p>';
+    }
+    h += md.otros
+      ? '<div class="chips">' + PASOS.map(function (x) {
+          return '<button type="button" class="chip' + (md.paso === x.k ? ' on' : '') + '" data-sg="elegirPaso" data-k="' + x.k + '">' + esc(x.t) + '</button>';
+        }).join('') + '</div>'
+      : '<button type="button" class="btn-link" data-sg="verOtros">Mandar otro mensaje</button>';
+    return h + '</section>';
+  }
+  function bloqueHistorial(p) {
+    var l = (p.mensajes || []).slice().reverse();
+    if (!l.length) return '';
+    return '<section class="msec"><h3 class="msec-h">Mensajes anotados</h3><ul class="hist">' + l.map(function (m) {
+      return '<li><span>' + esc(nombrePaso(m.paso) + ' · ' + fCorta(m.en) + ' · ' + modoTxt(m.modo)) + '</span>' +
+        (m.tmp ? '' : '<button type="button" class="btn-link" data-sg="anular" data-m="' + esc(m.id) + '">deshacer</button>') + '</li>';
+    }).join('') + '</ul></section>';
+  }
+  function modalFicha() {
+    var p = asesorPorId(S.modal.id);
+    if (!p) return cabModal('No encontrado') + '<div class="mbody"><p class="hint">Esta persona ya no está en la lista.</p></div>';
+    var e = lineaEstado(p), m = metaClases(), d = diaDe(p), cel = celularWA(p);
+    var h = cabModal(titulo(p.nombre), 'Desde el ' + fDia(p.inicio) + ' · vence el ' + fDia(p.vence)) + '<div class="mbody">';
+    if (e.txt) h += '<p class="estado ' + e.cls + '">' + esc(e.txt) + '</p>';
+    h += '<dl class="datos">' +
+      '<dt>Celular</dt><dd>' + (p.celular ? esc(p.celular) + (cel ? ' · <a class="btn-link" href="' + esc(linkWA(p, '')) + '" target="_blank" rel="noopener">Abrir chat</a>' : ' <span class="hint">· no parece un celular</span>') : '—') + '</dd>' +
+      '<dt>Clases</dt><dd>' + puntos(Math.min(p.validas || 0, m)) + ' <b>' + (p.validas || 0) + ' de ' + m + '</b>' + listaClases(p) + '</dd>' +
+      '<dt>Trato</dt><dd><span class="chips">' + chipsTrato('tratoPersona', tratoDe(p)) + '</span>' + (p.trato ? '' : ' <span class="hint">el de por defecto</span>') + '</dd>' +
+      '</dl>';
+    return h + bloqueBienvenida(p, d) + bloqueSeguimiento(p, d) + bloqueHistorial(p) + '</div>';
+  }
+  function muestraPersona() {
+    var l = S.asesores.filter(function (p) { return p.estado === 'en_curso' && enSeguimiento(p); });
+    return l[0] || { nombre: 'María Pérez', validas: 2, inicio: sumarISO(hoyISO(), -15), vence: sumarISO(hoyISO(), 15), trato: null, asistencias: [], mensajes: [] };
+  }
+  function filaPaso(x) {
+    var pl = plantilla(x.k);
+    return '<div class="paso"><div class="paso-cab"><b>' + esc(x.t) + '</b>' + (pl.editado ? ' <span class="tag">editado</span>' : '') +
+      (pl.activo ? '' : ' <span class="tag gris">apagado</span>') + '<button type="button" class="btn-link" data-sg="abrirPaso" data-k="' + x.k + '">Editar</button></div>' +
+      '<span class="hint">' + esc(x.cuando) + '</span></div>';
+  }
+  function editorPaso(x) {
+    var md = S.modal, b = md.borrador, ver = md.ver, mu = muestraPersona(), pl = plantilla(x.k);
+    var h = '<div class="paso abierto"><div class="paso-cab"><b>' + esc(x.t) + '</b></div><span class="hint">' + esc(x.cuando) + '</span>';
+    h += '<div class="chips">' + chipsTrato('verTrato', ver) + '</div>';
+    h += '<textarea id="mTexto" rows="6" aria-label="Texto del mensaje">' + esc(b[ver]) + '</textarea>';
+    h += '<div class="chips">' + MARCAS.slice(0, 6).map(function (m) {
+      return '<button type="button" class="chip mk" data-sg="insertar" data-m="{' + m[0] + '}">{' + m[0] + '}</button>';
+    }).join('') + '</div>';
+    h += '<p class="lbl">Así le llegaría a ' + esc(pila(mu.nombre)) + '</p><p class="msj-texto" id="mPrev">' + esc(llenar(b[ver], mu, ver)) + '</p>';
+    h += '<label class="chk"><input type="checkbox" id="mActivo"' + (b.activo ? ' checked' : '') + '> Activo (si lo apagas, este mensaje no se propone)</label>';
+    h += '<div class="sg-acts"><button type="button" class="btn-sm primary" data-sg="guardarPaso">Guardar</button>' +
+      (pl.editado ? '<button type="button" class="btn-sm" data-sg="restaurarPaso">Volver al original</button>' : '') +
+      '<button type="button" class="btn-link" data-sg="cerrarPaso">Cancelar</button></div>';
+    return h + '</div>';
+  }
+  function modalEditor() {
+    var md = S.modal;
+    var h = cabModal('Mensajes de seguimiento', 'Del día 6 en adelante') + '<div class="mbody">';
+    h += '<p class="hint">Se proponen desde el día 6 de cada asesor; en sus días 1 a 5 va la bienvenida. Cada mensaje tiene versión de tú y de usted: a cada persona le llega con el trato de su ficha o, si no elegiste, con el de por defecto.</p>';
+    h += '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>';
+    GRUPOS.forEach(function (g) {
+      h += '<div><h3 class="msec-h">' + esc(g[1]) + '</h3>';
+      PASOS.forEach(function (x) { if (x.g === g[0]) h += md.abierto === x.k ? editorPaso(x) : filaPaso(x); });
+      h += '</div>';
+    });
+    h += '<p class="hint marcas">Marcadores: ' + MARCAS.map(function (m) { return '<code>{' + m[0] + '}</code> ' + esc(m[1]); }).join(' · ') + '.</p>';
+    return h + '</div>';
+  }
+
+  /* ---------- enlace desde Nivel Cero: #a=<id> abre su ficha (o su bienvenida si va en sus días 1 a 5) */
+  function leerEnlace() {
+    var o = {};
+    String(location.hash || '').replace(/^#/, '').split('&').forEach(function (par) {
+      var i = par.indexOf('=');
+      if (i > 0) { try { o[decodeURIComponent(par.slice(0, i))] = decodeURIComponent(par.slice(i + 1)); } catch (e) {} }
+    });
+    return o;
+  }
+  var ENLACE = leerEnlace();
+  function abrirDesdeEnlace() {
+    var en = ENLACE;
+    if (!en.a && !en.v) return;
+    ENLACE = {};
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!en.a) { cambiarVista(en.v === 'seguimiento' || en.v === 'sg' ? 'sg' : 'bv'); return; }
+    var p = asesorPorId(en.a), paso = PASO[en.paso] ? en.paso : null;
+    if (!p) { aviso('Esa persona no está entre los nuevos de los últimos 45 días', true); return; }
+    if (!paso && enBienvenida(p)) { prepararBienvenida(p.id, (bvPendiente(p) || { n: diaDe(p) + 1 }).n); return; }
+    cambiarVista('sg');
+    abrirModal({ tipo: 'ficha', id: p.id, paso: paso, otros: false });
+  }
+
+  /* ---------- acciones */
+  function alTocarEnvio(a) {
+    var k = a.getAttribute('data-envio'), p = asesorPorId(a.getAttribute('data-id'));
+    if (!p || !k) return;
+    if (/^bv[1-5]$/.test(k) && yaMandado(p, k)) return;          // la bienvenida ya anotada no se repite
+    registrarEnvio(p.id, k, 'whatsapp', textoEnvio(k, p));
+  }
+  var ACC = {
+    ficha: function (el) { abrirModal({ tipo: 'ficha', id: el.getAttribute('data-id'), paso: null, otros: false }); },
+    cerrar: cerrarModal,
+    fondo: cerrarModal,
+    editor: function () { abrirModal({ tipo: 'editor', abierto: null }); },
+    aviso: function (el) { var p = asesorPorId(el.getAttribute('data-id')), k = el.getAttribute('data-k'); if (p) registrarEnvio(p.id, k, 'aviso', textoPaso(k, p)); },
+    omitir: function (el) { registrarEnvio(el.getAttribute('data-id'), el.getAttribute('data-k'), 'omitido'); },
+    copiar: function (el) {
+      var p = asesorPorId(el.getAttribute('data-id'));
+      if (!p) return;
+      copiarTexto(textoPaso(el.getAttribute('data-k'), p), function () { aviso('Texto copiado'); }, function () { aviso('No se pudo copiar. Abre su ficha y copia el texto a mano.', true); });
+    },
+    anular: function (el) { anularEnvio(el.getAttribute('data-m')); },
+    expandir: function (el) { el.classList.toggle('abierto'); },
+    bvMarcar: function (el) {
+      var p = asesorPorId(el.getAttribute('data-id')), n = Number(el.getAttribute('data-n'));
+      if (!p || !n) return;
+      registrarEnvio(p.id, 'bv' + n, 'whatsapp', String(p.id) === asesorSel.value ? messageFor(DAYS[n - 1], leerCtx()) : null);
+    },
+    preparar: function (el) { prepararBienvenida(el.getAttribute('data-id'), Number(el.getAttribute('data-n')) || 1); },
+    tratoPersona: function (el) { if (S.modal) guardarTrato(S.modal.id, el.getAttribute('data-t')); },
+    tratoDefecto: function (el) { guardarTratoDefecto(el.getAttribute('data-t')); },
+    elegirPaso: function (el) { var k = el.getAttribute('data-k'); S.modal.paso = PASO[k] ? k : null; S.modal.otros = false; refrescarModal(); },
+    verOtros: function () { S.modal.otros = !S.modal.otros; refrescarModal(); },
+    abrirPaso: function (el) {
+      var k = el.getAttribute('data-k'), pl = plantilla(k);
+      S.modal.abierto = k;
+      S.modal.ver = tratoDefecto();
+      S.modal.cursor = null;
+      S.modal.borrador = { tu: pl.tu, usted: pl.usted, activo: pl.activo };
+      refrescarModal();
+      var ed = document.querySelector('.paso.abierto');
+      if (ed && ed.scrollIntoView) ed.scrollIntoView({ block: 'nearest' });
+    },
+    verTrato: function (el) {
+      var ta = $('mTexto');
+      if (ta) S.modal.borrador[S.modal.ver] = ta.value;
+      S.modal.ver = el.getAttribute('data-t');
+      S.modal.cursor = null;
+      refrescarModal();
+    },
+    insertar: function (el) {
+      var ta = $('mTexto');
+      if (!ta) return;
+      var m = el.getAttribute('data-m'), c = S.modal.cursor;
+      var a = typeof c === 'number' ? c : ta.value.length, antes = ta.value.slice(0, a);
+      var ins = (antes && !/[\s(¡¿]$/.test(antes) ? ' ' : '') + m;
+      ta.value = antes + ins + ta.value.slice(a);
+      S.modal.cursor = a + ins.length;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    cerrarPaso: function () { S.modal.abierto = null; refrescarModal(); },
+    guardarPaso: function () {
+      var md = S.modal, x = PASO[md.abierto], b = md.borrador;
+      if (!x || !b) return;
+      var ta = $('mTexto');
+      if (ta) b[md.ver] = ta.value;
+      var ck = $('mActivo');
+      if (ck) b.activo = ck.checked;
+      var malos = [];
+      [b.tu, b.usted].forEach(function (t) {
+        (String(t || '').match(/\{[^}]*\}/g) || []).forEach(function (m) {
+          if (!MARCA[claveMarca(m.slice(1, -1))] && malos.indexOf(m) < 0) malos.push(m);
+        });
+      });
+      if (malos.length) { aviso('Revisa ' + malos.join(' ') + ': no es un marcador', true); return; }
+      // lo que queda igual al original (o vacío) se guarda vacío: así sigue al texto original
+      var tu = String(b.tu || '').trim(), us = String(b.usted || '').trim();
+      guardarPlantilla(x.k, tu === x.tu ? null : tu, us === x.usted ? null : us, b.activo, 'Mensaje guardado');
+    },
+    restaurarPaso: function () { var md = S.modal; guardarPlantilla(md.abierto, null, null, md.borrador ? md.borrador.activo : true, 'Volvió al mensaje original'); }
+  };
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (!t || !t.closest) return;
+    var env = t.closest('a[data-envio]');
+    if (env) { alTocarEnvio(env); return; }                 // el enlace se abre igual
+    var el = t.closest('[data-sg]');
+    if (!el || el.disabled) return;
+    var a = el.getAttribute('data-sg');
+    if (a === 'fondo' && t !== el) return;                   // solo el fondo cierra
+    var f = ACC[a];
+    if (f) { ev.preventDefault(); f(el); }
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && S.modal) cerrarModal();
+  });
+  document.addEventListener('input', function (ev) {
+    var el = ev.target;
+    if (el.id === 'sg-busca') {
+      S.buscaSeg = el.value;
+      $('sg-lista').innerHTML = listaSeg();
+    } else if (el.id === 'mTexto' && S.modal && S.modal.tipo === 'editor' && S.modal.borrador) {
+      S.modal.borrador[S.modal.ver] = el.value;
+      S.modal.cursor = el.selectionStart;
+      var pv = $('mPrev');
+      if (pv) pv.textContent = llenar(el.value, muestraPersona(), S.modal.ver);
+    }
+  });
+  document.addEventListener('focusout', function (ev) {
+    if (ev.target.id === 'mTexto' && S.modal && S.modal.tipo === 'editor') S.modal.cursor = ev.target.selectionStart;
+  });
+  document.addEventListener('change', function (ev) {
+    if (ev.target.id === 'mActivo' && S.modal && S.modal.borrador) S.modal.borrador.activo = ev.target.checked;
+  });
+  window.addEventListener('online', reintentarEnvios);
+
   /* ---------------------------------------------------------- sesión y carga */
   function mostrarLogin(msg) {
     $('vista-app').hidden = true;
@@ -1843,15 +2978,21 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function cargar() {
     if (!S.token) return Promise.resolve();
+    var pintando = false;
     return rpc('wa_bv_datos', { p_token: S.token }).then(function (d) {
+      pintando = true;
       d = d || {};
       S.items = Array.isArray(d.adjuntos) ? d.adjuntos : [];
       S.asesores = Array.isArray(d.asesores) ? d.asesores : [];
+      S.asesoresError = !!d.asesores_error;
+      S.plantillas = Array.isArray(d.plantillas) ? d.plantillas : [];
       S.nivel0 = d.nivel0 || null;
       S.plazo = (S.nivel0 && Number(S.nivel0.plazo)) || 30;
+      ponerEnviosPend();
       if (!S.horarioListo) {
         S.horarioBase = horarioDeNivel0(S.nivel0);
         construirHorario(S.horarioBase);
+        renderResumenHorario();
         S.horarioListo = true;
       }
       var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
@@ -1861,11 +3002,17 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       S.estado = 'ok';
       S.errorCarga = null;
       if (S.editando && !itemPorId(S.editando)) S.editando = null;
+      if (S.modal && S.modal.tipo === 'ficha' && !asesorPorId(S.modal.id)) S.modal = null;
       llenarAsesores();
       renderMessages();
       renderAllFiles();
       if (resumenAjustes() && !$('aj-panel').dataset.abierto) { $('aj-panel').dataset.abierto = '1'; $('aj-panel').open = true; }
+      repintar();
+      if (!S.modal) renderModal();
+      abrirDesdeEnlace();
+      setTimeout(reintentarEnvios, 0);
     }).catch(function (e) {
+      if (pintando) { setTimeout(function () { throw e; }, 0); return; }   // un error de la página no se esconde
       if (!S.token) return;
       if (S.estado !== 'ok') {
         S.estado = 'error';
@@ -1873,6 +3020,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
         renderAllFiles();
         resumenAjustes();
         pistaAsesor();
+        renderTabs();
+        if (S.vista === 'sg') renderSeg();
       }
     });
   }
@@ -1907,6 +3056,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     S.ajustesCargados = false;
     S.editando = null;
     S.borrando = null;
+    S.plantillas = [];
+    S.modal = null;
+    renderModal();
+    renderTabs();
     mostrarLogin(msg);
   }
   $('form-login').addEventListener('submit', function (ev) {
@@ -1917,15 +3070,24 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   });
   $('salir').addEventListener('click', function () { cerrarSesion(null); });
 
+  /* Lo que depende de la fecha y la hora se vuelve a calcular, salvo mientras se escribe. */
+  function escribiendo() { return !!(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)); }
+  function alDia() {
+    renderMessages();
+    if (!escribiendo()) repintar();
+  }
   var ocultoDesde = 0;
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) { ocultoDesde = Date.now(); return; }
-    renderMessages();
-    var editando = S.editando || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+    alDia();
+    reintentarEnvios();
+    var editando = S.editando || escribiendo();
     if (S.token && S.estado === 'ok' && ocultoDesde && Date.now() - ocultoDesde > 60000 && !editando) cargar();
   });
-  setInterval(renderMessages, 5 * 60 * 1000);
+  setInterval(alDia, 5 * 60 * 1000);
 
+  S.vista = ENLACE.v === 'seguimiento' || ENLACE.v === 'sg' || (!ENLACE.v && !ENLACE.a && lsGet(LS_VISTA) === 'sg') ? 'sg' : 'bv';
+  cambiarVista(S.vista);
   if (S.token) {
     mostrarApp();
     renderMessages();
