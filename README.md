@@ -35,6 +35,8 @@ Empiece Ya.
   regalo y comisión), editables en la página.
 - **Desde Nivel Cero**: `#a=<id>` abre su ficha (o su bienvenida si va en sus
   días 1 a 5) y `#a=<id>&paso=recoger` el aviso para que recoja su botella.
+  Nivel Cero manda además un código de traspaso (`#traspaso=<código>&a=<id>`)
+  para entrar sin escribir la clave.
 
 ## Reglas que respeta
 
@@ -56,7 +58,9 @@ Empiece Ya.
   | Recoger la botella | a mano, desde su ficha o desde Botellas en Nivel Cero |
 
   Se propone solo el más reciente: si uno no se mandó y ya le tocó otro, el
-  viejo no aparece. Lo ya mandado no se repite.
+  viejo no aparece; si el más reciente está apagado, ese día no va ninguno. Lo
+  ya mandado no se repite, y la felicitación por la botella es una sola (con o
+  sin Empiece Ya).
 - **Marcadores**: `{nombre}` `{limite}` `{dias}` `{avance}` `{proxima}`
   `{horarios}` `{clases}` `{faltan}`. `{proxima}` es la próxima clase del
   horario, con el mismo margen de 2 horas.
@@ -70,7 +74,8 @@ Empiece Ya.
 Un solo `index.html`, sin librerías ni build. Llama a Supabase
 `kiexpdaaoegbtesqmaff` por RPC con la clave publicable; los datos los protege
 la sesión de admin (`admin_login`, la misma clave del panel). También acepta el
-traspaso desde la plataforma (`#traspaso=<código>`).
+traspaso desde la plataforma o desde Nivel Cero (`#traspaso=<código>`): lo
+canjea, guarda la sesión y recarga conservando el resto del enlace.
 
 - Tablas propias: `wa_bv_ajustes` (un registro `vigente` con los datos de la
   promoción) y `wa_bv_adjuntos` (archivos por día). RLS activo, sin acceso
@@ -85,7 +90,10 @@ traspaso desde la plataforma (`#traspaso=<código>`).
   `wa_bv_envio_registrar`, `wa_bv_envio_anular`, `wa_bv_trato_guardar`,
   `wa_bv_trato_defecto`, `wa_bv_plantilla_guardar`. `wa_bv_asesor_json` arma
   cada asesor (interna, sin permisos públicos).
-- Envíos sin señal: quedan en el celular y se anotan al volver.
+- Envíos sin señal (o con la sesión cerrada): quedan en el celular y se anotan
+  al volver; cada uno sale de la cola solo cuando el servidor lo confirma. Lo
+  que aún no confirma se mantiene aunque la página recargue, y el servidor no
+  anota dos veces el mismo mensaje en 10 minutos.
 - Archivos: bucket público `wa-media`, carpeta `bienvenida/d1` … `d5`, hasta
   25 MB cada uno. Nada se borra de verdad: quitar un archivo lo marca
   `borrado` y el archivo queda en el bucket.
@@ -93,7 +101,7 @@ traspaso desde la plataforma (`#traspaso=<código>`).
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 120 aserciones y capturas en /tmp/bv-*.png
+node pruebas/prueba.js   # Chromium real con un Supabase falso; 138 aserciones y capturas en /tmp/bv-*.png
 ```
 
 ## Despliegue

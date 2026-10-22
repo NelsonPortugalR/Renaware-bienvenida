@@ -941,8 +941,9 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
 <div class="sr-only" aria-live="polite" id="live"></div>
 
 <script>
-/* Traspaso desde la plataforma: si el enlace trae #traspaso=<código>, se canjea por la sesión
-   propia de este módulo y se arranca ya con sesión. Si no trae nada, no pasa nada. */
+/* Traspaso desde la plataforma (o desde Nivel Cero): si el enlace trae #traspaso=<código>, se canjea
+   por la sesión propia de este módulo y se recarga ya con sesión, conservando el resto del enlace
+   (#a=<id> …). Mientras tanto la página no arranca: window.BV_TRASPASO avisa si falló. */
 (function () {
   var m = (location.hash || '').match(/[#&]traspaso=([0-9a-f-]{36})/i);
   if (!m) return;
@@ -952,7 +953,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   var raiz = document.documentElement, visAntes = raiz.style.visibility;
   raiz.style.visibility = 'hidden';
   function guardar(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
-  fetch('https://kiexpdaaoegbtesqmaff.supabase.co/functions/v1/traspaso', {
+  window.BV_TRASPASO = fetch('https://kiexpdaaoegbtesqmaff.supabase.co/functions/v1/traspaso', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_pftOAOUR51_Q5gq-Qqra-g_cc0rzhth' },
     body: JSON.stringify({ codigo: codigo })
@@ -960,8 +961,9 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     if (!d || !d.ok) throw new Error((d && d.motivo) || 'Enlace inválido');
     if (!d.admin_token) throw new Error('Sin credencial para este módulo');
     guardar('wa-bv-token', d.admin_token);
-    location.replace(location.pathname + location.search + location.hash);
-  }).catch(function () { raiz.style.visibility = visAntes; });
+    location.reload();                                   // misma dirección, ya sin el código
+    return new Promise(function () {});                  // la página no sigue: se recarga
+  }).catch(function () { raiz.style.visibility = visAntes; return false; });
 })();
 </script>
 <script>
@@ -1602,7 +1604,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function pistaAsesor() {
     var a = asesorPorId(asesorSel.value);
     var h = $('asesor-hint');
-    if (!S.asesores.filter(esReciente).length) {
+    if (S.asesoresError) {
+      h.textContent = 'No se pudo leer la lista de Nivel Cero. Escribe los datos a mano o recarga la página.';
+    } else if (!S.asesores.filter(esReciente).length) {
       h.textContent = S.estado === 'cargando' ? 'Cargando los nuevos de Nivel Cero…' : 'No hay afiliados de los últimos 45 días en Nivel Cero. Escribe los datos a mano.';
     } else if (a && !a.codigo) {
       h.textContent = 'Su código de Rena Ware todavía no está en el sistema. Si ya lo tiene, escríbelo.';
@@ -2195,13 +2199,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       tu: 'Hola {nombre}, tu botella de acero ya te espera en la oficina 🏆 Pasa a recogerla cuando vengas.',
       usted: 'Hola {nombre}, su botella de acero ya le espera en la oficina 🏆 Pase a recogerla cuando venga.' }
   ];
-  var PASO = {};
+  var PASO = Object.create(null);                        // sin prototipo: "constructor" no es un paso
   PASOS.forEach(function (x, i) { x.i = i; PASO[x.k] = x; });
   var GRUPOS = [['asis', 'Por asistencia'], ['falta', 'Si no viene'], ['otro', 'A mano']];
   var MARCAS = [['nombre', 'su nombre'], ['limite', 'su fecha límite'], ['dias', 'los días que le quedan'],
                 ['avance', 'cuánto lleva y cuánto le falta'], ['proxima', 'la próxima clase'], ['horarios', 'los horarios de clase'],
                 ['clases', 'clases que lleva'], ['faltan', 'clases que le faltan']];
-  var MARCA = {};
+  var MARCA = Object.create(null);
   MARCAS.forEach(function (m) { MARCA[m[0]] = 1; });
   function claveMarca(n) { return String(n).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
 
@@ -2310,9 +2314,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       if (quieto && r <= 7 && r >= 0) c.push({ k: 'quedan7', f: sumarISO(p.vence, -7) });
     }
     if (p.estado === 'vencio' && diasISO(p.vence, h) <= 10) c.push({ k: 'cierre', f: sumarISO(p.vence, 1) });
-    return c.filter(function (x) { return x.f && plantilla(x.k).activo; });
+    return c.filter(function (x) { return !!x.f; });
   }
   function yaMandado(p, k) { return (p.mensajes || []).some(function (x) { return x.paso === k; }); }
+  /* La felicitación por la botella es una sola, con o sin Empiece Ya. */
+  function yaMandadoPaso(p, k) {
+    return k === 'botella' || k === 'botella_ey' ? yaMandado(p, 'botella') || yaMandado(p, 'botella_ey') : yaMandado(p, k);
+  }
   function envioDe(p, k) {
     var l = (p.mensajes || []).filter(function (x) { return x.paso === k; });
     return l.length ? l[l.length - 1] : null;
@@ -2323,7 +2331,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (!c.length) return null;
     c.sort(function (a, b) { return a.f < b.f ? -1 : a.f > b.f ? 1 : PASO[a.k].i - PASO[b.k].i; });
     var u = c[c.length - 1];
-    return yaMandado(p, u.k) ? null : u;
+    return yaMandadoPaso(p, u.k) || !plantilla(u.k).activo ? null : u;   // apagado: no se propone ni revive uno viejo
   }
   function porEscribir() {
     var l = [];
@@ -2336,7 +2344,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var h = hoyISO(), l = [];
     if (!p.validas) l.push({ k: 'semana1', f: sumarISO(p.inicio, 7) });
     l.push({ k: 'quedan15', f: sumarISO(p.vence, -15) }, { k: 'quedan7', f: sumarISO(p.vence, -7) }, { k: 'cierre', f: sumarISO(p.vence, 1) });
-    return l.filter(function (x) { return x.f > h && plantilla(x.k).activo && !yaMandado(p, x.k); })[0] || null;
+    return l.filter(function (x) { return x.f > h && plantilla(x.k).activo && !yaMandadoPaso(p, x.k); })[0] || null;
   }
   /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Solo en sus días 1 a 5. */
   function bvPendiente(p) {
@@ -2368,6 +2376,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return { txt: '', cls: '' };
   }
 
+  function errorLista() { return 'No se pudo leer la lista de Nivel Cero (' + S.asesoresError + '). Recarga la página.'; }
+
   /* ---------- avisos */
   function aviso(msg, mal) {
     var t = $('toast');
@@ -2379,9 +2389,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
 
   /* ---------- anotar envíos. Va con keepalive para que llegue aunque se abra WhatsApp; si falla la red,
-     queda en este celular y se manda al volver. */
+     queda en este celular y se manda al volver. Lo que aún no confirma el servidor (en camino o en la
+     cola) se vuelve a poner sobre cualquier dato que llegue, para que nadie reaparezca como pendiente. */
+  var enCamino = {};                                     // id temporal → envío sin respuesta todavía
+  S.escrituras = 0;                                      // si cambia mientras se carga, esa carga ya es vieja
   function enviosPend() { try { return JSON.parse(lsGet(LS_ENVIOS) || '[]') || []; } catch (e) { return []; } }
   function guardarEnviosPend(l) { lsSet(LS_ENVIOS, l.length ? JSON.stringify(l) : null); }
+  function encolar(x) { if (!enviosPend().some(function (y) { return y.t === x.t; })) guardarEnviosPend(enviosPend().concat([x])); }
+  function sacarDeCola(t) { guardarEnviosPend(enviosPend().filter(function (y) { return y.t !== t; })); }
   function anotarEnvio(x) {
     var args = { p_token: S.token, p_inscrito: x.pid, p_paso: x.k, p_modo: x.modo, p_texto: x.texto };
     return rpc('wa_bv_envio_registrar', args, true).catch(function (e) {
@@ -2389,29 +2404,46 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       throw e;
     });
   }
+  function aplicarPendientes(p) {
+    if (!p) return;
+    var l = Object.keys(enCamino).map(function (t) { return enCamino[t]; }).concat(enviosPend());
+    l.forEach(function (x) {
+      if (String(x.pid) !== String(p.id) || (p.mensajes || []).some(function (m) { return m.id === x.t; })) return;
+      p.mensajes = (p.mensajes || []).concat([{ id: x.t, paso: x.k, modo: x.modo, en: x.en || hoyISO(), tmp: true }]);
+    });
+  }
   function ponerAsesor(fila) {
     if (!fila || !fila.id) return;
+    aplicarPendientes(fila);
     for (var i = 0; i < S.asesores.length; i++) {
       if (String(S.asesores[i].id) === String(fila.id)) { S.asesores[i] = fila; return; }
     }
     S.asesores.push(fila);
   }
-  function ponerEnviosPend() {
-    enviosPend().forEach(function (x) {
-      var p = asesorPorId(x.pid);
-      if (p && !yaMandado(p, x.k)) p.mensajes = (p.mensajes || []).concat([{ id: x.t, paso: x.k, modo: x.modo, en: x.en || hoyISO(), tmp: true }]);
-    });
-  }
+  var DEFINITIVO = /Paso no valido|Modo no valido|La persona no existe/i;   // no se arregla reintentando
+  /* La cola se manda de a uno y cada envío sale de ella solo cuando el servidor lo confirma. */
   function reintentarEnvios() {
     var l = enviosPend();
-    if (!l.length || !S.token || S.estado !== 'ok') return;
-    guardarEnviosPend([]);
+    if (!l.length || !S.token || S.estado !== 'ok' || reintentarEnvios.va) return;
+    reintentarEnvios.va = true;
+    var cadena = Promise.resolve();
     l.forEach(function (x) {
-      anotarEnvio(x).then(function (fila) { ponerAsesor(fila); repintar(); }).catch(function (e) {
-        if (e instanceof TypeError) guardarEnviosPend(enviosPend().concat([x]));
-        else if (S.token) aviso('No se anotó un mensaje: ' + bonito(e.message), true);
+      cadena = cadena.then(function () {
+        if (!S.token) return;
+        S.escrituras++;
+        return anotarEnvio(x).then(function (fila) {
+          sacarDeCola(x.t);
+          ponerAsesor(fila);
+        }, function (e) {
+          if (e instanceof TypeError || !DEFINITIVO.test(String(e && e.message))) return;   // sigue en la cola
+          sacarDeCola(x.t);
+          var q = asesorPorId(x.pid);
+          if (q) q.mensajes = (q.mensajes || []).filter(function (m) { return m.id !== x.t; });
+          aviso('No se anotó un mensaje: ' + bonito(e.message), true);
+        });
       });
     });
+    cadena.then(function () { reintentarEnvios.va = false; if (S.token) repintar(); });
   }
   /* El enlace de WhatsApp se abre igual; la página se repinta un instante después. */
   function registrarEnvio(pid, k, modo, texto) {
@@ -2421,13 +2453,19 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var tmp = { id: 'tmp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), paso: k, modo: modo, en: hoyISO(), tmp: true };
     var x = { pid: p.id, k: k, modo: modo, texto: modo === 'omitido' ? null : (texto || null), t: tmp.id, en: tmp.en };
     p.mensajes = (p.mensajes || []).concat([tmp]);
+    enCamino[tmp.id] = x;
+    S.escrituras++;
+    if (S.modal && S.modal.tipo === 'ficha' && String(S.modal.id) === String(p.id)) { S.modal.paso = null; S.modal.otros = false; }
     anotarEnvio(x).then(function (fila) {
+      delete enCamino[tmp.id];
       ponerAsesor(fila);
       repintar();
     }).catch(function (e) {
-      if (e instanceof TypeError) {
-        guardarEnviosPend(enviosPend().concat([x]));
-        aviso('Sin conexión: se anotará cuando vuelva la señal', true);
+      delete enCamino[tmp.id];
+      // sin red, o la sesión se cerró: el mensaje ya salió, se anota cuando se pueda
+      if (e instanceof TypeError || /Sesion invalida/i.test(String(e && e.message))) {
+        encolar(x);
+        if (S.token) aviso('Sin conexión: se anotará cuando vuelva la señal', true);
         return;
       }
       var q = asesorPorId(pid);
@@ -2440,6 +2478,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function anularEnvio(mid) {
     if (!mid || /^tmp/.test(mid) || !S.token) return;
+    S.escrituras++;
     rpc('wa_bv_envio_anular', { p_token: S.token, p_id: mid }).then(function (fila) {
       ponerAsesor(fila);
       repintar();
@@ -2449,6 +2488,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function guardarTrato(pid, t) {
     var p = asesorPorId(pid);
     if (!p || tratoDe(p) === t && p.trato) return;
+    S.escrituras++;
     rpc('wa_bv_trato_guardar', { p_token: S.token, p_inscrito: pid, p_trato: t }).then(function (fila) {
       ponerAsesor(fila);
       repintar();
@@ -2457,6 +2497,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function guardarTratoDefecto(t) {
     if (t === tratoDefecto()) return;
+    S.escrituras++;
     rpc('wa_bv_trato_defecto', { p_token: S.token, p_trato: t }).then(function (r) {
       S.nivel0 = Object.assign({}, S.nivel0 || {}, { trato: r && r.trato });
       repintar();
@@ -2466,6 +2507,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function guardarPlantilla(k, tu, usted, activo, msg) {
     if (S.guardando) return;
     S.guardando = true;
+    S.escrituras++;
     rpc('wa_bv_plantilla_guardar', { p_token: S.token, p_clave: k, p_tu: tu, p_usted: usted, p_activo: activo }).then(function (l) {
       S.guardando = false;
       S.plantillas = Array.isArray(l) ? l : [];
@@ -2532,7 +2574,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var enVentana = S.asesores.filter(enBienvenida).length;
     pend.sort(function (a, b) { return (b.x.atraso - a.x.atraso) || titulo(a.p.nombre).localeCompare(titulo(b.p.nombre), 'es'); });
     var h = '<h2 class="panel-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
-    if (!pend.length) h += '<p class="hint">' + (enVentana ? 'Al día: hoy no toca ningún mensaje de bienvenida.' : 'Nadie está en sus primeros 5 días.') + '</p>';
+    if (S.asesoresError) h += '<p class="status is-err">' + esc(errorLista()) + '</p>';
+    else if (!pend.length) h += '<p class="hint">' + (enVentana ? 'Al día: hoy no toca ningún mensaje de bienvenida.' : 'Nadie está en sus primeros 5 días.') + '</p>';
     else h += '<ul class="hoy">' + pend.map(filaBvHoy).join('') + '</ul>';
     if (hechos.length) {
       h += '<h3 class="sg-grupo">Enviados hoy <span class="cuenta gris">' + hechos.length + '</span></h3><ul class="hist">' + hechos.reverse().map(function (y) {
@@ -2645,7 +2688,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     S.asesores.forEach(function (p) {
       (p.mensajes || []).forEach(function (m) { if (m.en === h0 && !/^bv[1-5]$/.test(m.paso)) hechos.push({ p: p, m: m }); });
     });
-    var h = S.asesoresError ? '<p class="status is-err">No se pudo leer la lista de Nivel Cero. Recarga la página.</p>' : '';
+    var h = S.asesoresError ? '<p class="status is-err">' + esc(errorLista()) + '</p>' : '';
     h += '<section aria-labelledby="sg-hoy-h"><h2 class="section-h" id="sg-hoy-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
     if (!pend.length) h += '<p class="hint">Al día: hoy no toca ningún mensaje de seguimiento.</p>';
     PASOS.forEach(function (ps) {
@@ -2682,18 +2725,36 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
 
   /* ---------- ficha de cada asesor y editor de mensajes */
   function abrirModal(md) {
+    var a = document.activeElement;
+    md.desde = a && a !== document.body && !$('capa').contains(a) ? a : null;   // al cerrar, el foco vuelve aquí
     S.modal = md;
     renderModal();
     var x = document.querySelector('#capa .x');
     if (x) x.focus();
   }
+  function visible(el) { return !!(el && el.isConnected && (el.offsetWidth || el.offsetHeight || el.getClientRects().length)); }
   function cerrarModal() {
     if (!S.modal) return;
-    var id = S.modal.tipo === 'ficha' ? S.modal.id : null;
+    var md = S.modal, id = md.tipo === 'ficha' ? md.id : null;
     S.modal = null;
     renderModal();
-    var b = id && document.querySelector('[data-sg="ficha"][data-id="' + String(id).replace(/"/g, '') + '"]');
+    var b = visible(md.desde) ? md.desde : null;
+    if (!b && id) {
+      b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="ficha"][data-id="' + String(id).replace(/"/g, '') + '"]'), visible)[0];
+    }
+    if (!b && md.tipo === 'editor') b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="editor"]'), visible)[0];
     if (b) b.focus();
+  }
+  /* Cómo volver a encontrar el control con foco después de repintar la ficha o el editor. */
+  function claveFoco(el) {
+    if (!el || !$('capa').contains(el)) return null;
+    if (el.id) return '#' + el.id;
+    if (el.matches('a[data-envio]')) return 'a[data-envio="' + el.getAttribute('data-envio') + '"]';
+    var a = el.getAttribute('data-sg');
+    if (!a) return null;
+    var sel = '[data-sg="' + a + '"]';
+    ['data-k', 'data-t', 'data-m', 'data-n'].forEach(function (k) { if (el.hasAttribute(k)) sel += '[' + k + '="' + el.getAttribute(k).replace(/"/g, '') + '"]'; });
+    return sel;
   }
   function renderModal() {
     var capa = $('capa');
@@ -2705,9 +2766,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function refrescarModal() {
     var caja = document.querySelector('#capa .modal');
     var y = caja ? caja.scrollTop : 0;
+    var foco = claveFoco(document.activeElement);
     renderModal();
     caja = document.querySelector('#capa .modal');
-    if (caja) caja.scrollTop = y;
+    if (!caja) return;
+    caja.scrollTop = y;
+    var el = foco && caja.querySelector(foco);
+    if (!el) el = caja.querySelector('.x');
+    if (el && document.activeElement !== el) el.focus({ preventScroll: true });
   }
   function cabModal(t, sub) {
     return '<div class="mhead"><div><h2 id="modal-t">' + esc(t) + '</h2>' + (sub ? '<p class="msub">' + esc(sub) + '</p>' : '') + '</div>' +
@@ -2941,7 +3007,24 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (f) { ev.preventDefault(); f(el); }
   });
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape' && S.modal) cerrarModal();
+    if (!S.modal) return;
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      if (S.modal.tipo === 'editor' && S.modal.abierto) { S.modal.abierto = null; refrescarModal(); }   // primero cierra el mensaje abierto
+      else if (S.modal.tipo === 'ficha' && (S.modal.paso || S.modal.otros)) { S.modal.paso = null; S.modal.otros = false; refrescarModal(); }
+      else cerrarModal();
+      return;
+    }
+    if (ev.key !== 'Tab') return;                          // el foco no sale de la ficha o del editor
+    var caja = document.querySelector('#capa .modal');
+    if (!caja) return;
+    var l = Array.prototype.filter.call(caja.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])'), visible);
+    if (!l.length) return;
+    var i = l.indexOf(document.activeElement);
+    if (i < 0 || (ev.shiftKey && i === 0) || (!ev.shiftKey && i === l.length - 1)) {
+      ev.preventDefault();
+      l[ev.shiftKey ? l.length - 1 : 0].focus();
+    }
   });
   document.addEventListener('input', function (ev) {
     var el = ev.target;
@@ -2978,17 +3061,18 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function cargar() {
     if (!S.token) return Promise.resolve();
-    var pintando = false;
+    var pintando = false, gen = S.escrituras;
     return rpc('wa_bv_datos', { p_token: S.token }).then(function (d) {
+      if (S.escrituras !== gen && S.estado === 'ok') return cargar();   // llegó vieja: se anotó algo mientras tanto
       pintando = true;
       d = d || {};
       S.items = Array.isArray(d.adjuntos) ? d.adjuntos : [];
       S.asesores = Array.isArray(d.asesores) ? d.asesores : [];
-      S.asesoresError = !!d.asesores_error;
+      S.asesores.forEach(aplicarPendientes);
+      S.asesoresError = d.asesores_error ? String(d.asesores_error) : '';
       S.plantillas = Array.isArray(d.plantillas) ? d.plantillas : [];
       S.nivel0 = d.nivel0 || null;
       S.plazo = (S.nivel0 && Number(S.nivel0.plazo)) || 30;
-      ponerEnviosPend();
       if (!S.horarioListo) {
         S.horarioBase = horarioDeNivel0(S.nivel0);
         construirHorario(S.horarioBase);
@@ -3088,16 +3172,21 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
 
   S.vista = ENLACE.v === 'seguimiento' || ENLACE.v === 'sg' || (!ENLACE.v && !ENLACE.a && lsGet(LS_VISTA) === 'sg') ? 'sg' : 'bv';
   cambiarVista(S.vista);
-  if (S.token) {
-    mostrarApp();
-    renderMessages();
-    renderAllFiles();
-    resumenAjustes();
-    pistaAsesor();
-    cargar();
-  } else {
-    mostrarLogin(null);
+  function arrancar() {
+    S.token = lsGet(LS_TOKEN);
+    if (S.token) {
+      mostrarApp();
+      renderMessages();
+      renderAllFiles();
+      resumenAjustes();
+      pistaAsesor();
+      cargar();
+    } else {
+      mostrarLogin(null);
+    }
   }
+  // con un traspaso en curso se espera: si sale bien la página se recarga sola; si falla, arranca igual
+  if (window.BV_TRASPASO) window.BV_TRASPASO.then(arrancar); else arrancar();
 })();
 </script>
 </body>

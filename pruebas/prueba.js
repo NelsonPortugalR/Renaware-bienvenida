@@ -63,7 +63,8 @@ const db = {
     ['s10', 'ROSA ANTIGUA BOTELLA', '959000010', '2026-08-01', null],       // de agosto: no sale para elegir, sí para avisarle
     ['s11', 'HUGO EXCLUIDO', '959000011', '2026-10-10', null],
     ['s12', 'VICTOR VENCIDO HACE ONCE', null, '2026-09-10', null],         // venció hace 11 días: ya no se le escribe
-    ['s14', 'TOMAS ATRASADO', '959000014', '2026-10-19', null]              // día 3, solo tiene el día 1 → Día 2, tocaba ayer
+    ['s14', 'TOMAS ATRASADO', '959000014', '2026-10-19', null],             // día 3, solo tiene el día 1 → Día 2, tocaba ayer
+    ['s15', 'TERESA DOS DIAS', '959000015', '2026-10-18', null]             // día 4, solo tiene el día 1 → Día 2, tocaba el lunes
   ].map(([id, nombre, celular, fecha_inscripcion, codigo]) => ({ id, nombre, celular, fecha_inscripcion, codigo })),
   estado: { s11: { excluido: true } },
   ey: { s9: true },
@@ -89,6 +90,7 @@ marca('s10', ['k1', 'k2', 'k3', 'k4', 'k5']);
 const anota = (ins, paso, en) => db.mensajes.push({ id: nuevoId(), ins, paso, modo: 'whatsapp', texto: null, en, anulado: false });
 anota('s6', 'bv1', '2026-10-18'); anota('s6', 'bv2', '2026-10-19'); anota('s6', 'bv3', '2026-10-20');
 anota('s14', 'bv1', '2026-10-19');
+anota('s15', 'bv1', '2026-10-18');
 
 const porDia = {};
 SEMILLAS.forEach(([dia, tipo, nombre], i) => {
@@ -121,6 +123,10 @@ function asesor(p) {
 }
 let sesionInvalida = false;
 let cortar = 0;
+const retrasos = {};            // paso → ms antes de anotar (para cruzar respuestas)
+let retrasoDatos = 0;           // ms antes de devolver wa_bv_datos
+let errorAsesores = null;       // simula que falla la lista de Nivel Cero
+let traspasos = 0;
 const llamadas = [];
 const limpio = (f) => { const c = Object.assign({}, f); delete c.borrado; return c; };
 
@@ -136,7 +142,7 @@ function rpc(fn, a) {
     return ok({
       hoy: HOY, ajustes: db.ajustes, adjuntos: db.adjuntos.filter((x) => !x.borrado).map(limpio),
       nivel0: { meta: db.cfg.clases_meta, plazo: db.cfg.dias_plazo, horarios: db.cfg.horarios, trato: db.cfg.trato },
-      asesores, asesores_error: false, plantillas: db.plantillas.map((x) => Object.assign({}, x))
+      asesores: errorAsesores ? [] : asesores, asesores_error: errorAsesores, plantillas: db.plantillas.map((x) => Object.assign({}, x))
     });
   }
   if (fn === 'wa_bv_envio_registrar') {
@@ -207,12 +213,20 @@ async function conectar(ctx) {
     const req = route.request();
     const url = new URL(req.url());
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    if (url.pathname === '/functions/v1/traspaso') {
+      traspasos++;
+      const ok = /^[0-9a-f-]{36}$/i.test(JSON.parse(req.postData() || '{}').codigo || '');
+      return route.fulfill({ status: ok ? 200 : 401, headers: Object.assign({ 'content-type': 'application/json' }, CORS),
+        body: JSON.stringify(ok ? { ok: true, tipo: 'staff', admin_token: 'tok-1', modulo: 'bienvenida' } : { ok: false, motivo: 'Código inválido.' }) });
+    }
     if (url.pathname.startsWith('/rest/v1/rpc/')) {
       const fn = url.pathname.split('/').pop();
       if (fn === 'wa_bv_envio_registrar' && cortar > 0) { cortar--; return route.abort('internetdisconnected'); }
       const args = JSON.parse(req.postData() || '{}');
+      if (fn === 'wa_bv_envio_registrar' && retrasos[args.p_paso]) await esperar(retrasos[args.p_paso]);   // se anota más tarde
       llamadas.push({ fn, args });
       const r = rpc(fn, args);
+      if (fn === 'wa_bv_datos' && retrasoDatos) await esperar(retrasoDatos);   // la foto de los datos es de antes; llega tarde
       return route.fulfill({ status: r.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS), body: JSON.stringify(r.body) });
     }
     const pub = '/storage/v1/object/public/wa-media/';
@@ -300,16 +314,17 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.$eval('#h-dia-0', (e) => e.value)) === '2' && (await page.$eval('#h-hora-0', (e) => e.value)) === '09:30', 'el horario viene de Nivel Cero');
     ok((await page.textContent('#horario-resumen')) === 'Mar 9:30 a. m. · Mié 4:00 p. m. · Vie 4:30 p. m.', 'el horario se resume arriba', await page.textContent('#horario-resumen'));
     const opciones = await page.$$eval('#asesor-sel option', (l) => l.map((o) => o.textContent));
-    ok(opciones.length === 14, 'para elegir: los 13 nuevos de los últimos 45 días más «a mano»', opciones.length);
+    ok(opciones.length === 15, 'para elegir: los 14 nuevos de los últimos 45 días más «a mano»', opciones.length);
     ok(!opciones.some((t) => /Rosa Antigua|Hugo/.test(t)), 'no lista a los de hace más de 45 días ni a los excluidos');
     ok((await page.textContent('#aj-resumen')).includes('Promoción 5'), 'carga la promoción guardada');
 
     console.log('Bienvenida · para hoy');
     await page.screenshot({ path: '/tmp/bv-inicio.png', fullPage: true });
-    ok((await page.textContent('#cuenta-bv')).startsWith('3') && (await page.textContent('#cuenta-sg')).startsWith('8'), 'las pestañas cuentan lo de hoy: 3 de bienvenida y 8 de seguimiento',
+    ok((await page.textContent('#cuenta-bv')).startsWith('4') && (await page.textContent('#cuenta-sg')).startsWith('8'), 'las pestañas cuentan lo de hoy: 4 de bienvenida y 8 de seguimiento',
       (await page.textContent('#cuenta-bv')) + ' / ' + (await page.textContent('#cuenta-sg')));
     const hoyBv = await page.$$eval('#bv-hoy .hoy-row', (l) => l.map((x) => x.innerText.replace(/\s+/g, ' ')));
-    ok(hoyBv.length === 3 && /Tomas Atrasado Día 2 · Kit y material digital · tocaba ayer/.test(hoyBv[0]), 'primero el atrasado, con el día que le falta', hoyBv.join(' | '));
+    ok(hoyBv.length === 4 && /Teresa Dos Dias Día 2 · Kit y material digital · tocaba el lun 19 oct/.test(hoyBv[0]) && /Tomas Atrasado Día 2 · Kit y material digital · tocaba ayer/.test(hoyBv[1]),
+      'primero los atrasados, con el día que les falta', hoyBv.join(' | '));
     ok(hoyBv.some((t) => /Ana Maria Quispe Lopez Día 1 · Bienvenida, código y horario/.test(t)) && hoyBv.some((t) => /Susana Seis Nueva Día 4 · Empiece Ya/.test(t)),
       'a cada uno el día que le toca, según lo ya enviado', hoyBv.join(' | '));
     await page.click('#bv-hoy [data-sg="preparar"][data-id="s14"]');
@@ -333,7 +348,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(vivos('s14', 'bv3').length === 0 && !!(await page.$('#bv-hoy [data-id="s14"]')), 'deshacer lo devuelve');
     await page.click('#bvst-3 [data-sg="bvMarcar"]');
     await esperar(500);
-    ok((await page.textContent('#cuenta-bv')).startsWith('2'), 'la pestaña se actualiza');
+    ok((await page.textContent('#cuenta-bv')).startsWith('3'), 'la pestaña se actualiza');
     await page.click('#bv-hoy .sg-nom[data-id="s6"]');
     await esperar(250);
     const fichaS = await page.textContent('.modal');
@@ -344,6 +359,20 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(400);
     ok(!(await page.$('.modal')) && (await page.inputValue('#asesor-sel')) === 's6', 'desde la ficha abre su bienvenida');
     await page.screenshot({ path: '/tmp/bv-bienvenida-hoy.png' });
+    await page.click('#bv-hoy .sg-nom[data-id="s15"]');
+    await esperar(250);
+    retrasos.bv2 = 300; retrasos.bv3 = 1500;
+    await page.click('.modal [data-sg="bvMarcar"][data-n="2"]');
+    await page.click('.modal [data-sg="bvMarcar"][data-n="3"]');
+    await esperar(900);
+    const teresa = await page.$eval('#bv-hoy [data-id="s15"]', (b) => b.closest('.hoy-row').innerText.replace(/\s+/g, ' ')).catch(() => '');
+    ok(/Día 4 · Empiece Ya/.test(teresa), 'dos envíos seguidos no se pisan: el que sigue en camino no reaparece', teresa);
+    await esperar(1000);
+    ok(vivos('s15', 'bv2').length === 1 && vivos('s15', 'bv3').length === 1 && /Día 2 · Kit y material digital✓ Enviado el 21 oct/.test(await page.textContent('.modal')),
+      'y los dos quedan anotados una sola vez');
+    delete retrasos.bv2; delete retrasos.bv3;
+    await page.keyboard.press('Escape');
+    await esperar(150);
 
     console.log('Elegir asesor');
     await page.selectOption('#asesor-sel', 'p1');
@@ -476,6 +505,22 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.evaluate(() => localStorage.getItem('wa-bv-envios'))) === null && vivos('p2', 'faltan2').length === 1, 'y se anota al volver la señal');
     await page.click('#vista-sg .hist li:has-text("Luis Ramos") [data-sg="anular"]');
     await esperar(500);
+    // vuelve de WhatsApp después de un rato: la página recarga, y mientras tanto se anota otro
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await page.clock.setFixedTime(new Date(AHORA.getTime() + 120000));
+    retrasoDatos = 1200;
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+    await esperar(100);
+    await page.click('#vista-sg [data-sg="omitir"][data-id="s1"]');
+    await esperar(1500);
+    ok(!(await page.$('#vista-sg .sg-nom[data-id="s1"]')), 'una recarga que salió antes de anotar no lo devuelve a la lista');
+    await esperar(1300);
+    ok(!(await page.$('#vista-sg .sg-nom[data-id="s1"]')) && vivos('s1', 'semana1').length === 1, 'y al terminar de recargar sigue anotado');
+    retrasoDatos = 0;
+    await page.evaluate(() => { delete document.hidden; });
+    await page.clock.setFixedTime(AHORA);
+    await page.click('#vista-sg .hist li:has-text("Sara Uno Semana") [data-sg="anular"]');
+    await esperar(500);
 
     console.log('Seguimiento · ficha');
     await page.click('#vista-sg .sg-nom[data-id="s5"]');
@@ -488,6 +533,14 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(400);
     ficha = await page.textContent('.modal');
     ok(/¡Felicitaciones por tu primera clase, Simon! 💪 Ya llevas 1 de 5/.test(ficha) && db.estado.s5 && db.estado.s5.trato === 'tu', 'cambia a tú solo para él', ficha.slice(0, 400));
+    ok(await page.evaluate(() => { const a = document.activeElement; return !!a && a.getAttribute('data-sg') === 'tratoPersona' && a.getAttribute('data-t') === 'tu'; }), 'el foco sigue en lo que tocó');
+    const ultimo = await page.evaluate(() => {
+      const l = Array.from(document.querySelectorAll('#capa .modal a[href], #capa .modal button')).filter((e) => e.offsetWidth || e.offsetHeight);
+      l[l.length - 1].focus();
+      return l.length;
+    });
+    await page.keyboard.press('Tab');
+    ok(ultimo > 3 && await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('x')), 'Tab no sale de la ficha');
     await page.screenshot({ path: '/tmp/bv-ficha.png' });
     await page.click('.modal [data-sg="aviso"]');
     await esperar(500);
@@ -514,6 +567,11 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('.modal [data-sg="abrirPaso"][data-k="clase1"]');
     await esperar(150);
     ok((await page.inputValue('#mTexto')).indexOf('¡Felicitaciones por su primera clase') === 0, 'abre con el trato por defecto (usted)');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!!(await page.$('.modal')) && !(await page.$('#mTexto')), 'Escape cierra el mensaje abierto, no el editor');
+    await page.click('.modal [data-sg="abrirPaso"][data-k="clase1"]');
+    await esperar(150);
     await page.fill('#mTexto', 'Hola {nombre}, felicitaciones por su primera clase. Tiene hasta el {limite}.');
     await esperar(100);
     ok(/^Hola Luis, felicitaciones por su primera clase\. Tiene hasta el (\S+ \d+ de \S+)\.$/.test(await page.textContent('#mPrev')), 'vista previa en vivo', await page.textContent('#mPrev'));
@@ -556,6 +614,18 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.check('#mActivo');
     await page.click('.modal [data-sg="guardarPaso"]');
     await esperar(400);
+    await page.click('.modal [data-sg="abrirPaso"][data-k="quedan7"]');
+    await page.uncheck('#mActivo');
+    await page.click('.modal [data-sg="guardarPaso"]');
+    await esperar(400);
+    await page.click('.modal [data-sg="cerrar"]');
+    await esperar(150);
+    ok(!(await page.$('#vista-sg .sg-nom[data-id="s3"]')), 'apagar «Quedan 7 días» no le devuelve una «Primera clase» vieja');
+    await page.click('#vista-sg [data-sg="editor"]');
+    await page.click('.modal [data-sg="abrirPaso"][data-k="quedan7"]');
+    await page.check('#mActivo');
+    await page.click('.modal [data-sg="guardarPaso"]');
+    await esperar(400);
     await page.click('.modal [data-sg="cerrar"]');
     await esperar(150);
 
@@ -579,6 +649,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('#horario-panel summary');
 
     console.log('Enlace desde Nivel Cero');
+    db.mensajes.push({ id: nuevoId(), ins: 's9', paso: 'botella', modo: 'whatsapp', texto: null, en: '2026-10-17', anulado: false });
     await page.goto(base + '?desde=n0#a=s8&paso=recoger');
     await page.waitForSelector('.modal');
     ficha = await page.textContent('.modal');
@@ -587,12 +658,39 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.evaluate(() => location.hash)) === '', 'y limpia el enlace');
     const uF = await popup('.modal a[data-envio="recoger"]');
     ok(/^https:\/\/wa\.me\/51959000008\?text=Hola Fanny, tu botella/.test(uF) && vivos('s8', 'recoger').length === 1, 'y lo manda por WhatsApp', uF.slice(0, 100));
+    ficha = await page.textContent('.modal');
+    ok(!/Elegiste/.test(ficha) && !(await page.$('.modal a[data-envio="recoger"]')) && /Recoger la botella · 21 oct · WhatsApp/.test(ficha), 'después de mandarlo, el aviso elegido no queda para mandarlo otra vez', ficha.slice(0, 400));
+    ok(!(await page.$('#vista-sg .sg-nom[data-id="s9"]')), 'a quien ya se felicitó por la botella no se le vuelve a felicitar al ganar el Empiece Ya');
+    await page.keyboard.press('Escape');
+    await page.goto(base + '?raro=1#a=s8&paso=constructor');
+    await page.waitForSelector('.modal');
+    ficha = await page.textContent('.modal');
+    ok(/Fanny Quispe Chaucca/.test(ficha) && !/undefined|Elegiste/.test(ficha), 'un paso que no existe no se elige', ficha.slice(0, 200));
     await page.keyboard.press('Escape');
     await page.goto(base + '?desde=n0b#a=s6');
     await page.waitForFunction(() => document.getElementById('asesor-sel').value === 's6');
     ok(await page.isVisible('#vista-bv') && (await page.inputValue('#nombre')) === 'Susana', 'si va en sus días 1 a 5, abre su bienvenida');
     await esperar(400);
     ok(await page.evaluate(() => { const r = document.getElementById('dia-4').getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0; }), 'en el día que le toca');
+    // desde la plataforma o desde Nivel Cero, con un código de traspaso y el enlace a la persona
+    await page.evaluate(() => localStorage.removeItem('wa-bv-token'));
+    await page.goto(base + '?tr=1#traspaso=11111111-2222-4333-8444-555555555555&a=s6');
+    await page.waitForFunction(() => document.getElementById('asesor-sel').value === 's6', null, { timeout: 5000 }).catch(() => {});
+    ok(traspasos === 1 && (await page.evaluate(() => localStorage.getItem('wa-bv-token'))) === 'tok-1' && (await page.inputValue('#asesor-sel')) === 's6' &&
+      (await page.evaluate(() => document.documentElement.style.visibility)) !== 'hidden', 'con traspaso entra solo y abre a la persona del enlace');
+    ok((await page.evaluate(() => location.hash)) === '', 'y el código no queda en la dirección');
+    await page.goto(base + '?tr=2#traspaso=11111111-2222-4333-8444-555555555556&a=s5');
+    await page.waitForSelector('.modal', { timeout: 5000 }).catch(() => {});
+    ok(traspasos === 2 && /Simon Cinco Activo/.test((await page.textContent('.modal').catch(() => '')) || ''), 'también si ya tenía sesión: no pierde el enlace');
+    await page.keyboard.press('Escape');
+    errorAsesores = 'tiempo de espera agotado';
+    await page.goto(base + '?err=1');
+    await page.waitForFunction(() => !document.getElementById('bv-hoy').hidden);
+    ok(/No se pudo leer la lista de Nivel Cero \(tiempo de espera agotado\)/.test(await page.textContent('#bv-hoy')) && /No se pudo leer la lista/.test(await page.textContent('#asesor-hint')),
+      'si falla la lista de Nivel Cero lo dice, no muestra una lista vacía', await page.textContent('#bv-hoy'));
+    errorAsesores = null;
+    await page.goto(base + '?ok=1');
+    await page.waitForFunction(() => !document.getElementById('bv-hoy').hidden);
 
     console.log('Celular chico');
     for (const w of [390, 360]) {
@@ -613,6 +711,25 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.screenshot({ path: '/tmp/bv-seguimiento-oscuro.png' });
     await page.emulateMedia({ colorScheme: 'light' });
     await page.setViewportSize({ width: 400, height: 900 });
+
+    console.log('Cola sin señal');
+    await page.click('#tab-sg');
+    await esperar(150);
+    cortar = 2;
+    await page.click('#vista-sg [data-sg="omitir"][data-id="s2"]');
+    await esperar(700);
+    ok((await page.evaluate(() => JSON.parse(localStorage.getItem('wa-bv-envios') || '[]').length)) === 1, 'sin señal queda en la cola');
+    sesionInvalida = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForSelector('#vista-login:not([hidden])', { timeout: 3000 }).catch(() => {});
+    ok((await page.isVisible('#vista-login')) && (await page.evaluate(() => JSON.parse(localStorage.getItem('wa-bv-envios') || '[]').length)) === 1 && vivos('s2', 'quedan15').length === 0,
+      'si la sesión se cerró al reintentar, el envío sigue en la cola');
+    sesionInvalida = false;
+    await page.fill('#clave', 'secreta');
+    await page.click('#btn-entrar');
+    await page.waitForSelector('#vista-app:not([hidden])');
+    await esperar(800);
+    ok(vivos('s2', 'quedan15').length === 1 && (await page.evaluate(() => localStorage.getItem('wa-bv-envios'))) === null, 'y al volver a entrar se anota');
 
     console.log('Sesión');
     await page.click('#tab-bv');
