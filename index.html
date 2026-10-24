@@ -3223,7 +3223,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }).filter(Boolean);
   }
   function nombreBonito(str) {
-    return titulo(str).replace(/\bIi\b/g, 'II').replace(/\bIii\b/g, 'III').replace(/\bCtu\b/g, 'CTU').replace(/\bUcu\b/g, 'UCU').replace(/\bHd\b/g, 'HD').replace(/\bUv\b/g, 'UV')
+    return titulo(sinCodigo(str)).replace(/\bIi\b/g, 'II').replace(/\bIii\b/g, 'III').replace(/\bCtu\b/g, 'CTU').replace(/\bUcu\b/g, 'UCU').replace(/\bHd\b/g, 'HD').replace(/\bUv\b/g, 'UV')
       .replace(/\bIc-/g, 'IC-').replace(/\bLx-/g, 'LX-').replace(/\bC\/tapa\b/g, 'c/tapa').replace(/(\d)(cm|l|lts?)\b/gi, function (m, d, u) { return d + ' ' + u.toLowerCase(); }).replace(/\bCm\b/g, 'cm');
   }
   function productoCorto(str) {
