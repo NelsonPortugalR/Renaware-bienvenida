@@ -2,6 +2,7 @@
 // El servidor falso calcula lo mismo que n0_inscritos_json (plazo, clases válidas, logro, estado)
 // y lo entrega en la forma de wa_bv_asesor_json, así que lo que se verifica es la página.
 // Uso: node pruebas/prueba.js   (necesita playwright; capturas en /tmp/bv-*.png)
+// Clientes: el Supabase falso calcula lo mismo que crm_acciones (acciones por orden y ciclos de filtros por cliente).
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -126,6 +127,76 @@ let cortar = 0;
 const retrasos = {};            // paso → ms antes de anotar (para cruzar respuestas)
 let retrasoDatos = 0;           // ms antes de devolver wa_bv_datos
 let errorAsesores = null;       // simula que falla la lista de Nivel Cero
+
+/* ---------------- clientes (lo que arma crm_acciones en Supabase, aquí calculado igual) ---------------- */
+const MESES_CL = { prefiltro: 12, filtroppal: 48, aire: 18 };
+const AQUA = 'AQUA NANO CTU-500 + JUEGO CHEF II 7 PIEZAS + BOTELLA FILTRANTE RENA WARE (x1 S/6,169.00) | AQUA CHECK NANO 500 CTU (x1 S/0) | JUEGO CHEF II (7 PZAS) - SERIE ZYLSTRA (x1 S/0)';
+db.cl = {
+  // [id, nombre, celular, ciudad, trato, ordenes[[n_orden, entrega, ordenado, productos, total, credito, cuotas, vendedor, flags, sys, rep]]]
+  clientes: [
+    ['c1', 'ROSA FLORES MAMANI', '959111001', 'Cayma, Arequipa', null, [[9001, HOY, HOY, 'JUEGO GOURMET 17 PIEZAS + SARTÉN GRANDE C/TAPA 30 CM + AQUA NANO CTU-500 (x1 S/9,809.00) | AQUA CHECK NANO 500 CTU (x1 S/0)', 9809, false, null, 'Rosmery Huanca', { ollas: true, sartenes: true, filtro: true, cocina: false, presion: false, aire: false }, true, null]]],
+    ['c2', 'juan perez quispe', '959111002', 'Socabaya, Arequipa', 'tu', [[9002, sumar(HOY, -9), sumar(HOY, -12), 'JUEGO CHEF I 7 PIEZAS + OLLA A PRESIÓN 8 L (x1 S/5,715.92) | JUEGO CHEF I (7 PZAS) (x1 S/0)', 5715.92, false, null, 'Daniel Alzamora', { ollas: true, sartenes: false, filtro: false, cocina: false, presion: true, aire: false }, false, null]]],
+    ['c3', 'CARMEN QUISPE CHOQUE', '959111003', 'Miraflores, Arequipa', null, [[9003, '2025-10-30', '2025-11-01', AQUA, 6169, true, 12, 'Olga Quispe', { ollas: true, sartenes: false, filtro: true, cocina: false, presion: false, aire: false }, true, null]]],
+    ['c4', 'LUIS VENCIDO TORRES', '959111004', 'Yanahuara, Arequipa', null, [[9004, '2025-07-01', '2025-06-20', AQUA, 6169, false, null, 'Nelson Portugal Roman', { ollas: true, sartenes: false, filtro: true, cocina: false, presion: false, aire: false }, true, null],
+                                                                        [9014, '2025-09-15', '2025-09-15', 'PREFILTRO EM PARA AQUA CK NANO (x1 S/222.00)', 222, false, null, 'Nelson Portugal Roman', { ollas: false, sartenes: false, filtro: false, cocina: false, presion: false, aire: false }, false, 'prefiltro']]],
+    ['c5', 'ANA SIN CELULAR', null, 'Cerro Colorado, Arequipa', null, [[9005, sumar(HOY, -1), sumar(HOY, -3), 'RENAWOK 34CM + KING COOKER 12L (x1 S/3,100.00)', 3100, false, null, 'Suilan Cartagena', { ollas: true, sartenes: false, filtro: false, cocina: false, presion: false, aire: false }, false, null]]]
+  ].map(([id, nombre, celular, ciudad, trato, ords]) => ({ id, nombre, celular, ciudad, trato,
+    ordenes: ords.map(([n_orden, entrega, ordenado, productos, total, credito, cuotas, vendedor, flags, sys, rep]) => ({ n_orden, entrega, ordenado, productos, total, credito, cuotas, vendedor, flags, sys, rep })) })),
+  seg: [],                                   // {id, n_orden, tipo, modo, fecha, texto, cliente_id, anulado}
+  nextId: 500
+};
+function mesesDespues(iso, m) { const [y, mo, d] = iso.split('-').map(Number); return isoCl(new Date(y, mo - 1 + m, d)); }
+function isoCl(x) { return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
+function segDe(pred) { return db.cl.seg.filter((g) => !g.anulado && pred(g)).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id); }
+function gestJson(l) { return l.map((g) => ({ id: g.id, modo: g.modo, fecha: g.fecha, texto: g.texto, n_orden: g.n_orden })); }
+function accionesCl(c) {
+  const out = [];
+  c.ordenes.forEach((o) => {
+    const unos = [['bienvenida', o.entrega]];
+    if (o.flags.ollas) unos.push(['semana1', sumar(o.entrega, 7)], ['mes1', sumar(o.entrega, 30)]);
+    if (o.credito && o.cuotas) unos.push(['fincuotas', mesesDespues(o.ordenado, o.cuotas - 1)]);
+    unos.forEach(([tipo, vence]) => {
+      const g = segDe((x) => x.n_orden === o.n_orden && x.tipo === tipo);
+      const hecho = g.filter((x) => x.modo === 'whatsapp' || x.modo === 'aviso').pop();
+      const omit = g.filter((x) => x.modo === 'omitido' || x.modo === 'noaplica').pop();
+      const d = dias(HOY, vence);
+      const estado = hecho ? 'hecho' : omit ? 'omitido' : d < -45 ? 'caducado' : d < 0 ? 'vencido' : d <= 30 ? 'proximo' : 'pendiente';
+      out.push({ clave: o.n_orden + '::' + tipo, clase: 'uno', tipo, cliente_id: c.id, cliente: c.nombre, celular: c.celular, ciudad: c.ciudad, vendedor: o.vendedor,
+        n_orden: o.n_orden, ordenes: [o.n_orden], periodo: '2026-PB21', flags: o.flags, entrega: o.entrega, ordenado: o.ordenado, base: o.entrega, vence, dias: d,
+        cuotas: o.cuotas, credito: o.credito, total: o.total, estado, hecho_el: hecho ? hecho.fecha : null, gestiones: gestJson(g) });
+    });
+  });
+  ['prefiltro', 'filtroppal', 'aire'].forEach((tipo) => {
+    const esAgua = tipo !== 'aire';
+    const ords = c.ordenes.filter((o) => (esAgua ? o.sys || o.rep === 'prefiltro' || o.rep === 'filtroppal' : o.rep === 'aire'));
+    if (!ords.length) return;
+    const sysDate = ords.filter((o) => o.sys).map((o) => o.entrega).sort().pop() || null;
+    const repDate = ords.filter((o) => o.rep === tipo).map((o) => o.entrega).sort().pop() || null;
+    if (!sysDate && !repDate) return;
+    const base = [sysDate, repDate].filter(Boolean).sort().pop();
+    const nums = ords.map((o) => o.n_orden);
+    const g = segDe((x) => x.tipo === tipo && (x.cliente_id === c.id || nums.indexOf(x.n_orden) >= 0));
+    const cambio = g.filter((x) => x.modo === 'cambio').map((x) => x.fecha).sort().pop() || null;
+    const desde = [base, cambio].filter(Boolean).sort().pop();
+    const noap = g.filter((x) => x.modo === 'noaplica').map((x) => x.fecha).sort().pop() || null;
+    const aviso = g.filter((x) => ['whatsapp', 'aviso', 'omitido'].indexOf(x.modo) >= 0).map((x) => x.fecha).sort().pop() || null;
+    const vence = mesesDespues(desde, MESES_CL[tipo]);
+    const d = dias(HOY, vence);
+    const estado = noap && noap >= desde ? 'cerrado' : d > 90 ? 'al_dia' : aviso && aviso >= desde && dias(aviso, HOY) < 30 ? 'avisado' : d < 0 ? 'vencido' : 'proximo';
+    const ancla = ords.filter((o) => o.sys)[0] || ords[0];
+    out.push({ clave: c.id + '::' + tipo, clase: 'ciclo', tipo, intervalo: MESES_CL[tipo], cliente_id: c.id, cliente: c.nombre, celular: c.celular, ciudad: c.ciudad, vendedor: ancla.vendedor,
+      n_orden: ancla.n_orden, ordenes: nums, sistema: sysDate ? (esAgua ? 'AQUA NANO CTU-500 + JUEGO CHEF II 7 PIEZAS + BOTELLA FILTRANTE RENA WARE' : 'PURIFICADOR DE AIRE AEROQUATTRO+ UV') : null,
+      fecha_sistema: sysDate, fecha_repuesto: repDate, repuestos: ords.filter((o) => o.rep === tipo).length, src: repDate && (!sysDate || repDate >= sysDate) ? 'repuesto' : 'sistema',
+      base, vence, dias: d, ultimo_cambio: cambio, cambios: g.filter((x) => x.modo === 'cambio').length, ultimo_aviso: aviso, estado, gestiones: gestJson(g) });
+  });
+  return out;
+}
+function clienteJson(c) {
+  return { id: c.id, nombre: c.nombre, celular: c.celular, ciudad: c.ciudad, trato: c.trato,
+    ordenes: c.ordenes.map((o) => ({ n_orden: o.n_orden, fecha: o.entrega, estatus: 'ENTREGADA', productos: o.productos, total: o.total, vendedor: o.vendedor, credito: o.credito, cuotas: o.cuotas })) };
+}
+function clienteConAcciones(c) { return Object.assign(clienteJson(c), { acciones: accionesCl(c) }); }
+
 let traspasos = 0;
 const llamadas = [];
 const limpio = (f) => { const c = Object.assign({}, f); delete c.borrado; return c; };
@@ -180,6 +251,38 @@ function rpc(fn, a) {
     return ok(db.plantillas.map((y) => Object.assign({}, y)));
   }
   if (fn === 'wa_bv_ajustes_guardar') { db.ajustes = a.p_data; return ok(a.p_data); }
+  if (fn === 'wa_cl_datos') {
+    let acc = [];
+    db.cl.clientes.forEach((c) => { acc = acc.concat(accionesCl(c)); });
+    acc = acc.filter((x) => x.clase === 'ciclo' || ['vencido', 'proximo'].indexOf(x.estado) >= 0 || (x.estado === 'pendiente' && x.dias <= 60) || (['hecho', 'omitido'].indexOf(x.estado) >= 0 && dias(x.vence, HOY) <= 90));
+    return ok({ hoy: HOY, acciones: acc, clientes: db.cl.clientes.map(clienteJson), oficina: db.ajustes,
+      adjuntos: db.adjuntos.filter((x) => !x.borrado && x.dia >= 11 && x.dia <= 20).map(limpio), plantillas: db.plantillas.map((x) => Object.assign({}, x)), trato: db.cfg.trato });
+  }
+  if (fn === 'wa_cl_envio_registrar') {
+    const c = db.cl.clientes.find((x) => x.ordenes.some((o) => o.n_orden === a.p_n_orden));
+    if (!c) return err('La orden no existe');
+    if (['bienvenida', 'semana1', 'mes1', 'fincuotas', 'prefiltro', 'filtroppal', 'aire'].indexOf(a.p_tipo) < 0) return err('Paso no valido');
+    if (['whatsapp', 'aviso', 'omitido', 'cambio', 'noaplica'].indexOf(a.p_modo) < 0) return err('Modo no valido');
+    const f = a.p_fecha || HOY;
+    if (f > HOY) return err('Fecha no valida');
+    if (!db.cl.seg.some((g) => g.n_orden === a.p_n_orden && g.tipo === a.p_tipo && g.modo === a.p_modo && !g.anulado && g.reciente)) {
+      db.cl.seg.push({ id: ++db.cl.nextId, n_orden: a.p_n_orden, tipo: a.p_tipo, modo: a.p_modo, fecha: f, texto: a.p_texto || null, cliente_id: c.id, anulado: false, reciente: true });
+    }
+    return ok(clienteConAcciones(c));
+  }
+  if (fn === 'wa_cl_envio_anular') {
+    const g = db.cl.seg.find((x) => x.id === a.p_id && !x.anulado);
+    if (!g) return err('La gestion ya no existe');
+    g.anulado = true;
+    return ok(clienteConAcciones(db.cl.clientes.find((c) => c.id === g.cliente_id)));
+  }
+  if (fn === 'wa_cl_trato_guardar') {
+    const c = db.cl.clientes.find((x) => x.id === a.p_cliente);
+    if (!c) return err('La persona no existe');
+    if (a.p_trato != null && ['tu', 'usted'].indexOf(a.p_trato) < 0) return err('Trato no valido');
+    c.trato = a.p_trato || null;
+    return ok(clienteConAcciones(c));
+  }
   if (fn === 'wa_bv_adjunto_guardar') {
     if (!a.p_id) {
       const dia = a.p_datos.dia;
@@ -730,6 +833,136 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.waitForSelector('#vista-app:not([hidden])');
     await esperar(800);
     ok(vivos('s2', 'quedan15').length === 1 && (await page.evaluate(() => localStorage.getItem('wa-bv-envios'))) === null, 'y al volver a entrar se anota');
+
+    console.log('Clientes · bienvenida');
+    await page.goto(base);
+    await page.waitForSelector('#vista-app:not([hidden])');
+    await page.waitForFunction(() => !document.getElementById('cuenta-cl').hidden);
+    ok(await page.isVisible('#grupo-cl') && (await page.textContent('#cuenta-cl')).trim().startsWith('7'), 'el grupo Clientes muestra cuántos mensajes tocan hoy', await page.textContent('#cuenta-cl'));
+    ok(await page.isVisible('#horario-panel') && !(await page.isVisible('#vistas-cl')), 'en Asesores se ve el horario y no las pestañas de clientes');
+    await page.click('#grupo-cl');
+    await esperar(200);
+    ok(await page.isVisible('#vista-cb') && await page.isVisible('#vistas-cl') && !(await page.isVisible('#vistas-as')) && !(await page.isVisible('#horario-panel')) && !(await page.isVisible('#lead-as')) && await page.isVisible('#lead-cl'),
+      'Clientes cambia pestañas y textos de cabecera');
+    let cb = await page.textContent('#vista-cb');
+    ok(/Para hoy\s*5/.test(cb.replace(/\s+/g, ' ')) && /Al recibir su pedido\s*3/.test(cb.replace(/\s+/g, ' ')) && /Una semana · Nutri Sensor\s*1/.test(cb.replace(/\s+/g, ' ')) && /Un mes antes de terminar sus cuotas\s*1/.test(cb.replace(/\s+/g, ' ')),
+      'para hoy: 3 al recibir (Rosa hoy, Juan, Ana; la de Carmen ya caducó), 1 semana (Juan), 1 fin de cuotas (Carmen)', cb.slice(0, 500));
+    const rosa = await page.textContent('#vista-cb .sg-item:has(.sg-nom[data-id="c1"])');
+    ok(/Rosa Flores Mamani/.test(rosa) && /Próximo · toca hoy/.test(rosa) && /Recibió el mié 21 oct · Juego Gourmet 17 Piezas \+ Sartén Grande/.test(rosa), 'Rosa recibió hoy', rosa.slice(0, 300));
+    ok(/¡Hola Rosa! 🎉 Gracias por confiar en Rena Ware\. Ya tienes en casa tu Juego Gourmet 17 Piezas \+ Sartén Grande c\/tapa 30 cm \+ Aqua Nano CTU-500\./.test(rosa) && /🍲 Ollas: lávalas/.test(rosa) && /🍳 Sartenes: puedes freír/.test(rosa) && /💧 Filtro: te mando/.test(rosa) && !/Cocina de inducción|Olla a presión/.test(rosa),
+      'su texto va con el trato por defecto (tú) y trae solo las recomendaciones de lo que compró', rosa.slice(0, 600));
+    const juan = await page.textContent('#vista-cb .sg-item:has(.sg-nom[data-id="c2"]):has([data-clave="9002::bienvenida"])');
+    ok(/Vencido · tocaba hace 9 días/.test(juan) && /¡Hola Juan! 🎉 Gracias por confiar en Rena Ware\. Ya tienes en casa tu Juego Chef I 7 Piezas \+ Olla A Presión 8 L/.test(juan) && /⏱️ Olla a presión: revisa/.test(juan),
+      'Juan va de tú y con la recomendación de la olla a presión', juan.slice(0, 500));
+    const ana = await page.textContent('#vista-cb .sg-item:has(.sg-nom[data-id="c5"])');
+    ok(/sin celular/.test(ana) && /Copiar texto/.test(ana) && !/WhatsApp/.test(ana), 'sin celular ofrece copiar el texto');
+    const carmen = await page.textContent('#vista-cb .sg-item:has([data-clave="9003::fincuotas"])');
+    ok(/Pedido del sáb 1 nov · 12 cuotas/.test(carmen) && /Estás a un mes de terminar de pagar tu Aqua Nano CTU-500 \+ Juego Chef II 7 Piezas \+ Botella Filtrante Rena Ware \(12 cuotas\)/.test(carmen), 'fin de cuotas con sus cuotas', carmen.slice(0, 400));
+    ok(await page.isVisible('#files-11') && await page.isVisible('#add-11') && (await page.textContent('#clp-11')).includes('Al recibir su pedido'), 'cada paso tiene su tarjeta con archivos para subir');
+    const uR = await popup('#vista-cb a[data-envio-cl="9001::bienvenida"]');
+    ok(/^https:\/\/wa\.me\/51959111001\?text=¡Hola Rosa! 🎉/.test(uR), 'WhatsApp abre el chat de Rosa con el texto', uR.slice(0, 120));
+    ok(hubo((l) => l.fn === 'wa_cl_envio_registrar' && l.args.p_n_orden === 9001 && l.args.p_tipo === 'bienvenida' && l.args.p_modo === 'whatsapp' && /Rosa/.test(l.args.p_texto)), 'y lo anota en crm_seguimiento por wa_cl_envio_registrar');
+    cb = await page.textContent('#vista-cb');
+    ok(!(await page.$('#vista-cb a[data-envio-cl="9001::bienvenida"]')) && /Anotado hoy\s*1/.test(cb.replace(/\s+/g, ' ')) && /Rosa Flores Mamani · Al recibir su pedido · WhatsApp/.test(cb), 'Rosa sale de para hoy y queda en lo anotado', cb.slice(0, 300));
+    await page.click('#vista-cb [data-sg="clAviso"][data-clave="9002::semana1"]');
+    await esperar(400);
+    await page.click('#vista-cb [data-sg="clOmitir"][data-clave="9002::bienvenida"]');
+    await esperar(400);
+    cb = await page.textContent('#vista-cb');
+    ok(!(await page.$('#vista-cb .sg-item [data-clave="9002::semana1"]')) && !(await page.$('#vista-cb .sg-item [data-clave="9002::bienvenida"]')) && /Juan Perez Quispe · Una semana · Nutri Sensor · en persona/.test(cb) && /Juan Perez Quispe · Al recibir su pedido · omitido/.test(cb),
+      'le avisé en persona y omitir se anotan', cb.replace(/\s+/g, ' ').slice(0, 600));
+    ok(db.cl.seg.filter((g) => g.n_orden === 9002 && !g.anulado).length === 2, 'dos gestiones de Juan en el servidor');
+    await page.click('#vista-cb .hist li:has-text("omitido") [data-sg="clAnular"]');
+    await esperar(400);
+    cb = await page.textContent('#vista-cb');
+    ok(hubo((l) => l.fn === 'wa_cl_envio_anular') && (await page.$('#vista-cb [data-clave="9002::bienvenida"]')) !== null, 'deshacer devuelve el pendiente', cb.slice(0, 200));
+    await page.screenshot({ path: '/tmp/bv-clientes.png', fullPage: true });
+
+    console.log('Clientes · filtros');
+    await page.click('#tab-cs');
+    await esperar(200);
+    let cs = await page.textContent('#vista-cs');
+    ok(await page.isVisible('#vista-cs') && /Cambio de pre-filtro\s*2/.test(cs.replace(/\s+/g, ' ')) && !/Cambio del filtro principal\s*\d/.test(cs.replace(/\s+/g, ' ')), 'para hoy: 2 pre-filtros (Carmen próxima, Luis vencido)', cs.slice(0, 400));
+    const luis = await page.textContent('#vista-cs .sg-item:has([data-clave="c4::prefiltro"])');
+    ok(/Vencido · tocaba hace 36 días/.test(luis) && /repuesto comprado el lun 15 set · cada 12 meses/.test(luis) && /Tu Aqua Nano cumple un año desde el lunes 15 de setiembre/.test(luis) && /Aqua Nano CTU-500 \+ Juego Chef II 7 Piezas/.test(luis),
+      'el ciclo de Luis corre desde el repuesto que compró, no desde el sistema', luis.slice(0, 400));
+    const carmenP = await page.textContent('#vista-cs .sg-item:has([data-clave="c3::prefiltro"])');
+    ok(/Próximo · toca en 9 días/.test(carmenP) && /desde la entrega del jue 30 oct/.test(carmenP), 'Carmen: próximo, desde la entrega', carmenP.slice(0, 300));
+    ok(/Todos los filtros\s*6/.test(cs.replace(/\s+/g, ' ')) && /Al día/.test(cs), 'la lista trae los 6 ciclos (Rosa, Carmen y Luis, 2 cada uno)', cs.replace(/\s+/g, ' ').slice(0, 300));
+    await page.click('#vista-cs [data-sg="clCambio"][data-clave="c4::prefiltro"]');
+    await esperar(200);
+    ok(await page.isVisible('#clFecha') && (await page.inputValue('#clFecha')) === HOY, 'Cambio hecho pide la fecha, con hoy por defecto');
+    await page.fill('#clFecha', sumar(HOY, -2));
+    await page.click('#vista-cs [data-sg="clCambioOk"][data-clave="c4::prefiltro"]');
+    await esperar(500);
+    cs = await page.textContent('#vista-cs');
+    ok(hubo((l) => l.fn === 'wa_cl_envio_registrar' && l.args.p_n_orden === 9004 && l.args.p_tipo === 'prefiltro' && l.args.p_modo === 'cambio' && l.args.p_fecha === sumar(HOY, -2)), 'anota el cambio con esa fecha en la orden del sistema');
+    ok(!(await page.$('#vista-cs .sg-item:has([data-clave="c4::prefiltro"])')) && /Cambio anotado/.test(await toast()) && /Luis Vencido Torres[^]{0,200}Al día/.test(await page.textContent('#cs-lista')), 'Luis sale de para hoy: su ciclo vuelve a empezar y queda al día', cs.slice(0, 300));
+    const uC = await popup('#vista-cs a[data-envio-cl="c3::prefiltro"]');
+    ok(/^https:\/\/wa\.me\/51959111003\?text=Hola Carmen, te saludamos de Rena Ware 💧/.test(uC) && hubo((l) => l.fn === 'wa_cl_envio_registrar' && l.args.p_n_orden === 9003 && l.args.p_tipo === 'prefiltro' && l.args.p_modo === 'whatsapp'), 'avisa a Carmen por WhatsApp y lo anota', uC.slice(0, 120));
+    cs = await page.textContent('#vista-cs');
+    ok(/Avisados, esperando el cambio\s*1/.test(cs.replace(/\s+/g, ' ')) && (await page.textContent('#vista-cs .sg-item:has([data-clave="c3::prefiltro"])')).includes('Avisado el 21 oct'), 'Carmen pasa a avisados, esperando el cambio', cs.slice(0, 500));
+    await page.fill('#cs-busca', 'luis');
+    await esperar(150);
+    ok((await page.$$('#cs-lista .sg-row')).length === 2 && /Luis Vencido Torres/.test(await page.textContent('#cs-lista')) && !/Carmen/.test(await page.textContent('#cs-lista')), 'la búsqueda filtra la lista');
+    await page.fill('#cs-busca', '');
+    await esperar(150);
+
+    console.log('Clientes · ficha y editor');
+    await page.click('#vista-cs .sg-row[data-id="c3"]');
+    await esperar(250);
+    let fcl = await page.textContent('.modal');
+    ok(/Carmen Quispe Choque/.test(fcl) && /Miraflores · 1 compra/.test(fcl) && /959111003/.test(fcl) && /Asesor\(a\)\s*Olga Quispe/.test(fcl.replace(/\s+/g, ' ')), 'la ficha trae sus datos', fcl.slice(0, 300));
+    ok(/30 oct · Aqua Nano CTU-500 \+ Juego Chef II 7 Piezas \+ Botella Filtrante Rena Ware · S\/ 6,?169 · 12 cuotas/.test(fcl.replace(/\s+/g, ' ')), 'y lo que compró', fcl.slice(0, 600));
+    ok(/Pre-filtro/.test(fcl) && /Filtro principal/.test(fcl) && /Avisado el 21 oct/.test(fcl) && /Al día/.test(fcl), 'con sus dos filtros y su estado', fcl.slice(0, 900));
+    ok(/Un mes antes de terminar sus cuotas/.test(fcl) && /Vencido · tocaba hace 20 días/.test(fcl), 'y el aviso de fin de cuotas pendiente');
+    const hrefFin = async () => decodeURIComponent(await page.getAttribute('.modal a[data-envio-cl="9003::fincuotas"]', 'href'));
+    ok(/Hola Carmen, ¡te felicitamos!/.test(await hrefFin()), 'sus textos van con el trato por defecto', await hrefFin());
+    await page.click('.modal .chip[data-sg="tratoCl"][data-t="usted"]');
+    await esperar(400);
+    fcl = await page.textContent('.modal');
+    ok(hubo((l) => l.fn === 'wa_cl_trato_guardar' && l.args.p_cliente === 'c3' && l.args.p_trato === 'usted') && /Hola Carmen, ¡le felicitamos!/.test(await hrefFin()), 'cambia a usted solo para ella y los textos cambian', await hrefFin());
+    await page.click('.modal [data-sg="clNoAplica"][data-clave="c3::filtroppal"]');
+    await esperar(400);
+    fcl = await page.textContent('.modal');
+    ok(/Ya no aplica/.test(fcl) && /Marcado como «ya no aplica» el 21 oct/.test(fcl) && /reabrir/.test(fcl), 'ya no aplica cierra el ciclo y deja reabrir', fcl.slice(0, 900));
+    await page.click('.modal [data-sg="verOtrosCl"]');
+    await page.click('.modal .chip[data-sg="elegirPasoCl"][data-k="cl_mes1"]');
+    await esperar(150);
+    fcl = await page.textContent('.modal');
+    ok(/Elegiste: Un mes · brillo y Rena Lite/.test(fcl) && /Hola Carmen, ya va un mes con sus ollas Rena Ware ✨/.test(fcl) && /Av\. Cayma 628, Of\. 502, a media cuadra de la Av\. Ejército/.test(fcl), 'puede mandar otro mensaje a mano, con la dirección de la oficina', fcl.slice(0, 500));
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!!(await page.$('.modal')) && !/Elegiste/.test(await page.textContent('.modal')), 'Escape primero cierra el mensaje elegido');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!(await page.$('.modal')), 'y luego la ficha');
+    await page.click('#vista-cs .panel [data-sg="editorCl"]');
+    await esperar(200);
+    let edc = await page.textContent('.modal');
+    ok(/Mensajes a clientes/.test(edc) && /Bienvenida del cliente/.test(edc) && /Recomendaciones según lo que compró/.test(edc) && /Cambio de filtros/.test(edc) && /\{recomendaciones\}/.test(edc), 'el editor de clientes tiene sus tres grupos y marcadores', edc.slice(0, 300));
+    await page.click('.modal [data-sg="abrirPaso"][data-k="cl_prefiltro"]');
+    await esperar(200);
+    edc = await page.textContent('.modal');
+    ok(await page.isVisible('#mTexto') && /Así le llegaría a (Rosa|Carmen|Luis)/.test(edc) && (await page.textContent('#mPrev')).includes('Aqua Nano cumple un año desde el'), 'abre el pre-filtro con vista previa de un cliente real', edc.replace(/\s+/g, ' ').slice(-700));
+    await page.click('.modal .chip.mk[data-m="{vence}"]');
+    await esperar(100);
+    ok((await page.inputValue('#mTexto')).endsWith('{vence}') && /\d{1,2} de \w+( de \d{4})?\.?$/.test((await page.textContent('#mPrev')).trim()), 'inserta {vence} y la vista previa lo llena', await page.textContent('#mPrev'));
+    await page.click('.modal [data-sg="guardarPaso"]');
+    await esperar(400);
+    ok(hubo((l) => l.fn === 'wa_bv_plantilla_guardar' && l.args.p_clave === 'cl_prefiltro' && /\{vence\}$/.test((l.args.p_tu || '') + (l.args.p_usted || ''))), 'guarda la plantilla del cliente en n0_plantillas');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    await page.goto(base + '?desde=pedidos#c=c3');
+    await page.waitForSelector('.modal');
+    fcl = await page.textContent('.modal');
+    ok(await page.isVisible('#vista-cs') && /Carmen Quispe Choque/.test(fcl), 'el enlace #c= de Pedidos abre la ficha del cliente', fcl.slice(0, 200));
+    ok((await page.evaluate(() => location.hash)) === '', 'y limpia el enlace');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    await page.click('#grupo-as');
+    await esperar(150);
+    ok(await page.isVisible('#vistas-as') && ((await page.isVisible('#vista-bv')) || (await page.isVisible('#vista-sg'))) && await page.isVisible('#horario-panel') && !(await page.isVisible('#vista-cs')), 'volver a Asesores restaura su vista');
 
     console.log('Sesión');
     await page.click('#tab-bv');

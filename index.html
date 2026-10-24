@@ -489,6 +489,17 @@ details[open] .chev { transform: rotate(180deg); }
 
 /* Dos tipos de mensaje: bienvenida (días 1 a 5) y seguimiento (día 6 en adelante) */
 .vista { display: grid; gap: 22px; min-width: 0; }
+.grupos { display: flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 999px; width: max-content; max-width: 100%; }
+.grupo-tab { font: inherit; font-family: var(--font-display); font-weight: 800; font-size: 14.5px; padding: 8px 16px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.grupo-tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.grupo-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tag.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.tag.mal { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.tag.warn { background: var(--ph-bg); color: var(--ph-ink); border-color: transparent; }
+.fecha-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.fecha-fila input[type="date"] { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.btn-link.nom { font-weight: 700; color: var(--ink); }
+.cl-paso h2 { font-size: 18px; }
 .vistas {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -754,9 +765,9 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
 
 <main class="login" id="vista-login" hidden>
   <div class="login-card">
-    <p class="eyebrow">Equipo Arequipa · Nuevos asesores</p>
+    <p class="eyebrow">Equipo Arequipa · Asesores y clientes</p>
     <h1>Bienvenida por WhatsApp</h1>
-    <p class="hint">Los mensajes a cada nuevo asesor: los 5 de bienvenida y el seguimiento del Nivel 0, listos para enviar.</p>
+    <p class="hint">Los mensajes a cada nuevo asesor y a cada cliente: bienvenida y seguimiento, listos para enviar.</p>
     <form id="form-login" novalidate>
       <label class="flabel" for="clave">Clave de administrador</label>
       <input id="clave" type="password" autocomplete="current-password" placeholder="La misma del panel admin" required>
@@ -769,12 +780,13 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
 <div class="wrap" id="vista-app" hidden>
   <header class="top">
     <div class="top-row">
-      <p class="eyebrow">Equipo Arequipa · Nuevos asesores</p>
+      <p class="eyebrow">Equipo Arequipa · Asesores y clientes</p>
       <button type="button" class="ghost" id="salir">Salir</button>
     </div>
     <h1>Bienvenida por WhatsApp</h1>
-    <p class="lead">Los mensajes para cada nuevo asesor: cinco de bienvenida, uno por día con sus archivos, y luego el seguimiento del Nivel 0 según las clases que lleva.</p>
-    <p class="prize">
+    <p class="lead" id="lead-as">Los mensajes para cada nuevo asesor: cinco de bienvenida, uno por día con sus archivos, y luego el seguimiento del Nivel 0 según las clases que lleva.</p>
+    <p class="lead" id="lead-cl" hidden>Los mensajes para cada cliente: al recibir su pedido, a la semana y al mes si compró ollas, antes de terminar sus cuotas, y cuando le toca cambiar el pre-filtro, el filtro principal o el filtro de aire.</p>
+    <p class="prize" id="prize-as">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M10 2.5h4v2.8l1.6 2.6V20a2 2 0 0 1-2 2h-3.2a2 2 0 0 1-2-2V7.9L10 5.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 11.5h6.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
       <span id="premio-txt"><strong>Nivel 0:</strong> 5 capacitaciones en la oficina dentro de su plazo de 30 días = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.</span>
     </p>
@@ -794,7 +806,12 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     </div>
   </details>
 
-  <div class="vistas" role="tablist" aria-label="Tipo de mensaje">
+  <div class="grupos" role="tablist" aria-label="A quién se escribe">
+    <button type="button" role="tab" class="grupo-tab" id="grupo-as" aria-controls="vistas-as" aria-selected="true">Asesores <span class="cuenta" id="cuenta-as" hidden></span></button>
+    <button type="button" role="tab" class="grupo-tab" id="grupo-cl" aria-controls="vistas-cl" aria-selected="false" tabindex="-1">Clientes <span class="cuenta" id="cuenta-cl" hidden></span></button>
+  </div>
+
+  <div class="vistas" id="vistas-as" role="tablist" aria-label="Mensajes a asesores">
     <button type="button" role="tab" class="vista-tab" id="tab-bv" aria-controls="vista-bv" aria-selected="true">
       <span class="vt-t">Bienvenida <span class="cuenta" id="cuenta-bv" hidden></span></span>
       <span class="vt-s">Días 1 a 5</span>
@@ -802,6 +819,16 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     <button type="button" role="tab" class="vista-tab" id="tab-sg" aria-controls="vista-sg" aria-selected="false" tabindex="-1">
       <span class="vt-t">Seguimiento <span class="cuenta" id="cuenta-sg" hidden></span></span>
       <span class="vt-s">Día 6 en adelante</span>
+    </button>
+  </div>
+  <div class="vistas" id="vistas-cl" role="tablist" aria-label="Mensajes a clientes" hidden>
+    <button type="button" role="tab" class="vista-tab" id="tab-cb" aria-controls="vista-cb" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Bienvenida <span class="cuenta" id="cuenta-cb" hidden></span></span>
+      <span class="vt-s">Al recibir y su primer mes</span>
+    </button>
+    <button type="button" role="tab" class="vista-tab" id="tab-cs" aria-controls="vista-cs" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Seguimiento <span class="cuenta" id="cuenta-cs" hidden></span></span>
+      <span class="vt-s">Cambio de filtros</span>
     </button>
   </div>
 
@@ -931,8 +958,10 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   </div>
 
   <div class="vista" id="vista-sg" role="tabpanel" aria-labelledby="tab-sg" hidden></div>
+  <div class="vista" id="vista-cb" role="tabpanel" aria-labelledby="tab-cb" hidden></div>
+  <div class="vista" id="vista-cs" role="tabpanel" aria-labelledby="tab-cs" hidden></div>
 
-  <p class="foot">Basado en la guía de la Sesión de bienvenida, el folleto de Empiece Ya y la lista de promociones vigente. El horario, el plazo y las clases son los de Nivel Cero.</p>
+  <p class="foot" id="foot-as">Basado en la guía de la Sesión de bienvenida, el folleto de Empiece Ya y la lista de promociones vigente. El horario, el plazo y las clases son los de Nivel Cero.</p>
 </div>
 
 <div id="capa"></div>
@@ -972,7 +1001,8 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
    Secuencia de 5 mensajes para nuevos asesores, con sus archivos.
 
    Backend: Supabase kiexpdaaoegbtesqmaff. Todo pasa por funciones wa_bv_*
-   que exigen la sesión de admin (admin_login, la clave del panel).
+   (asesores) y wa_cl_* (clientes) que exigen la sesión de admin (admin_login,
+   la clave del panel). Los clientes salen de los pedidos (crm_acciones).
    Archivos: bucket público wa-media, carpeta bienvenida/.
    Horario, plazo y nuevos asesores: los de Nivel Cero (n0_config,
    n0_inscritos_json). Sin librerías: JS plano, un solo archivo.
@@ -1831,6 +1861,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function renderFiles(n) {
     var ul = $('files-' + n);
+    if (!ul) return;
     var activo = document.activeElement;
     if (activo && ul.contains(activo) && /^(INPUT|TEXTAREA)$/.test(activo.tagName)) { S.pendientes[n] = true; return; }
     var clave = activo && ul.contains(activo) && activo.getAttribute('data-act')
@@ -1849,13 +1880,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       if (!html) html = '<li class="files-empty">Aún no hay archivos para este día.</li>';
     }
     ul.innerHTML = html;
-    $('add-' + n).hidden = !puedeGestionar();
+    if ($('add-' + n)) $('add-' + n).hidden = !puedeGestionar();
     if (clave) {
       var el = ul.querySelector('[data-act="' + clave[0] + '"][data-id="' + String(clave[1]).replace(/"/g, '') + '"]');
       if (el && !el.disabled) el.focus();
     }
   }
-  function renderAllFiles() { DAYS.forEach(function (d) { renderFiles(d.n); }); }
+  function renderAllFiles() { DAYS.forEach(function (d) { renderFiles(d.n); }); PASOS_CL.forEach(function (x) { if (x.dia) renderFiles(x.dia); }); }
   function pintarMeta(clave, texto) {
     var el = document.querySelector('[data-meta="' + clave + '"]');
     if (el) el.textContent = texto;
@@ -1864,12 +1895,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     setTimeout(function () {
       Object.keys(S.pendientes).forEach(function (k) {
         var ul = $('files-' + k);
-        if (!ul.contains(document.activeElement)) { delete S.pendientes[k]; renderFiles(Number(k)); }
+        if (!ul || !ul.contains(document.activeElement)) { delete S.pendientes[k]; renderFiles(Number(k)); }
       });
     }, 0);
   });
   function errorArchivos(n, texto) {
     var e = $('ferr-' + n);
+    if (!e) { if (texto) aviso(texto, true); return; }
     e.textContent = texto || '';
     e.hidden = !texto;
   }
@@ -2232,7 +2264,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return !!p && (p.estado === 'en_curso' || p.estado === 'logro' || p.estado === 'vencio') && d != null && d >= DIA_SEG - 1;
   }
   function plantilla(k) {
-    var b = PASO[k] || { tu: '', usted: '' };
+    var b = pasoDef(k) || { tu: '', usted: '' };
     var g = {};
     (S.plantillas || []).forEach(function (x) { if (x.clave === k) g = x; });
     return { tu: g.tu || b.tu, usted: g.usted || b.usted, activo: g.activo !== false, editado: !!(g.tu || g.usted) };
@@ -2398,9 +2430,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function encolar(x) { if (!enviosPend().some(function (y) { return y.t === x.t; })) guardarEnviosPend(enviosPend().concat([x])); }
   function sacarDeCola(t) { guardarEnviosPend(enviosPend().filter(function (y) { return y.t !== t; })); }
   function anotarEnvio(x) {
-    var args = { p_token: S.token, p_inscrito: x.pid, p_paso: x.k, p_modo: x.modo, p_texto: x.texto };
-    return rpc('wa_bv_envio_registrar', args, true).catch(function (e) {
-      if (e instanceof TypeError) return rpc('wa_bv_envio_registrar', args);
+    var fn = x.cl ? 'wa_cl_envio_registrar' : 'wa_bv_envio_registrar';
+    var args = x.cl ? { p_token: S.token, p_n_orden: x.n, p_tipo: x.k, p_modo: x.modo, p_texto: x.texto, p_fecha: x.fecha || null }
+                    : { p_token: S.token, p_inscrito: x.pid, p_paso: x.k, p_modo: x.modo, p_texto: x.texto };
+    return rpc(fn, args, true).catch(function (e) {
+      if (e instanceof TypeError) return rpc(fn, args);
       throw e;
     });
   }
@@ -2420,7 +2454,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
     S.asesores.push(fila);
   }
-  var DEFINITIVO = /Paso no valido|Modo no valido|La persona no existe/i;   // no se arregla reintentando
+  var DEFINITIVO = /Paso no valido|Modo no valido|La persona no existe|La orden no existe|Fecha no valida/i;   // no se arregla reintentando
   /* La cola se manda de a uno y cada envío sale de ella solo cuando el servidor lo confirma. */
   function reintentarEnvios() {
     var l = enviosPend();
@@ -2433,12 +2467,12 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
         S.escrituras++;
         return anotarEnvio(x).then(function (fila) {
           sacarDeCola(x.t);
-          ponerAsesor(fila);
+          if (x.cl) ponerCliente(fila); else ponerAsesor(fila);
         }, function (e) {
           if (e instanceof TypeError || !DEFINITIVO.test(String(e && e.message))) return;   // sigue en la cola
           sacarDeCola(x.t);
-          var q = asesorPorId(x.pid);
-          if (q) q.mensajes = (q.mensajes || []).filter(function (m) { return m.id !== x.t; });
+          if (x.cl) quitarLocalCl(x.clave, x.t);
+          else { var q = asesorPorId(x.pid); if (q) q.mensajes = (q.mensajes || []).filter(function (m) { return m.id !== x.t; }); }
           aviso('No se anotó un mensaje: ' + bonito(e.message), true);
         });
       });
@@ -2518,17 +2552,30 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
 
   /* ---------- pestañas */
+  var VISTAS = ['bv', 'sg', 'cb', 'cs'];
+  function grupoDe(v) { return v === 'cb' || v === 'cs' ? 'cl' : 'as'; }
   function cambiarVista(v) {
-    S.vista = v === 'sg' ? 'sg' : 'bv';
+    S.vista = VISTAS.indexOf(v) >= 0 ? v : 'bv';
+    var g = grupoDe(S.vista);
     lsSet(LS_VISTA, S.vista);
-    $('vista-bv').hidden = S.vista !== 'bv';
-    $('vista-sg').hidden = S.vista !== 'sg';
-    [['tab-bv', 'bv'], ['tab-sg', 'sg']].forEach(function (t) {
-      var b = $(t[0]);
-      b.setAttribute('aria-selected', String(S.vista === t[1]));
-      b.tabIndex = S.vista === t[1] ? 0 : -1;
+    lsSet(LS_VISTA + '-' + g, S.vista);
+    VISTAS.forEach(function (x) {
+      $('vista-' + x).hidden = S.vista !== x;
+      var b = $('tab-' + x);
+      b.setAttribute('aria-selected', String(S.vista === x));
+      b.tabIndex = S.vista === x ? 0 : -1;
     });
+    $('vistas-as').hidden = g !== 'as';
+    $('vistas-cl').hidden = g !== 'cl';
+    [['grupo-as', 'as'], ['grupo-cl', 'cl']].forEach(function (t) {
+      var b = $(t[0]);
+      b.setAttribute('aria-selected', String(g === t[1]));
+      b.tabIndex = g === t[1] ? 0 : -1;
+    });
+    ['lead-as', 'prize-as', 'horario-panel', 'foot-as'].forEach(function (id) { var e = $(id); if (e) e.hidden = g !== 'as'; });
+    $('lead-cl').hidden = g !== 'cl';
     if (S.vista === 'sg') renderSeg();
+    if (g === 'cl') renderCl();
   }
   function pintarCuenta(id, n) {
     var c = $(id);
@@ -2536,24 +2583,41 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     c.innerHTML = n ? n + '<span class="sr-only"> para hoy</span>' : '';
   }
   function renderTabs() {
-    var ok = S.estado === 'ok';
-    pintarCuenta('cuenta-bv', ok ? bvPorEnviar().length : 0);
-    pintarCuenta('cuenta-sg', ok ? porEscribir().length : 0);
+    var ok = S.estado === 'ok', okCl = CL.estado === 'ok';
+    var bv = ok ? bvPorEnviar().length : 0, sg = ok ? porEscribir().length : 0;
+    var cb = okCl ? clBvHoy().length : 0, cs = okCl ? clCicloHoy().length : 0;
+    pintarCuenta('cuenta-bv', bv);
+    pintarCuenta('cuenta-sg', sg);
+    pintarCuenta('cuenta-cb', cb);
+    pintarCuenta('cuenta-cs', cs);
+    pintarCuenta('cuenta-as', bv + sg);
+    pintarCuenta('cuenta-cl', cb + cs);
   }
   function repintar() {
     renderTabs();
     renderBvHoy();
     renderBvEstados();
     if (S.vista === 'sg') renderSeg();
+    if (grupoDe(S.vista) === 'cl') renderCl();
     if (S.modal) refrescarModal();
   }
-  $('tab-bv').addEventListener('click', function () { cambiarVista('bv'); });
-  $('tab-sg').addEventListener('click', function () { cambiarVista('sg'); });
-  document.querySelector('.vistas').addEventListener('keydown', function (ev) {
+  VISTAS.forEach(function (v) { $('tab-' + v).addEventListener('click', function () { cambiarVista(v); }); });
+  $('grupo-as').addEventListener('click', function () { cambiarVista(lsGet(LS_VISTA + '-as') === 'sg' ? 'sg' : 'bv'); });
+  $('grupo-cl').addEventListener('click', function () { cambiarVista(lsGet(LS_VISTA + '-cl') === 'cs' ? 'cs' : 'cb'); });
+  Array.prototype.forEach.call(document.querySelectorAll('.vistas'), function (caja) {
+    caja.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+      ev.preventDefault();
+      var par = grupoDe(S.vista) === 'cl' ? ['cb', 'cs'] : ['bv', 'sg'];
+      cambiarVista(S.vista === par[0] ? par[1] : par[0]);
+      $('tab-' + S.vista).focus();
+    });
+  });
+  document.querySelector('.grupos').addEventListener('keydown', function (ev) {
     if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
     ev.preventDefault();
-    cambiarVista(S.vista === 'bv' ? 'sg' : 'bv');
-    $(S.vista === 'bv' ? 'tab-bv' : 'tab-sg').focus();
+    $(grupoDe(S.vista) === 'cl' ? 'grupo-as' : 'grupo-cl').click();
+    $(grupoDe(S.vista) === 'cl' ? 'grupo-cl' : 'grupo-as').focus();
   });
 
   /* ---------- bienvenida: para hoy y lo enviado en cada día */
@@ -2629,7 +2693,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       return '<button type="button" class="chip' + (actual === t ? ' on' : '') + '" aria-pressed="' + (actual === t) + '" data-sg="' + accion + '" data-t="' + t + '">' + (t === 'tu' ? 'Tú' : 'Usted') + '</button>';
     }).join('');
   }
-  function modoTxt(m) { return m === 'omitido' ? 'omitido' : m === 'aviso' ? 'en persona' : 'WhatsApp'; }
+  function modoTxt(m) { return m === 'omitido' ? 'omitido' : m === 'aviso' ? 'en persona' : m === 'cambio' ? 'cambio hecho' : m === 'noaplica' ? 'ya no aplica' : 'WhatsApp'; }
   function botonEnviar(p, k) {
     var u = linkWA(p, textoPaso(k, p));
     if (!u) return '';
@@ -2735,14 +2799,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function visible(el) { return !!(el && el.isConnected && (el.offsetWidth || el.offsetHeight || el.getClientRects().length)); }
   function cerrarModal() {
     if (!S.modal) return;
-    var md = S.modal, id = md.tipo === 'ficha' ? md.id : null;
+    var md = S.modal, id = md.tipo === 'ficha' || md.tipo === 'fichaCl' ? md.id : null;
     S.modal = null;
     renderModal();
     var b = visible(md.desde) ? md.desde : null;
     if (!b && id) {
-      b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="ficha"][data-id="' + String(id).replace(/"/g, '') + '"]'), visible)[0];
+      b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="' + (md.tipo === 'fichaCl' ? 'fichaCl' : 'ficha') + '"][data-id="' + String(id).replace(/"/g, '') + '"]'), visible)[0];
     }
-    if (!b && md.tipo === 'editor') b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="editor"]'), visible)[0];
+    if (!b && (md.tipo === 'editor' || md.tipo === 'editorCl')) b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="' + md.tipo + '"]'), visible)[0];
     if (b) b.focus();
   }
   /* Cómo volver a encontrar el control con foco después de repintar la ficha o el editor. */
@@ -2753,13 +2817,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var a = el.getAttribute('data-sg');
     if (!a) return null;
     var sel = '[data-sg="' + a + '"]';
-    ['data-k', 'data-t', 'data-m', 'data-n'].forEach(function (k) { if (el.hasAttribute(k)) sel += '[' + k + '="' + el.getAttribute(k).replace(/"/g, '') + '"]'; });
+    ['data-k', 'data-t', 'data-m', 'data-n', 'data-clave', 'data-id'].forEach(function (k) { if (el.hasAttribute(k)) sel += '[' + k + '="' + el.getAttribute(k).replace(/"/g, '') + '"]'; });
     return sel;
   }
   function renderModal() {
     var capa = $('capa');
     if (!S.modal) { capa.innerHTML = ''; document.body.classList.remove('con-modal'); return; }
-    var cont = S.modal.tipo === 'ficha' ? modalFicha() : modalEditor();
+    var cont = S.modal.tipo === 'ficha' ? modalFicha() : S.modal.tipo === 'fichaCl' ? modalFichaCl() : S.modal.tipo === 'editorCl' ? modalEditorCl() : modalEditor();
     capa.innerHTML = '<div class="ov" data-sg="fondo"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-t">' + cont + '</div></div>';
     document.body.classList.add('con-modal');
   }
@@ -2864,14 +2928,15 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<span class="hint">' + esc(x.cuando) + '</span></div>';
   }
   function editorPaso(x) {
-    var md = S.modal, b = md.borrador, ver = md.ver, mu = muestraPersona(), pl = plantilla(x.k);
+    var md = S.modal, b = md.borrador, ver = md.ver, mu = x.cl ? muestraCliente(x) : muestraPersona(), pl = plantilla(x.k);
+    var marcas = x.cl ? MARCAS_CL : MARCAS, prev = x.cl ? llenarCl(b[ver], mu, ver) : llenar(b[ver], mu, ver), quien = x.cl ? pila((clientePorId(mu.cliente_id) || {}).nombre || mu.cliente) : pila(mu.nombre);
     var h = '<div class="paso abierto"><div class="paso-cab"><b>' + esc(x.t) + '</b></div><span class="hint">' + esc(x.cuando) + '</span>';
     h += '<div class="chips">' + chipsTrato('verTrato', ver) + '</div>';
     h += '<textarea id="mTexto" rows="6" aria-label="Texto del mensaje">' + esc(b[ver]) + '</textarea>';
-    h += '<div class="chips">' + MARCAS.slice(0, 6).map(function (m) {
+    h += '<div class="chips">' + marcas.slice(0, x.cl ? 9 : 6).map(function (m) {
       return '<button type="button" class="chip mk" data-sg="insertar" data-m="{' + m[0] + '}">{' + m[0] + '}</button>';
     }).join('') + '</div>';
-    h += '<p class="lbl">Así le llegaría a ' + esc(pila(mu.nombre)) + '</p><p class="msj-texto" id="mPrev">' + esc(llenar(b[ver], mu, ver)) + '</p>';
+    h += '<p class="lbl">Así le llegaría a ' + esc(quien) + '</p><p class="msj-texto" id="mPrev">' + esc(prev) + '</p>';
     h += '<label class="chk"><input type="checkbox" id="mActivo"' + (b.activo ? ' checked' : '') + '> Activo (si lo apagas, este mensaje no se propone)</label>';
     h += '<div class="sg-acts"><button type="button" class="btn-sm primary" data-sg="guardarPaso">Guardar</button>' +
       (pl.editado ? '<button type="button" class="btn-sm" data-sg="restaurarPaso">Volver al original</button>' : '') +
@@ -2902,12 +2967,23 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return o;
   }
   var ENLACE = leerEnlace();
+  function vistaDeEnlace(v) {
+    return v === 'seguimiento' || v === 'sg' ? 'sg' : v === 'clientes' || v === 'cb' ? 'cb' : v === 'filtros' || v === 'cs' ? 'cs' : 'bv';
+  }
   function abrirDesdeEnlace() {
     var en = ENLACE;
-    if (!en.a && !en.v) return;
+    if (!en.a && !en.v && !en.c) return;
+    if (en.c && CL.estado !== 'ok') return;                 // la ficha del cliente espera a que lleguen los pedidos
+    if (en.a && S.estado !== 'ok') return;
     ENLACE = {};
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-    if (!en.a) { cambiarVista(en.v === 'seguimiento' || en.v === 'sg' ? 'sg' : 'bv'); return; }
+    if (en.c) {
+      if (!clientePorId(en.c)) { cambiarVista('cs'); aviso('Ese cliente no tiene mensajes pendientes ni recientes', true); return; }
+      cambiarVista(en.v ? vistaDeEnlace(en.v) : 'cs');
+      abrirModal({ tipo: 'fichaCl', id: String(en.c), paso: PASO_CL['cl_' + en.paso] ? 'cl_' + en.paso : null, otros: false });
+      return;
+    }
+    if (!en.a) { cambiarVista(vistaDeEnlace(en.v)); return; }
     var p = asesorPorId(en.a), paso = PASO[en.paso] ? en.paso : null;
     if (!p) { aviso('Esa persona no está entre los nuevos de los últimos 45 días', true); return; }
     if (!paso && enBienvenida(p)) { prepararBienvenida(p.id, (bvPendiente(p) || { n: diaDe(p) + 1 }).n); return; }
@@ -2975,7 +3051,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     },
     cerrarPaso: function () { S.modal.abierto = null; refrescarModal(); },
     guardarPaso: function () {
-      var md = S.modal, x = PASO[md.abierto], b = md.borrador;
+      var md = S.modal, x = pasoDef(md.abierto), b = md.borrador, marcas = x && x.cl ? MARCA_CL : MARCA;
       if (!x || !b) return;
       var ta = $('mTexto');
       if (ta) b[md.ver] = ta.value;
@@ -2984,7 +3060,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       var malos = [];
       [b.tu, b.usted].forEach(function (t) {
         (String(t || '').match(/\{[^}]*\}/g) || []).forEach(function (m) {
-          if (!MARCA[claveMarca(m.slice(1, -1))] && malos.indexOf(m) < 0) malos.push(m);
+          if (!marcas[claveMarca(m.slice(1, -1))] && malos.indexOf(m) < 0) malos.push(m);
         });
       });
       if (malos.length) { aviso('Revisa ' + malos.join(' ') + ': no es un marcador', true); return; }
@@ -2999,6 +3075,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (!t || !t.closest) return;
     var env = t.closest('a[data-envio]');
     if (env) { alTocarEnvio(env); return; }                 // el enlace se abre igual
+    var envCl = t.closest('a[data-envio-cl]');
+    if (envCl) { alTocarEnvioCl(envCl); return; }
     var el = t.closest('[data-sg]');
     if (!el || el.disabled) return;
     var a = el.getAttribute('data-sg');
@@ -3010,8 +3088,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (!S.modal) return;
     if (ev.key === 'Escape') {
       ev.preventDefault();
-      if (S.modal.tipo === 'editor' && S.modal.abierto) { S.modal.abierto = null; refrescarModal(); }   // primero cierra el mensaje abierto
-      else if (S.modal.tipo === 'ficha' && (S.modal.paso || S.modal.otros)) { S.modal.paso = null; S.modal.otros = false; refrescarModal(); }
+      if ((S.modal.tipo === 'editor' || S.modal.tipo === 'editorCl') && S.modal.abierto) { S.modal.abierto = null; refrescarModal(); }   // primero cierra el mensaje abierto
+      else if ((S.modal.tipo === 'ficha' || S.modal.tipo === 'fichaCl') && (S.modal.paso || S.modal.otros)) { S.modal.paso = null; S.modal.otros = false; refrescarModal(); }
       else cerrarModal();
       return;
     }
@@ -3031,20 +3109,660 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (el.id === 'sg-busca') {
       S.buscaSeg = el.value;
       $('sg-lista').innerHTML = listaSeg();
-    } else if (el.id === 'mTexto' && S.modal && S.modal.tipo === 'editor' && S.modal.borrador) {
+    } else if (el.id === 'cs-busca') {
+      CL.busca = el.value;
+      $('cs-lista').innerHTML = listaCiclos();
+    } else if (el.id === 'mTexto' && S.modal && (S.modal.tipo === 'editor' || S.modal.tipo === 'editorCl') && S.modal.borrador) {
       S.modal.borrador[S.modal.ver] = el.value;
       S.modal.cursor = el.selectionStart;
-      var pv = $('mPrev');
-      if (pv) pv.textContent = llenar(el.value, muestraPersona(), S.modal.ver);
+      var pv = $('mPrev'), px = pasoDef(S.modal.abierto);
+      if (pv) pv.textContent = px && px.cl ? llenarCl(el.value, muestraCliente(px), S.modal.ver) : llenar(el.value, muestraPersona(), S.modal.ver);
     }
   });
   document.addEventListener('focusout', function (ev) {
-    if (ev.target.id === 'mTexto' && S.modal && S.modal.tipo === 'editor') S.modal.cursor = ev.target.selectionStart;
+    if (ev.target.id === 'mTexto' && S.modal && (S.modal.tipo === 'editor' || S.modal.tipo === 'editorCl')) S.modal.cursor = ev.target.selectionStart;
   });
   document.addEventListener('change', function (ev) {
     if (ev.target.id === 'mActivo' && S.modal && S.modal.borrador) S.modal.borrador.activo = ev.target.checked;
   });
   window.addEventListener('online', reintentarEnvios);
+
+  /* =====================================================================
+     Clientes: bienvenida y seguimiento de quienes compraron.
+     Los datos salen de Pedidos (crm_pedidos) a través de crm_acciones: una
+     acción por orden entregada (al recibir, semana 1, mes 1, fin de cuotas)
+     y un ciclo por cliente y filtro (pre-filtro 12 m, principal 48 m, aire
+     18 m). Lo que se anota va a crm_seguimiento por wa_cl_*; Pedidos lee lo
+     mismo, así que las fechas de allá y los mensajes de acá son una sola cosa.
+     ===================================================================== */
+  var CL = { estado: 'cargando', error: null, acciones: [], clientes: Object.create(null), oficina: {}, hoy: null, items: [], busca: '', fechaPara: null };
+  /* Textos originales. Lo editado se guarda en n0_plantillas con la misma clave (vacío = vuelve a este). */
+  var PASOS_CL = [
+    { k: 'cl_bienvenida', tipo: 'bienvenida', dia: 11, g: 'cbv', t: 'Al recibir su pedido', corto: 'Al recibir',
+      cuando: 'El día que recibe su pedido: video de lavado y recomendaciones según lo que compró.',
+      tu: '¡Hola {nombre}! 🎉 Gracias por confiar en Rena Ware. Ya tienes en casa tu {productos}.\nTe paso el video de cómo lavar tus utensilios antes del primer uso y algunas recomendaciones:\n{recomendaciones}\nCualquier duda me escribes, estoy para ayudarte. Un abrazo, {asesor}.',
+      usted: '¡Hola {nombre}! 🎉 Gracias por confiar en Rena Ware. Ya tiene en casa su {productos}.\nLe paso el video de cómo lavar sus utensilios antes del primer uso y algunas recomendaciones:\n{recomendaciones}\nCualquier duda me escribe, estoy para ayudarle. Un abrazo, {asesor}.' },
+    { k: 'cl_semana1', tipo: 'semana1', dia: 12, g: 'cbv', t: 'Una semana · Nutri Sensor', corto: 'Semana 1',
+      cuando: 'A la semana de recibir, si compró ollas: cómo lavar el Nutri Sensor.',
+      tu: 'Hola {nombre}, ¿cómo te va con tus ollas Rena Ware? 😊 Te paso el video de cómo lavar el Nutri Sensor de las tapas para que siempre funcione bien. ¡Cualquier duda me escribes!',
+      usted: 'Hola {nombre}, ¿cómo le va con sus ollas Rena Ware? 😊 Le paso el video de cómo lavar el Nutri Sensor de las tapas para que siempre funcione bien. ¡Cualquier duda me escribe!' },
+    { k: 'cl_mes1', tipo: 'mes1', dia: 13, g: 'cbv', t: 'Un mes · brillo y Rena Lite', corto: 'Mes 1',
+      cuando: 'Al mes de recibir, si compró ollas: mantener el brillo, buen uso y Rena Lite.',
+      tu: 'Hola {nombre}, ya va un mes con tus ollas Rena Ware ✨ Te comparto cómo mantener el brillo con Rena Lite y algunos consejos de buen uso. Si necesitas Rena Lite, lo tenemos en la oficina: {oficina}.',
+      usted: 'Hola {nombre}, ya va un mes con sus ollas Rena Ware ✨ Le comparto cómo mantener el brillo con Rena Lite y algunos consejos de buen uso. Si necesita Rena Lite, lo tenemos en la oficina: {oficina}.' },
+    { k: 'cl_fincuotas', tipo: 'fincuotas', dia: 14, g: 'cbv', t: 'Un mes antes de terminar sus cuotas', corto: 'Fin de cuotas',
+      cuando: 'Un mes antes de pagar la última cuota, si compró al crédito.',
+      tu: 'Hola {nombre}, ¡te felicitamos! 🎉 Estás a un mes de terminar de pagar tu {productos} ({cuotas} cuotas). Gracias por tu puntualidad. Si quieres completar tu juego o conocer las promociones de este mes, escríbeme y te cuento.',
+      usted: 'Hola {nombre}, ¡le felicitamos! 🎉 Está a un mes de terminar de pagar su {productos} ({cuotas} cuotas). Gracias por su puntualidad. Si quiere completar su juego o conocer las promociones de este mes, escríbame y le cuento.' },
+    { k: 'cl_rec_ollas', g: 'crec', t: 'Si compró ollas', cuando: 'Se agrega al mensaje de bienvenida cuando el pedido trae ollas.',
+      tu: '🍲 Ollas: lávalas con Rena Lite y una esponja suave antes del primer uso. Cocina a fuego bajo o medio, sin agua y con la tapa puesta.',
+      usted: '🍲 Ollas: lávelas con Rena Lite y una esponja suave antes del primer uso. Cocine a fuego bajo o medio, sin agua y con la tapa puesta.' },
+    { k: 'cl_rec_sartenes', g: 'crec', t: 'Si compró sartenes', cuando: 'Se agrega cuando el pedido trae sartenes.',
+      tu: '🍳 Sartenes: puedes freír sin aceite. Caliéntala a fuego medio hasta que una gota de agua baile sobre ella y listo.',
+      usted: '🍳 Sartenes: puede freír sin aceite. Caliéntela a fuego medio hasta que una gota de agua baile sobre ella y listo.' },
+    { k: 'cl_rec_filtro', g: 'crec', t: 'Si compró filtro de agua', cuando: 'Se agrega cuando el pedido trae un Aqua Nano o filtro de agua.',
+      tu: '💧 Filtro: te mando el video de cómo conectarlo. Deja correr el agua 10 minutos la primera vez antes de tomarla.',
+      usted: '💧 Filtro: le mando el video de cómo conectarlo. Deje correr el agua 10 minutos la primera vez antes de tomarla.' },
+    { k: 'cl_rec_cocina', g: 'crec', t: 'Si compró cocina de inducción', cuando: 'Se agrega cuando el pedido trae una cocina de inducción.',
+      tu: '🔥 Cocina de inducción: úsala con tus ollas Rena Ware, empieza en potencia media y no la tapes mientras está caliente.',
+      usted: '🔥 Cocina de inducción: úsela con sus ollas Rena Ware, empiece en potencia media y no la tape mientras está caliente.' },
+    { k: 'cl_rec_presion', g: 'crec', t: 'Si compró olla a presión', cuando: 'Se agrega cuando el pedido trae una olla a presión.',
+      tu: '⏱️ Olla a presión: revisa que la válvula esté limpia antes de usarla, no la llenes más de dos tercios y espera a que baje la presión antes de abrirla.',
+      usted: '⏱️ Olla a presión: revise que la válvula esté limpia antes de usarla, no la llene más de dos tercios y espere a que baje la presión antes de abrirla.' },
+    { k: 'cl_rec_aire', g: 'crec', t: 'Si compró purificador de aire', cuando: 'Se agrega cuando el pedido trae un purificador de aire.',
+      tu: '🌀 Purificador: colócalo a 20 cm de la pared, en el ambiente donde más tiempo pasan, y déjalo prendido en modo automático.',
+      usted: '🌀 Purificador: colóquelo a 20 cm de la pared, en el ambiente donde más tiempo pasan, y déjelo prendido en modo automático.' },
+    { k: 'cl_prefiltro', tipo: 'prefiltro', dia: 15, g: 'ccic', t: 'Cambio de pre-filtro', corto: 'Pre-filtro', meses: 12,
+      cuando: 'Cada 12 meses desde que recibió el Aqua Nano o compró su último pre-filtro. Se avisa un mes antes.',
+      tu: 'Hola {nombre}, te saludamos de Rena Ware 💧 Tu Aqua Nano cumple un año desde el {ultimo} y le toca el cambio del pre-filtro para que siga cuidando el agua de tu familia. ¿Coordinamos el cambio? Te lo llevamos a casa o puedes pasar por la oficina: {oficina}.',
+      usted: 'Hola {nombre}, le saludamos de Rena Ware 💧 Su Aqua Nano cumple un año desde el {ultimo} y le toca el cambio del pre-filtro para que siga cuidando el agua de su familia. ¿Coordinamos el cambio? Se lo llevamos a casa o puede pasar por la oficina: {oficina}.' },
+    { k: 'cl_filtroppal', tipo: 'filtroppal', dia: 16, g: 'ccic', t: 'Cambio del filtro principal', corto: 'Filtro principal', meses: 48,
+      cuando: 'Cada 48 meses (4 años) desde que recibió el Aqua Nano o compró su último elemento desechable.',
+      tu: 'Hola {nombre}, te saludamos de Rena Ware 💧 Tu Aqua Nano ya cumplió 4 años desde el {ultimo}: toca cambiar el elemento filtrante principal para que el agua siga saliendo pura. ¿Coordinamos el cambio? Te lo llevamos a casa o puedes pasar por la oficina: {oficina}.',
+      usted: 'Hola {nombre}, le saludamos de Rena Ware 💧 Su Aqua Nano ya cumplió 4 años desde el {ultimo}: toca cambiar el elemento filtrante principal para que el agua siga saliendo pura. ¿Coordinamos el cambio? Se lo llevamos a casa o puede pasar por la oficina: {oficina}.' },
+    { k: 'cl_aire', tipo: 'aire', dia: 17, g: 'ccic', t: 'Cambio del filtro de aire', corto: 'Filtro de aire', meses: 18,
+      cuando: 'Cada 18 meses desde que recibió el purificador o compró su último filtro.',
+      tu: 'Hola {nombre}, te saludamos de Rena Ware 🌀 Tu purificador de aire cumple 18 meses desde el {ultimo} y le toca cambiar el filtro para que siga limpiando el aire de tu casa. ¿Coordinamos el cambio? {oficina}.',
+      usted: 'Hola {nombre}, le saludamos de Rena Ware 🌀 Su purificador de aire cumple 18 meses desde el {ultimo} y le toca cambiar el filtro para que siga limpiando el aire de su casa. ¿Coordinamos el cambio? {oficina}.' }
+  ];
+  var PASO_CL = Object.create(null);
+  PASOS_CL.forEach(function (x, i) { x.i = i; x.cl = true; PASO_CL[x.k] = x; });
+  var CL_POR_TIPO = Object.create(null);
+  PASOS_CL.forEach(function (x) { if (x.tipo) CL_POR_TIPO[x.tipo] = x; });
+  var GRUPOS_CL = [['cbv', 'Bienvenida del cliente'], ['crec', 'Recomendaciones según lo que compró'], ['ccic', 'Cambio de filtros']];
+  var MARCAS_CL = [['nombre', 'su nombre'], ['productos', 'lo que compró'], ['fecha', 'cuándo lo recibió'], ['asesor', 'su asesor o asesora'],
+                   ['ultimo', 'desde cuándo corre el ciclo del filtro'], ['vence', 'cuándo toca el cambio'], ['cuotas', 'sus cuotas'],
+                   ['oficina', 'la dirección de la oficina'], ['recomendaciones', 'las recomendaciones según lo que compró']];
+  var MARCA_CL = Object.create(null);
+  MARCAS_CL.forEach(function (m) { MARCA_CL[m[0]] = 1; });
+  var RECS = [['ollas', 'cl_rec_ollas'], ['sartenes', 'cl_rec_sartenes'], ['filtro', 'cl_rec_filtro'], ['cocina', 'cl_rec_cocina'], ['presion', 'cl_rec_presion'], ['aire', 'cl_rec_aire']];
+  var ESTADO_CL = { vencido: 'Vencido', proximo: 'Próximo', pendiente: 'Programado', hecho: 'Enviado', omitido: 'Omitido', caducado: 'Fuera de plazo',
+                    al_dia: 'Al día', avisado: 'Avisado', cerrado: 'Ya no aplica' };
+
+  function pasoDef(k) { return PASO[k] || PASO_CL[k] || null; }
+  function pasoCl(a) { return CL_POR_TIPO[a && a.tipo] || null; }
+  function nombrePasoCl(tipo) { var x = CL_POR_TIPO[tipo]; return x ? x.t : tipo; }
+  function nombreFiltro(tipo) { var x = CL_POR_TIPO[tipo]; return x ? x.corto : tipo; }
+  function clientePorId(id) { return (id && CL.clientes[String(id)]) || null; }
+  function accionPorClave(clave) {
+    for (var i = 0; i < CL.acciones.length; i++) if (CL.acciones[i].clave === clave) return CL.acciones[i];
+    return null;
+  }
+  function accionesDe(cid) { return CL.acciones.filter(function (a) { return String(a.cliente_id) === String(cid); }); }
+  function tratoCl(c) { return c && (c.trato === 'tu' || c.trato === 'usted') ? c.trato : tratoDefecto(); }
+  function ordenDe(c, n) {
+    var l = (c && c.ordenes) || [];
+    for (var i = 0; i < l.length; i++) if (String(l[i].n_orden) === String(n)) return l[i];
+    return null;
+  }
+  function esCiclo(a) { return a && a.clase === 'ciclo'; }
+  function sinCodigo(s) { return String(s || '').replace(/^\s*\d+[A-Z]?\s*-\s*/, ''); }
+  function nombresProductos(str) {
+    return String(str || '').split('|').map(function (seg) {
+      return sinCodigo(seg.split('(x')[0].replace(/\((S\/|x\d)[^)]*\)/g, '')).replace(/\s+/g, ' ').trim();
+    }).filter(Boolean);
+  }
+  function nombreBonito(str) {
+    return titulo(str).replace(/\bIi\b/g, 'II').replace(/\bIii\b/g, 'III').replace(/\bCtu\b/g, 'CTU').replace(/\bUcu\b/g, 'UCU').replace(/\bHd\b/g, 'HD').replace(/\bUv\b/g, 'UV')
+      .replace(/\bIc-/g, 'IC-').replace(/\bLx-/g, 'LX-').replace(/\bC\/tapa\b/g, 'c/tapa').replace(/(\d)(cm|l|lts?)\b/gi, function (m, d, u) { return d + ' ' + u.toLowerCase(); }).replace(/\bCm\b/g, 'cm');
+  }
+  function productoCorto(str) {
+    var l = nombresProductos(str);
+    return l.length ? nombreBonito(l[0]) : '';
+  }
+  function productosDe(a) {
+    var c = clientePorId(a.cliente_id), o = ordenDe(c, a.n_orden);
+    if (o) return productoCorto(o.productos);
+    if (esCiclo(a)) return nombreBonito(a.sistema || (a.tipo === 'aire' ? 'Purificador de aire' : 'Aqua Nano'));
+    return 'pedido Rena Ware';
+  }
+  function oficinaTxt() {
+    var o = CL.oficina || {};
+    return [o.direccion, o.referencia].filter(Boolean).join(', ') || 'Av. Cayma 628, Of. 502';
+  }
+  function recomendaciones(a, tr) {
+    var f = a.flags || {}, l = [];
+    RECS.forEach(function (r) {
+      if (!f[r[0]]) return;
+      var pl = plantilla(r[1]);
+      if (pl.activo) l.push(llenarCl(pl[tr], a, tr, true));
+    });
+    return l.join('\n');
+  }
+  function llenarCl(t, a, tr, sinRecs) {
+    var c = clientePorId(a.cliente_id);
+    tr = tr || tratoCl(c);
+    var v = {
+      nombre: pila((c && c.nombre) || a.cliente), productos: productosDe(a), fecha: fLargaISO(a.entrega || a.base) || 'hace poco',
+      asesor: pila(a.vendedor) || 'tu equipo Rena Ware', ultimo: fLargaISO(a.ultimo_cambio || a.base) || '', vence: fLargaISO(a.vence) || '',
+      cuotas: String(a.cuotas || ''), oficina: oficinaTxt(), recomendaciones: sinRecs ? '' : recomendaciones(a, tr)
+    };
+    return String(t || '').replace(/\{([^{}\n]{1,20})\}/g, function (m, n) {
+      var k = claveMarca(n);
+      return Object.prototype.hasOwnProperty.call(v, k) ? v[k] : m;
+    }).replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').replace(/ +\n/g, '\n').replace(/:\n\n/g, ':\n').trim();
+  }
+  function textoCl(a, tr) {
+    var x = pasoCl(a);
+    if (!x) return '';
+    var c = clientePorId(a.cliente_id);
+    tr = tr || tratoCl(c);
+    return llenarCl(plantilla(x.k)[tr], a, tr);
+  }
+  function celCl(a) { var c = clientePorId(a.cliente_id); return celularWA({ celular: (c && c.celular) || a.celular }); }
+  function linkCl(a, texto) { var c = celularWA({ celular: (clientePorId(a.cliente_id) || {}).celular || a.celular }); return c ? 'https://wa.me/51' + c + (texto ? '?text=' + encodeURIComponent(texto) : '') : null; }
+  function activoCl(a) { var x = pasoCl(a); return !!x && plantilla(x.k).activo; }
+
+  /* ---------- qué toca */
+  function clBvHoy() {
+    return CL.acciones.filter(function (a) { return !esCiclo(a) && activoCl(a) && (a.estado === 'vencido' || (a.estado === 'proximo' && a.dias <= 0)); })
+      .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)) || titulo(a.cliente).localeCompare(titulo(b.cliente), 'es'); });
+  }
+  function clBvProximos() {
+    return CL.acciones.filter(function (a) { return !esCiclo(a) && activoCl(a) && a.estado === 'proximo' && a.dias > 0 && a.dias <= 7; })
+      .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)); });
+  }
+  function clCicloHoy() {
+    return CL.acciones.filter(function (a) { return esCiclo(a) && activoCl(a) && (a.estado === 'vencido' || (a.estado === 'proximo' && a.dias <= 30)); })
+      .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)) || titulo(a.cliente).localeCompare(titulo(b.cliente), 'es'); });
+  }
+  function clAvisados() {
+    return CL.acciones.filter(function (a) { return esCiclo(a) && a.estado === 'avisado'; })
+      .sort(function (a, b) { return String(a.ultimo_aviso).localeCompare(String(b.ultimo_aviso)); });
+  }
+  function gestionesHoy() {
+    var h = hoyISO(), l = [];
+    CL.acciones.forEach(function (a) { (a.gestiones || []).forEach(function (g) { if (g.fecha === h) l.push({ a: a, g: g }); }); });
+    return l;
+  }
+
+  /* ---------- textos de estado */
+  function diasTxt(a) {
+    var d = Number(a.dias);
+    if (a.estado === 'vencido') return d === -1 ? 'tocaba ayer' : 'tocaba hace ' + (-d) + ' días';
+    if (d === 0) return 'toca hoy';
+    if (d === 1) return 'toca mañana';
+    return 'toca en ' + d + ' días';
+  }
+  function lineaUno(a) {
+    var c = clientePorId(a.cliente_id);
+    var bits = [a.tipo === 'fincuotas' ? 'Pedido del ' + fDia(a.ordenado || a.base) + ' · ' + (a.cuotas || '') + ' cuotas' : 'Recibió el ' + fDia(a.entrega || a.base)];
+    bits.push(productoCorto((ordenDe(c, a.n_orden) || {}).productos) || ('pedido ' + a.n_orden));
+    return bits.join(' · ');
+  }
+  function lineaCiclo(a) {
+    var x = pasoCl(a);
+    var desde = a.ultimo_cambio ? 'último cambio el ' + fDia(a.ultimo_cambio) : a.src === 'repuesto' ? 'repuesto comprado el ' + fDia(a.base) : 'desde la entrega del ' + fDia(a.base);
+    return nombreBonito(a.sistema || (a.tipo === 'aire' ? 'Purificador de aire' : 'Aqua Nano (solo repuestos)')) + ' · ' + desde + ' · cada ' + (x ? x.meses : a.intervalo) + ' meses';
+  }
+  function tagEstado(a) {
+    var cls = a.estado === 'vencido' ? 'mal' : a.estado === 'hecho' || a.estado === 'al_dia' ? 'ok' : a.estado === 'proximo' ? 'warn' : 'gris';
+    var t = ESTADO_CL[a.estado] || a.estado;
+    if (a.estado === 'hecho' && a.hecho_el) t += ' el ' + fCorta(a.hecho_el);
+    if (a.estado === 'avisado' && a.ultimo_aviso) t += ' el ' + fCorta(a.ultimo_aviso);
+    if (a.estado === 'vencido' || a.estado === 'proximo') t += ' · ' + diasTxt(a);
+    return '<span class="tag ' + cls + '">' + esc(t) + '</span>';
+  }
+
+  /* ---------- botones */
+  function botonWaCl(a) {
+    var u = linkCl(a, textoCl(a));
+    if (!u) return '<button type="button" class="btn-sm" data-sg="clCopiar" data-clave="' + esc(a.clave) + '">' + ICON.copy + '<span>Copiar texto</span></button>';
+    return '<a class="btn-sm wa-ok" href="' + esc(u) + '" target="_blank" rel="noopener" data-envio-cl="' + esc(a.clave) + '">' + ICON.wa + '<span>WhatsApp</span></a>';
+  }
+  function botonesUno(a, conOmitir) {
+    var k = esc(a.clave);
+    return botonWaCl(a) +
+      '<button type="button" class="btn-sm" data-sg="clAviso" data-clave="' + k + '">Le avisé en persona</button>' +
+      (conOmitir ? '<button type="button" class="btn-link" data-sg="clOmitir" data-clave="' + k + '">Omitir</button>' : '');
+  }
+  function botonesCiclo(a) {
+    var k = esc(a.clave), h = '';
+    if (CL.fechaPara === a.clave) {
+      return '<div class="fecha-fila"><label class="flabel" for="clFecha">Fecha del cambio</label>' +
+        '<input type="date" id="clFecha" value="' + hoyISO() + '" max="' + hoyISO() + '">' +
+        '<button type="button" class="btn-sm primary" data-sg="clCambioOk" data-clave="' + k + '">Guardar</button>' +
+        '<button type="button" class="btn-link" data-sg="clCambioNo">Cancelar</button></div>';
+    }
+    if (a.estado === 'cerrado') {
+      var ult = ultimaGestion(a, 'noaplica');
+      return '<span class="hint">Marcado como «ya no aplica»' + (ult ? ' el ' + esc(fCorta(ult.fecha)) : '') + '.</span>' +
+        (ult && !ult.tmp ? '<button type="button" class="btn-link" data-sg="clAnular" data-m="' + esc(ult.id) + '">reabrir</button>' : '');
+    }
+    if (a.estado === 'vencido' || a.estado === 'proximo' || a.estado === 'avisado') {
+      h += botonWaCl(a) + '<button type="button" class="btn-sm" data-sg="clAviso" data-clave="' + k + '">Le avisé en persona</button>';
+    }
+    h += '<button type="button" class="btn-sm" data-sg="clCambio" data-clave="' + k + '">Cambio hecho</button>' +
+      '<button type="button" class="btn-link" data-sg="clNoAplica" data-clave="' + k + '">Ya no aplica</button>';
+    return h;
+  }
+  function ultimaGestion(a, modo) {
+    var l = (a.gestiones || []).filter(function (g) { return !modo || g.modo === modo; });
+    return l.length ? l[l.length - 1] : null;
+  }
+  function itemUno(a) {
+    return '<li class="sg-item">' +
+      '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' + esc(titulo(a.cliente)) + '</button>' + tagEstado(a) + '</div>' +
+      '<p class="sg-sub">' + esc(lineaUno(a) + (celCl(a) ? '' : ' · sin celular')) + '</p>' +
+      '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoCl(a)) + '</span></p>' +
+      '<div class="sg-acts">' + botonesUno(a, true) + '</div></li>';
+  }
+  function itemCiclo(a) {
+    return '<li class="sg-item">' +
+      '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' + esc(titulo(a.cliente)) + '</button>' + tagEstado(a) + '</div>' +
+      '<p class="sg-sub">' + esc(lineaCiclo(a) + (celCl(a) ? '' : ' · sin celular')) + '</p>' +
+      (a.estado === 'avisado' ? '' : '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoCl(a)) + '</span></p>') +
+      '<div class="sg-acts">' + botonesCiclo(a) + '</div></li>';
+  }
+  function listaHechosHoy() {
+    var l = gestionesHoy();
+    if (!l.length) return '';
+    return '<h3 class="sg-grupo">Anotado hoy <span class="cuenta gris">' + l.length + '</span></h3><ul class="hist card">' + l.reverse().map(function (y) {
+      return '<li><span>' + esc(titulo(y.a.cliente) + ' · ' + nombrePasoCl(y.a.tipo) + ' · ' + modoTxt(y.g.modo)) + '</span>' +
+        (y.g.tmp ? '' : '<button type="button" class="btn-link" data-sg="clAnular" data-m="' + esc(y.g.id) + '">deshacer</button>') + '</li>';
+    }).join('') + '</ul>';
+  }
+  /* Tarjetas de cada paso: archivos (dias 11 a 17 de wa_bv_adjuntos) y el texto con el trato por defecto. */
+  function tarjetaPaso(x) {
+    var mu = muestraCliente(x), tr = tratoDefecto(), pl = plantilla(x.k);
+    return '<article class="day cl-paso" id="clp-' + x.dia + '" aria-labelledby="clp-' + x.dia + '-h">' +
+      '<div class="day-head"><span class="day-num">' + esc(x.corto) + '</span><h2 id="clp-' + x.dia + '-h">' + esc(x.t) + '</h2>' +
+      (pl.activo ? '' : '<span class="tag gris">apagado</span>') + '</div>' +
+      '<p class="goal">' + esc(x.cuando) + '</p>' +
+      '<section class="step" aria-labelledby="clp1-' + x.dia + '"><h3 class="step-h" id="clp1-' + x.dia + '"><span class="step-n" aria-hidden="true">1</span>Archivos que van con el mensaje</h3>' +
+        '<ul class="files" id="files-' + x.dia + '"></ul><p class="ferr" id="ferr-' + x.dia + '" role="alert" hidden></p>' +
+        '<button type="button" class="add" id="add-' + x.dia + '" data-add="' + x.dia + '" hidden>' + ICON.plus + '<span>Agregar archivo</span></button></section>' +
+      '<section class="step" aria-labelledby="clp2-' + x.dia + '"><h3 class="step-h" id="clp2-' + x.dia + '"><span class="step-n" aria-hidden="true">2</span>El texto</h3>' +
+        '<p class="msj-texto">' + esc(llenarCl(pl[tr], mu, tr)) + '</p>' +
+        '<div class="sg-acts"><button type="button" class="btn-sm" data-sg="editorCl" data-k="' + x.k + '">Editar el mensaje</button>' +
+        '<span class="hint">Así le llega a quien se trata de ' + (tr === 'tu' ? 'tú' : 'usted') + '. Las recomendaciones salen según lo que compró.</span></div></section>' +
+      '</article>';
+  }
+  function muestraCliente(x) {
+    var l = CL.acciones.filter(function (a) { return a.tipo === x.tipo && !!clientePorId(a.cliente_id) && a.estado !== 'caducado'; });
+    l.sort(function (a, b) { return String(b.vence).localeCompare(String(a.vence)); });
+    if (l[0]) return l[0];
+    return { tipo: x.tipo, clase: x.meses ? 'ciclo' : 'uno', cliente: 'María Pérez', cliente_id: null, celular: null, vendedor: 'Rosmery', n_orden: 0,
+             flags: { ollas: true, sartenes: true, filtro: x.tipo !== 'aire', cocina: false, presion: false, aire: x.tipo === 'aire' },
+             entrega: hoyISO(), base: sumarISO(hoyISO(), -(x.meses ? x.meses * 30 : 0)), vence: hoyISO(), cuotas: 12, sistema: x.tipo === 'aire' ? 'PURIFICADOR DE AIRE AEROQUATTRO+ UV' : 'AQUA NANO CTU-500' };
+  }
+
+  /* ---------- vistas */
+  function cajaEstadoCl() {
+    if (CL.estado === 'ok') return '';
+    return '<section class="panel"><p class="' + (CL.estado === 'error' ? 'status is-err' : 'hint') + '">' +
+      esc(CL.estado === 'error' ? 'No se pudieron leer los pedidos (' + (CL.error || 'error') + '). Recarga la página.' : 'Cargando los pedidos…') + '</p></section>';
+  }
+  function renderClBv() {
+    var box = $('vista-cb');
+    if (CL.estado !== 'ok') { box.innerHTML = cajaEstadoCl(); return; }
+    var pend = clBvHoy(), prox = clBvProximos();
+    var h = '<section aria-labelledby="cb-hoy-h"><h2 class="section-h" id="cb-hoy-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
+    if (!pend.length) h += '<p class="hint">Al día: hoy no toca ningún mensaje de bienvenida a clientes.</p>';
+    PASOS_CL.forEach(function (x) {
+      if (x.g !== 'cbv') return;
+      var g = pend.filter(function (a) { return a.tipo === x.tipo; });
+      if (!g.length) return;
+      h += '<h3 class="sg-grupo">' + esc(x.t) + ' <span class="cuenta">' + g.length + '</span></h3><ul class="sg-items">' + g.map(itemUno).join('') + '</ul>';
+    });
+    if (prox.length) {
+      h += '<h3 class="sg-grupo">Próximos 7 días <span class="cuenta gris">' + prox.length + '</span></h3><ul class="hist card">' + prox.map(function (a) {
+        return '<li><span><button type="button" class="btn-link nom" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' + esc(titulo(a.cliente)) + '</button> · ' + esc(nombrePasoCl(a.tipo) + ' · ' + diasTxt(a)) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    h += listaHechosHoy() + '</section>';
+    h += '<section aria-labelledby="cb-pasos-h"><h2 class="section-h" id="cb-pasos-h">Los mensajes</h2><div class="days">' +
+      PASOS_CL.filter(function (x) { return x.g === 'cbv'; }).map(tarjetaPaso).join('') + '</div></section>';
+    h += '<section class="panel" aria-labelledby="cb-h"><h2 class="panel-h" id="cb-h">Cómo funciona</h2>' +
+      '<p class="hint">Sale de los pedidos entregados que carga Pedidos cada período. Al recibir va para todos; la semana y el mes solo si compró ollas; fin de cuotas si compró al crédito. Lo que anotes aquí se ve también en Pedidos.</p>' +
+      '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>' +
+      '<button type="button" class="ghost" data-sg="editorCl">Ver y editar los mensajes a clientes</button></section>';
+    box.innerHTML = h;
+    PASOS_CL.forEach(function (x) { if (x.g === 'cbv') renderFiles(x.dia); });
+  }
+  function filaCiclo(a) {
+    return '<li><button type="button" class="sg-row" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' +
+      '<span class="sg-row-main"><span class="sg-row-nom">' + esc(titulo(a.cliente)) + '</span>' +
+      '<span class="sg-sub">' + esc(nombreFiltro(a.tipo) + ' · ' + lineaCiclo(a)) + '</span>' +
+      '<span class="sg-next' + (a.estado === 'al_dia' ? ' al-dia' : '') + '">' + esc(a.estado === 'cerrado' ? 'Ya no aplica' : 'Vence el ' + fDia(a.vence) + (a.estado === 'vencido' || a.estado === 'proximo' ? ' · ' + diasTxt(a) : '')) + '</span></span>' +
+      tagEstado(a) + '</button></li>';
+  }
+  function listaCiclos() {
+    var q = plano(CL.busca.trim());
+    var l = CL.acciones.filter(esCiclo);
+    if (q) l = l.filter(function (a) { return plano(a.cliente).indexOf(q) >= 0 || String(a.n_orden).indexOf(q) >= 0; });
+    var ord = { vencido: 0, proximo: 1, avisado: 2, al_dia: 3, cerrado: 4 };
+    l.sort(function (a, b) { return (ord[a.estado] - ord[b.estado]) || String(a.vence).localeCompare(String(b.vence)) || titulo(a.cliente).localeCompare(titulo(b.cliente), 'es'); });
+    if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre.' : 'Todavía no hay clientes con filtro.') + '</p>';
+    return '<ul class="sg-lista">' + l.map(filaCiclo).join('') + '</ul>';
+  }
+  function renderClSg() {
+    var box = $('vista-cs');
+    if (CL.estado !== 'ok') { box.innerHTML = cajaEstadoCl(); return; }
+    var act = document.activeElement, enBusca = !!(act && act.id === 'cs-busca'), pos = enBusca ? act.selectionStart : null;
+    var pend = clCicloHoy(), avis = clAvisados();
+    var h = '<section aria-labelledby="cs-hoy-h"><h2 class="section-h" id="cs-hoy-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
+    if (!pend.length) h += '<p class="hint">Al día: ningún filtro vence en los próximos 30 días.</p>';
+    PASOS_CL.forEach(function (x) {
+      if (x.g !== 'ccic') return;
+      var g = pend.filter(function (a) { return a.tipo === x.tipo; });
+      if (!g.length) return;
+      h += '<h3 class="sg-grupo">' + esc(x.t) + ' <span class="cuenta">' + g.length + '</span></h3><ul class="sg-items">' + g.map(itemCiclo).join('') + '</ul>';
+    });
+    if (avis.length) {
+      h += '<h3 class="sg-grupo">Avisados, esperando el cambio <span class="cuenta gris">' + avis.length + '</span></h3><ul class="sg-items">' + avis.map(itemCiclo).join('') + '</ul>';
+    }
+    h += listaHechosHoy() + '</section>';
+    var n = CL.acciones.filter(esCiclo).length;
+    h += '<section aria-labelledby="cs-lista-h"><h2 class="section-h" id="cs-lista-h">Todos los filtros <span class="cuenta gris">' + n + '</span></h2>' +
+      '<label class="sr-only" for="cs-busca">Buscar cliente</label>' +
+      '<input type="search" id="cs-busca" class="busca" placeholder="Buscar cliente o pedido" autocomplete="off" enterkeyhint="search" value="' + esc(CL.busca) + '">' +
+      '<div id="cs-lista">' + listaCiclos() + '</div></section>';
+    h += '<section aria-labelledby="cs-pasos-h"><h2 class="section-h" id="cs-pasos-h">Los mensajes</h2><div class="days">' +
+      PASOS_CL.filter(function (x) { return x.g === 'ccic'; }).map(tarjetaPaso).join('') + '</div></section>';
+    h += '<section class="panel" aria-labelledby="cs-h"><h2 class="panel-h" id="cs-h">Cómo funciona</h2>' +
+      '<p class="hint">Cada filtro corre desde que el cliente recibió el sistema o compró su último repuesto (pre-filtro, elemento desechable, filtro de aire); comprar un repuesto reinicia su ciclo. Se avisa un mes antes. «Cambio hecho» reinicia el ciclo desde esa fecha; «Ya no aplica» lo cierra. Lo mismo se ve en Pedidos.</p>' +
+      '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>' +
+      '<button type="button" class="ghost" data-sg="editorCl">Ver y editar los mensajes a clientes</button></section>';
+    box.innerHTML = h;
+    PASOS_CL.forEach(function (x) { if (x.g === 'ccic') renderFiles(x.dia); });
+    if (enBusca) {
+      var b = $('cs-busca');
+      b.focus();
+      try { b.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  }
+  function renderCl() {
+    if (S.vista === 'cb') renderClBv();
+    else if (S.vista === 'cs') renderClSg();
+  }
+
+  /* ---------- ficha del cliente y editor de sus mensajes */
+  function anclaDe(c) {
+    var l = accionesDe(c.id).filter(function (a) { return !esCiclo(a); });
+    l.sort(function (a, b) { return String(b.base).localeCompare(String(a.base)); });
+    if (l[0]) return l[0];
+    var cc = accionesDe(c.id)[0];
+    if (cc) return cc;
+    var o = (c.ordenes || [])[0];
+    return { tipo: 'bienvenida', clase: 'uno', cliente_id: c.id, cliente: c.nombre, celular: c.celular, vendedor: o && o.vendedor, n_orden: o && o.n_orden, flags: {}, base: o && o.fecha, entrega: o && o.fecha, vence: o && o.fecha, cuotas: o && o.cuotas, clave: 'manual' };
+  }
+  function accionManual(c, k) {
+    var x = PASO_CL[k], base = anclaDe(c);
+    if (!x || !x.tipo) return null;
+    var ya = accionesDe(c.id).filter(function (a) { return a.tipo === x.tipo; })[0];
+    if (ya) return ya;
+    var a = Object.assign({}, base, { tipo: x.tipo, clase: x.meses ? 'ciclo' : 'uno', clave: 'manual::' + x.tipo, estado: 'pendiente', gestiones: [], intervalo: x.meses, ultimo_cambio: null, sistema: null });
+    if (!a.n_orden) return null;
+    return a;
+  }
+  function modalFichaCl() {
+    var c = clientePorId(S.modal.id);
+    if (!c) return cabModal('No encontrado') + '<div class="mbody"><p class="hint">Este cliente ya no está en la lista.</p></div>';
+    var md = S.modal, acts = accionesDe(c.id), unos = acts.filter(function (a) { return !esCiclo(a); }), cics = acts.filter(esCiclo);
+    unos.sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)); });
+    var cel = celularWA({ celular: c.celular }), ords = c.ordenes || [], ult = ords[0];
+    var h = cabModal(titulo(c.nombre), (c.ciudad ? String(c.ciudad).split(',')[0] + ' · ' : '') + plural(ords.length, 'compra', 'compras')) + '<div class="mbody">';
+    h += '<dl class="datos">' +
+      '<dt>Celular</dt><dd>' + (c.celular ? esc(c.celular) + (cel ? ' · <a class="btn-link" href="https://wa.me/51' + cel + '" target="_blank" rel="noopener">Abrir chat</a>' : ' <span class="hint">· no parece un celular</span>') : '—') + '</dd>' +
+      (ult && ult.vendedor ? '<dt>Asesor(a)</dt><dd>' + esc(titulo(ult.vendedor)) + '</dd>' : '') +
+      '<dt>Trato</dt><dd><span class="chips">' + chipsTrato('tratoCl', tratoCl(c)) + '</span>' + (c.trato ? '' : ' <span class="hint">el de por defecto</span>') + '</dd>' +
+      '</dl>';
+    h += '<section class="msec"><h3 class="msec-h">Lo que compró</h3><ul class="hist">' + (ords.length ? ords.map(function (o) {
+      var ent = /ENTREGADA/i.test(o.estatus || '');
+      return '<li><span>' + esc((o.fecha ? fCorta(o.fecha) + ' · ' : '') + (productoCorto(o.productos) || 'Pedido ' + o.n_orden) +
+        (o.total ? ' · S/ ' + Number(o.total).toLocaleString('es-PE') : '') + (o.credito && o.cuotas ? ' · ' + o.cuotas + ' cuotas' : '')) + '</span>' +
+        (ent ? '' : '<span class="tag gris">' + esc(String(o.estatus || '').split(' ')[0].toLowerCase()) + '</span>') + '</li>';
+    }).join('') : '<li class="hint">Sin pedidos entregados.</li>') + '</ul></section>';
+    // mensaje elegido a mano
+    if (md.paso) {
+      var am = accionManual(c, md.paso);
+      if (am) {
+        h += '<section class="msec"><div class="msj-caja"><p class="lbl">' + esc('Elegiste: ' + PASO_CL[md.paso].t) + '</p><p class="msj-texto">' + esc(textoCl(am)) + '</p>' +
+          '<div class="sg-acts">' + (am.clave.indexOf('manual') === 0 ? botonWaCl(am) + '<button type="button" class="btn-sm" data-sg="clAviso" data-clave="' + esc(am.clave) + '">Le avisé en persona</button>' : esCiclo(am) ? botonesCiclo(am) : botonesUno(am, false)) +
+          '<button type="button" class="btn-link" data-sg="elegirPasoCl" data-k="">Cancelar</button></div></div></section>';
+        md.manual = am;
+      }
+    }
+    h += '<section class="msec"><h3 class="msec-h">Bienvenida</h3>';
+    if (!unos.length) h += '<p class="hint">Sin mensajes de bienvenida pendientes ni recientes.</p>';
+    else h += '<ul class="bvdias">' + unos.map(function (a) {
+      var pend = a.estado === 'vencido' || a.estado === 'proximo' || a.estado === 'pendiente', g = ultimaGestion(a);
+      return '<li><span>' + esc(nombrePasoCl(a.tipo)) + (unos.length > 1 && ords.length > 1 ? ' <span class="hint">pedido ' + esc(a.n_orden) + '</span>' : '') + '</span><span>' + tagEstado(a) +
+        (pend ? (a.estado === 'pendiente' ? ' <span class="hint">' + esc(fDia(a.vence)) + '</span>' : '<div class="sg-acts" style="margin-top:6px">' + botonesUno(a, true) + '</div>')
+          : g && !g.tmp && (a.estado === 'hecho' || a.estado === 'omitido') ? ' <button type="button" class="btn-link" data-sg="clAnular" data-m="' + esc(g.id) + '">deshacer</button>' : '') + '</span></li>';
+    }).join('') + '</ul>';
+    h += '</section>';
+    h += '<section class="msec"><h3 class="msec-h">Filtros</h3>';
+    if (!cics.length) h += '<p class="hint">No compró filtros de agua ni purificador.</p>';
+    else h += '<ul class="sg-items">' + cics.map(function (a) {
+      return '<li class="sg-item"><div class="sg-cab"><b>' + esc(nombreFiltro(a.tipo)) + '</b>' + tagEstado(a) + '</div>' +
+        '<p class="sg-sub">' + esc(lineaCiclo(a) + ' · vence el ' + fDia(a.vence)) + '</p>' +
+        (a.cambios ? '<p class="sg-sub">' + esc('Cambios anotados: ' + a.cambios) + '</p>' : '') +
+        '<div class="sg-acts">' + botonesCiclo(a) + '</div></li>';
+    }).join('') + '</ul>';
+    h += '</section>';
+    h += '<section class="msec">' + (md.otros
+      ? '<div class="chips">' + PASOS_CL.filter(function (x) { return x.tipo; }).map(function (x) {
+          return '<button type="button" class="chip' + (md.paso === x.k ? ' on' : '') + '" data-sg="elegirPasoCl" data-k="' + x.k + '">' + esc(x.t) + '</button>';
+        }).join('') + '</div>'
+      : '<button type="button" class="btn-link" data-sg="verOtrosCl">Mandar otro mensaje</button>') + '</section>';
+    var hist = [];
+    acts.forEach(function (a) { (a.gestiones || []).forEach(function (g) { hist.push({ a: a, g: g }); }); });
+    hist.sort(function (x, y) { return String(y.g.fecha).localeCompare(String(x.g.fecha)) || String(y.g.id).localeCompare(String(x.g.id)); });
+    if (hist.length) {
+      h += '<section class="msec"><h3 class="msec-h">Lo anotado</h3><ul class="hist">' + hist.map(function (y) {
+        return '<li><span>' + esc(fCorta(y.g.fecha) + ' · ' + nombrePasoCl(y.a.tipo) + ' · ' + modoTxt(y.g.modo)) + '</span>' +
+          (y.g.tmp ? '' : '<button type="button" class="btn-link" data-sg="clAnular" data-m="' + esc(y.g.id) + '">deshacer</button>') + '</li>';
+      }).join('') + '</ul></section>';
+    }
+    h += '<p class="hint">Fechas y compras: <a href="https://renaware-pedidos.nelson1614.workers.dev/#cliente=' + esc(c.id) + '" target="_blank" rel="noopener">ver en Pedidos</a>.</p>';
+    return h + '</div>';
+  }
+  function modalEditorCl() {
+    var md = S.modal;
+    var h = cabModal('Mensajes a clientes', 'Bienvenida y cambio de filtros') + '<div class="mbody">';
+    h += '<p class="hint">Cada mensaje tiene versión de tú y de usted: a cada cliente le llega con el trato de su ficha o, si no elegiste, con el de por defecto. Las recomendaciones se agregan al mensaje de bienvenida según lo que compró.</p>';
+    h += '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>';
+    GRUPOS_CL.forEach(function (g) {
+      h += '<div><h3 class="msec-h">' + esc(g[1]) + '</h3>';
+      PASOS_CL.forEach(function (x) { if (x.g === g[0]) h += md.abierto === x.k ? editorPaso(x) : filaPaso(x); });
+      h += '</div>';
+    });
+    h += '<p class="hint marcas">Marcadores: ' + MARCAS_CL.map(function (m) { return '<code>{' + m[0] + '}</code> ' + esc(m[1]); }).join(' · ') + '.</p>';
+    return h + '</div>';
+  }
+
+  /* ---------- anotar envíos de clientes (misma cola que los asesores) */
+  function aplicarLocalCl(a, x) {
+    if (!a) return;
+    if ((a.gestiones || []).some(function (g) { return g.id === x.t; })) return;
+    var f = x.fecha || x.en || hoyISO();
+    a.gestiones = (a.gestiones || []).concat([{ id: x.t, modo: x.modo, fecha: f, tmp: true, n_orden: x.n }]);
+    if (!esCiclo(a)) {
+      if (x.modo === 'whatsapp' || x.modo === 'aviso') { a.estado = 'hecho'; a.hecho_el = f; }
+      else if (x.modo === 'omitido' || x.modo === 'noaplica') a.estado = 'omitido';
+      return;
+    }
+    var h = hoyISO();
+    if (x.modo === 'cambio') {
+      a.ultimo_cambio = f;
+      a.cambios = (a.cambios || 0) + 1;
+      a.vence = isoDe(addMonths(parseISO(f), a.intervalo || 12));
+      a.dias = diasISO(h, a.vence);
+      a.estado = a.dias > 90 ? 'al_dia' : a.dias < 0 ? 'vencido' : 'proximo';
+    } else if (x.modo === 'noaplica') a.estado = 'cerrado';
+    else if (a.estado === 'vencido' || a.estado === 'proximo') { a.estado = 'avisado'; a.ultimo_aviso = f; }
+  }
+  function addMonths(d, m) { var n = new Date(d.getTime()); n.setMonth(n.getMonth() + m); return n; }
+  function quitarLocalCl(clave, t) {
+    var a = accionPorClave(clave);
+    if (a) a.gestiones = (a.gestiones || []).filter(function (g) { return g.id !== t; });
+  }
+  function aplicarPendientesCl() {
+    var l = Object.keys(enCamino).map(function (t) { return enCamino[t]; }).concat(enviosPend());
+    l.forEach(function (x) { if (x.cl) aplicarLocalCl(accionPorClave(x.clave), x); });
+  }
+  function ponerCliente(fila) {
+    if (!fila || !fila.id) return;
+    var id = String(fila.id), acc = Array.isArray(fila.acciones) ? fila.acciones : [];
+    var c = Object.assign({}, fila);
+    delete c.acciones;
+    CL.clientes[id] = c;
+    CL.acciones = CL.acciones.filter(function (a) { return String(a.cliente_id) !== id; }).concat(acc.filter(function (a) { return a.estado !== 'caducado'; }));
+    aplicarPendientesCl();
+  }
+  function registrarEnvioCl(a, modo, texto, fecha) {
+    if (!a || !S.token) return;
+    if (!a.n_orden) { aviso('Este cliente no tiene un pedido entregado para anotar', true); return; }
+    if ((a.gestiones || []).some(function (g) { return g.tmp && g.modo === modo; })) return;   // doble toque
+    var tmp = 'tmp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var x = { cl: true, n: a.n_orden, k: a.tipo, modo: modo, texto: modo === 'whatsapp' || modo === 'aviso' ? (texto || null) : null, fecha: fecha || null, t: tmp, en: hoyISO(), cid: a.cliente_id, clave: a.clave };
+    if (a.clave.indexOf('manual') === 0) { a.clave = 'manual::' + a.tipo; }
+    aplicarLocalCl(a, x);
+    enCamino[tmp] = x;
+    S.escrituras++;
+    CL.fechaPara = null;
+    if (S.modal && S.modal.tipo === 'fichaCl') { S.modal.paso = null; S.modal.otros = false; }
+    anotarEnvio(x).then(function (fila) {
+      delete enCamino[tmp];
+      ponerCliente(fila);
+      repintar();
+    }).catch(function (e) {
+      delete enCamino[tmp];
+      if (e instanceof TypeError || /Sesion invalida/i.test(String(e && e.message))) {
+        encolar(x);
+        if (S.token) aviso('Sin conexión: se anotará cuando vuelva la señal', true);
+        return;
+      }
+      quitarLocalCl(x.clave, tmp);
+      repintar();
+      if (S.token) aviso('No se anotó: ' + bonito(e.message), true);
+    });
+    setTimeout(repintar, 400);
+    aviso(modo === 'omitido' ? 'Omitido: ' + nombrePasoCl(a.tipo) : modo === 'aviso' ? 'Anotado: le avisaste en persona' : modo === 'cambio' ? 'Cambio anotado: el ciclo vuelve a empezar'
+      : modo === 'noaplica' ? 'Anotado: ya no aplica' : 'Anotado como enviado');
+  }
+  function anularEnvioCl(gid) {
+    if (!gid || /^tmp/.test(String(gid)) || !S.token) return;
+    S.escrituras++;
+    rpc('wa_cl_envio_anular', { p_token: S.token, p_id: Number(gid) }).then(function (fila) {
+      ponerCliente(fila);
+      repintar();
+      aviso('Deshecho');
+    }).catch(function (e) { if (S.token) aviso(bonito(e.message), true); });
+  }
+  function guardarTratoCl(cid, t) {
+    var c = clientePorId(cid);
+    if (!c || (tratoCl(c) === t && c.trato)) return;
+    S.escrituras++;
+    rpc('wa_cl_trato_guardar', { p_token: S.token, p_cliente: cid, p_trato: t }).then(function (fila) {
+      ponerCliente(fila);
+      repintar();
+      aviso('A ' + pila(c.nombre) + ' le escribirás de ' + (t === 'tu' ? 'tú' : 'usted'));
+    }).catch(function (e) { if (S.token) aviso(bonito(e.message), true); });
+  }
+  function accionDeBoton(el) {
+    var clave = el.getAttribute('data-clave');
+    if (/^manual/.test(clave || '') && S.modal && S.modal.manual) return S.modal.manual;
+    return accionPorClave(clave);
+  }
+  Object.assign(ACC, {
+    fichaCl: function (el) { abrirModal({ tipo: 'fichaCl', id: el.getAttribute('data-id'), paso: null, otros: false }); },
+    editorCl: function (el) {
+      var k = el.getAttribute('data-k');
+      abrirModal({ tipo: 'editorCl', abierto: null });
+      if (k && PASO_CL[k]) ACC.abrirPaso(el);
+    },
+    clAviso: function (el) { var a = accionDeBoton(el); if (a) registrarEnvioCl(a, 'aviso', textoCl(a)); },
+    clOmitir: function (el) { var a = accionDeBoton(el); if (a) registrarEnvioCl(a, 'omitido'); },
+    clNoAplica: function (el) { var a = accionDeBoton(el); if (a) registrarEnvioCl(a, 'noaplica'); },
+    clCambio: function (el) { CL.fechaPara = el.getAttribute('data-clave'); repintar(); setTimeout(function () { var i = $('clFecha'); if (i) i.focus(); }, 0); },
+    clCambioNo: function () { CL.fechaPara = null; repintar(); },
+    clCambioOk: function (el) {
+      var a = accionDeBoton(el), i = $('clFecha'), f = i && /^\d{4}-\d{2}-\d{2}$/.test(i.value) ? i.value : hoyISO();
+      if (!a) return;
+      if (f > hoyISO()) { aviso('La fecha no puede ser futura', true); return; }
+      registrarEnvioCl(a, 'cambio', null, f);
+    },
+    clCopiar: function (el) {
+      var a = accionDeBoton(el);
+      if (!a) return;
+      copiarTexto(textoCl(a), function () { aviso('Texto copiado'); }, function () { aviso('No se pudo copiar. Abre su ficha y copia el texto a mano.', true); });
+    },
+    clAnular: function (el) { anularEnvioCl(el.getAttribute('data-m')); },
+    tratoCl: function (el) { if (S.modal) guardarTratoCl(S.modal.id, el.getAttribute('data-t')); },
+    elegirPasoCl: function (el) { var k = el.getAttribute('data-k'); S.modal.paso = PASO_CL[k] ? k : null; S.modal.otros = false; refrescarModal(); },
+    verOtrosCl: function () { S.modal.otros = !S.modal.otros; refrescarModal(); }
+  });
+  function alTocarEnvioCl(a) {
+    var clave = a.getAttribute('data-envio-cl');
+    var acc = /^manual/.test(clave || '') && S.modal && S.modal.manual ? S.modal.manual : accionPorClave(clave);
+    if (acc) registrarEnvioCl(acc, 'whatsapp', textoCl(acc));
+  }
+
+  /* ---------- carga */
+  function cargarCl() {
+    if (!S.token) return Promise.resolve();
+    var gen = S.escrituras;
+    return rpc('wa_cl_datos', { p_token: S.token }).then(function (d) {
+      if (S.escrituras !== gen && CL.estado === 'ok') return cargarCl();   // llegó vieja: se anotó algo mientras tanto
+      d = d || {};
+      CL.hoy = d.hoy || null;
+      CL.oficina = d.oficina || {};
+      CL.clientes = Object.create(null);
+      (Array.isArray(d.clientes) ? d.clientes : []).forEach(function (c) { if (c && c.id) CL.clientes[String(c.id)] = c; });
+      CL.acciones = (Array.isArray(d.acciones) ? d.acciones : []).filter(function (a) { return a && a.estado !== 'caducado'; });
+      CL.items = Array.isArray(d.adjuntos) ? d.adjuntos : [];
+      S.items = S.items.filter(function (i) { return Number(i.dia) < 11 || Number(i.dia) > 20; }).concat(CL.items);
+      if (Array.isArray(d.plantillas)) S.plantillas = d.plantillas;
+      aplicarPendientesCl();
+      CL.estado = 'ok';
+      CL.error = null;
+      if (S.modal && S.modal.tipo === 'fichaCl' && !clientePorId(S.modal.id)) S.modal = null;
+      repintar();
+      if (!S.modal) renderModal();
+      abrirDesdeEnlace();
+      setTimeout(reintentarEnvios, 0);
+    }).catch(function (e) {
+      if (!S.token) return;
+      if (CL.estado !== 'ok') {
+        CL.estado = 'error';
+        CL.error = bonito(e.message);
+        renderTabs();
+        renderCl();
+      }
+    });
+  }
+  function limpiarCl() {
+    CL.estado = 'cargando';
+    CL.error = null;
+    CL.acciones = [];
+    CL.clientes = Object.create(null);
+    CL.items = [];
+    CL.busca = '';
+    CL.fechaPara = null;
+  }
 
   /* ---------------------------------------------------------- sesión y carga */
   function mostrarLogin(msg) {
@@ -3062,11 +3780,12 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function cargar() {
     if (!S.token) return Promise.resolve();
     var pintando = false, gen = S.escrituras;
+    cargarCl();
     return rpc('wa_bv_datos', { p_token: S.token }).then(function (d) {
       if (S.escrituras !== gen && S.estado === 'ok') return cargar();   // llegó vieja: se anotó algo mientras tanto
       pintando = true;
       d = d || {};
-      S.items = Array.isArray(d.adjuntos) ? d.adjuntos : [];
+      S.items = (Array.isArray(d.adjuntos) ? d.adjuntos : []).filter(function (i) { return Number(i.dia) < 11 || Number(i.dia) > 20; }).concat(CL.items);
       S.asesores = Array.isArray(d.asesores) ? d.asesores : [];
       S.asesores.forEach(aplicarPendientes);
       S.asesoresError = d.asesores_error ? String(d.asesores_error) : '';
@@ -3142,6 +3861,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     S.borrando = null;
     S.plantillas = [];
     S.modal = null;
+    limpiarCl();
     renderModal();
     renderTabs();
     mostrarLogin(msg);
@@ -3170,7 +3890,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   });
   setInterval(alDia, 5 * 60 * 1000);
 
-  S.vista = ENLACE.v === 'seguimiento' || ENLACE.v === 'sg' || (!ENLACE.v && !ENLACE.a && lsGet(LS_VISTA) === 'sg') ? 'sg' : 'bv';
+  S.vista = ENLACE.v ? vistaDeEnlace(ENLACE.v) : ENLACE.c ? 'cs' : ENLACE.a ? 'bv' : (VISTAS.indexOf(lsGet(LS_VISTA)) >= 0 ? lsGet(LS_VISTA) : 'bv');
   cambiarVista(S.vista);
   function arrancar() {
     S.token = lsGet(LS_TOKEN);

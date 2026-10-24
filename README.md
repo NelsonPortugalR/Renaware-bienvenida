@@ -1,6 +1,9 @@
 # Bienvenida por WhatsApp · Equipo Arequipa
 
-Todos los mensajes de WhatsApp a cada nuevo asesor, en dos pestañas:
+Todos los mensajes de WhatsApp del equipo, en dos grupos: **Asesores** y
+**Clientes**, cada uno con sus pestañas de Bienvenida y Seguimiento.
+
+## Asesores
 
 - **Bienvenida** (días 1 a 5): un mini entrenamiento de 5 mensajes, uno por
   día, con sus archivos. La meta: que aprenda lo básico y venga a capacitarse
@@ -11,6 +14,32 @@ Todos los mensajes de WhatsApp a cada nuevo asesor, en dos pestañas:
 
 5 clases dentro de su plazo de 30 días = botella de acero, el adelanto del
 Empiece Ya.
+
+## Clientes
+
+Los mensajes a quienes compraron, con los datos que carga **Pedidos**
+(`crm_pedidos`, cada período) y una sola fuente de verdad: la función
+`crm_acciones()` de Supabase, que leen Pedidos y esta página.
+
+- **Bienvenida** (por pedido entregado): *Al recibir* (video de lavado y
+  recomendaciones según lo que compró: ollas, sartenes, filtro, cocina, olla a
+  presión, purificador), *Una semana · Nutri Sensor* y *Un mes · brillo y Rena
+  Lite* si compró ollas, y *Un mes antes de terminar sus cuotas* si compró al
+  crédito. Cada paso tiene su tarjeta con archivos para mandar y su texto.
+- **Seguimiento** (por cliente y filtro): cambio de **pre-filtro** (12 meses),
+  **filtro principal / elemento desechable** (48 meses) y **filtro de aire**
+  (18 meses). El ciclo corre desde la entrega del sistema o la compra del
+  último repuesto de ese filtro, lo que sea más reciente; se avisa un mes
+  antes. «Cambio hecho» (con fecha) reinicia el ciclo; «Ya no aplica» lo
+  cierra; un aviso lo deja en *Avisados, esperando el cambio* 30 días.
+- **Ficha del cliente**: celular, trato, lo que compró, sus mensajes de
+  bienvenida y sus filtros, otro mensaje a mano y todo lo anotado. Enlace
+  `#c=<cliente_id>` (lo usa Pedidos) y `#v=clientes|filtros`.
+- Lo anotado va a `crm_seguimiento` (`modo`: whatsapp, aviso, omitido,
+  cambio, noaplica) por `wa_cl_envio_registrar` / `wa_cl_envio_anular`; el
+  trato por cliente en `clientes.trato` (`wa_cl_trato_guardar`); los textos
+  editados en `n0_plantillas` con claves `cl_*`; los archivos en
+  `wa_bv_adjuntos` con `dia` 11 a 17. Todo entra por `wa_cl_datos`.
 
 ## Qué hace
 
@@ -101,7 +130,7 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 138 aserciones y capturas en /tmp/bv-*.png
+node pruebas/prueba.js   # Chromium real con un Supabase falso; 181 aserciones y capturas en /tmp/bv-*.png
 ```
 
 ## Despliegue
