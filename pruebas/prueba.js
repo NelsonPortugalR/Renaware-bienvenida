@@ -30,16 +30,37 @@ const AHORA = new Date('2026-10-21T10:00:00-05:00');
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ---------------- Supabase falso ---------------- */
+const TEXTO_VIDEO = {
+  ut: 'Los utensilios de Rena Ware son de acero inoxidable de grado quirúrgico.',
+  fi: 'El Aqua Nano es un filtro de agua que elimina quistes, bacterias y virus.',
+  ex: 'El Nutrex Press Elite usa una tecnología de prensado al frío.',
+  co: 'La Cocina de Inducción es portátil y pesa menos que una laptop.'
+};
 const SEMILLAS = [
-  [1, 'video', 'Video de bienvenida'], [2, 'video', 'Video del Kit de Inicio'], [2, 'pdf', 'Folleto de las ollas'],
-  [2, 'video', 'Video de las ollas'], [2, 'pdf', 'Folleto del filtro'], [2, 'video', 'Video del filtro'],
-  [2, 'video', 'Video del detector'], [2, 'video', 'Video de la cocina'], [2, 'pdf', 'Catálogo de productos'],
+  [1, 'video', 'Video de bienvenida'], [2, 'video', 'Video del Kit de Inicio'],
+  [2, 'video', 'Video de los utensilios', TEXTO_VIDEO.ut], [2, 'video', 'Video del filtro', TEXTO_VIDEO.fi],
+  [2, 'video', 'Video del extractor', TEXTO_VIDEO.ex], [2, 'video', 'Video de la cocina de inducción', TEXTO_VIDEO.co], [2, 'pdf', 'Catálogo de productos'],
   [3, 'pdf', 'Lista de precios general'], [3, 'pdf', 'Lista de promociones vigentes'], [4, 'video', 'Video de Empiece Ya'],
-  [5, 'imagen', 'Imagen del próximo sorteo']
+  [5, 'imagen', 'Imagen del próximo sorteo'], [5, 'pdf', 'Guía para sacar citas']
 ];
 let uid = 100;
 const nuevoId = () => '00000000-0000-4000-8000-' + String(++uid).padStart(12, '0');
 
+// el catálogo de Premios (pr_catalogo): Empiece Ya vigente del 3 de setiembre al 25 de noviembre
+const EMPIECE_YA = [
+  ['Nivel I', 'Utensilio de 1.5L + Botella de Acero Inoxidable', 'En tus primeras 4 semanas: 750 PPV + 2 nuevos afiliados.'],
+  ['Nivel II', 'Utensilio de 1.5L + Botella de Acero Inoxidable + Multi Cooker', 'En tus primeras 4 semanas: 1,500 PPV + 3 nuevos afiliados.'],
+  ['Nivel III', 'Utensilio de 1.5L + Botella de Acero Inoxidable + Olla a Presión 8 L', 'En tus primeras 4 semanas: 3,500 GPV o ascender a Desarrollador(a) de Equipo, + 4 nuevos afiliados (mínimo 750 PPV).'],
+  ['Nivel IV', 'Asistencia al Tour Élite Zylstra + Convención Internacional 2027', '5 ganadores personales ¡Empiece Ya! hasta 3 periodos después de ganar el Nivel III. Viaje personal e intransferible.']
+].map(([nivel, premio, requisito]) => ({ nivel, premio, requisito, desde: '2026-09-03', hasta: '2026-11-25' }));
+// períodos de 14 días desde el jueves 25 de diciembre de 2025, como periodo_inicio()
+function periodos() {
+  const i0 = Math.floor(dias('2025-12-25', HOY) / 14), out = [];
+  for (let i = i0 - 8; i <= i0 + 8; i++) { const desde = sumar('2025-12-25', i * 14); out.push({ desde, cierre: sumar(desde, 13) }); }
+  return out;
+}
+// el código que está en la base de asesores (eq_personas), por DNI
+const CODIGO_POR_DNI = { '45678901': '1770021' };
 // quién afilió a cada uno (registros.asesor); a los demás no se les conoce
 const AFILIADOR = { n1: 'JULIA BEATRIZ MARON LIMACHI', n3: 'Portugal Research International SAC', n4: 'Vilma Durán Cruz', s2: 'Henry Gallegos Ccahuana' };
 const db = {
@@ -73,7 +94,7 @@ const db = {
     ['n2', 'NORMA NO ENTRA', '959000022', '2026-10-10', null],              // día 12, ✗ → le tocaría «Va una semana», pero no entra
     ['n3', 'PEDRO MARCAR SEGUIMIENTO', '959000023', '2026-10-12', null],    // día 10, sin marcar → por marcar en Seguimiento
     ['n4', 'QUIQUE MARCAR TAMBIEN', '959000024', '2026-10-14', null]        // día 8, sin marcar
-  ].map(([id, nombre, celular, fecha_inscripcion, codigo]) => ({ id, nombre, celular, fecha_inscripcion, codigo, afiliador: AFILIADOR[id] || null })),
+  ].map(([id, nombre, celular, fecha_inscripcion, codigo]) => ({ id, nombre, celular, fecha_inscripcion, codigo, afiliador: AFILIADOR[id] || null, dni: id === 'n1' ? '45678901' : null })),
   estado: { s11: { excluido: true } },
   ey: { s9: true },
   clases: [],
@@ -115,9 +136,9 @@ anota('s14', 'bv1', '2026-10-19');
 anota('s15', 'bv1', '2026-10-18');
 
 const porDia = {};
-SEMILLAS.forEach(([dia, tipo, nombre], i) => {
+SEMILLAS.forEach(([dia, tipo, nombre, descripcion], i) => {
   porDia[dia] = (porDia[dia] || 0) + 1;
-  db.adjuntos.push({ id: 'a' + (i + 1), dia, orden: porDia[dia], tipo, nombre, descripcion: '', ruta: null, archivo: null, bytes: null, content_type: null, borrado: false });
+  db.adjuntos.push({ id: 'a' + (i + 1), dia, orden: porDia[dia], tipo, nombre, descripcion: descripcion || '', ruta: null, archivo: null, bytes: null, content_type: null, borrado: false });
 });
 
 /* Igual que n0_inscritos_json + wa_bv_asesor_json */
@@ -135,7 +156,7 @@ function asesor(p) {
   else estado = 'vencio';
   return {
     id: p.id, nombre: p.nombre, afiliador: p.afiliador || null, celular: p.celular, inicio, vence,
-    codigo: /^\d{5,7}$/.test(p.codigo || '') ? p.codigo : null,
+    codigo: /^\d{5,7}$/.test(p.codigo || '') ? p.codigo : (CODIGO_POR_DNI[p.dni] || null),
     estado, validas: val.length, trato: e.trato || null,
     logro_fecha: val.length >= meta ? val[meta - 1].fecha : null,
     botella_entregada_en: e.botella_entregada_en || null, ey: !!db.ey[p.id],
@@ -240,7 +261,8 @@ function rpc(fn, a) {
     return ok({
       hoy: HOY, ajustes: db.ajustes, adjuntos: db.adjuntos.filter((x) => !x.borrado).map(limpio),
       nivel0: { meta: db.cfg.clases_meta, plazo: db.cfg.dias_plazo, horarios: db.cfg.horarios, trato: db.cfg.trato },
-      asesores: errorAsesores ? [] : asesores, asesores_error: errorAsesores, plantillas: db.plantillas.map((x) => Object.assign({}, x))
+      asesores: errorAsesores ? [] : asesores, asesores_error: errorAsesores, plantillas: db.plantillas.map((x) => Object.assign({}, x)),
+      empiece_ya: EMPIECE_YA, periodos: periodos()
     });
   }
   if (fn === 'wa_bv_envio_registrar') {
@@ -375,7 +397,9 @@ async function conectar(ctx) {
       const ruta = decodeURIComponent(url.pathname.slice(pub.length));
       const a = db.archivos[ruta];
       if (!a) return route.fulfill({ status: 404, headers: CORS, body: 'not found' });
-      return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': a.type, 'content-length': String(a.body.length) }, CORS), body: a.body });
+      const h = { 'content-type': a.type, 'content-length': String(a.body.length) };
+      if (url.searchParams.has('download')) h['content-disposition'] = "attachment; filename*=UTF-8''" + encodeURIComponent(url.searchParams.get('download') || ruta.split('/').pop());
+      return route.fulfill({ status: 200, headers: Object.assign(h, CORS), body: a.body });
     }
     const sub = '/storage/v1/object/wa-media/';
     if (url.pathname.startsWith(sub) && req.method() === 'POST') {
@@ -446,17 +470,18 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.fill('#clave', 'secreta');
     await page.click('#btn-entrar');
     await page.waitForSelector('#vista-app:not([hidden])');
-    await page.waitForFunction(() => document.querySelectorAll('.file').length >= 13);
+    await page.waitForFunction(() => document.querySelectorAll('.file').length >= 12);
     ok((await page.evaluate(() => localStorage.getItem('wa-bv-token'))) === 'tok-1', 'guarda la sesión');
 
     console.log('Datos de Supabase y Nivel Cero');
-    ok((await page.$$eval('.file', (l) => l.length)) === 13, 'muestra los 13 espacios de archivos');
-    ok((await page.$$eval('#files-2 .file', (l) => l.length)) === 8, 'el día 2 tiene 8 archivos');
+    ok((await page.$$eval('.file', (l) => l.length)) === 12, 'muestra los 12 espacios de archivos');
+    ok((await page.$$eval('#files-2 .file', (l) => l.length)) === 6 && !/Folleto/.test(await page.textContent('#files-2')), 'el día 2 tiene 6 archivos, sin folletos');
+    ok(/Video del extractor[^]*?Va con el video, debajo:\s*El Nutrex Press Elite/.test(await page.textContent('#files-2')), 'cada video muestra el texto que va con él', (await page.textContent('#files-2')).slice(0, 400));
     ok((await page.$eval('#h-dia-0', (e) => e.value)) === '2' && (await page.$eval('#h-hora-0', (e) => e.value)) === '09:30', 'el horario viene de Nivel Cero');
     ok((await page.textContent('#horario-resumen')) === 'Mar 9:30 a. m. · Mié 4:00 p. m. · Vie 4:30 p. m.', 'el horario se resume arriba', await page.textContent('#horario-resumen'));
     const opciones = await page.$$eval('#asesor-sel option', (l) => l.map((o) => o.textContent));
-    ok(opciones.length === 19, 'para elegir: los 18 nuevos de los últimos 45 días más «a mano»', opciones.length);
-    ok(opciones.some((t) => /Norma No Entra .*no entra a la secuencia/.test(t)) && opciones.some((t) => /Nadia Nueva Marcar .*por marcar/.test(t)), 'y dice quién no entra o falta marcar', opciones.join(' | '));
+    ok(opciones.length === 18, 'para elegir: los 17 nuevos de los últimos 45 días que pueden entrar, más «a mano»', opciones.length);
+    ok(!opciones.some((t) => /Norma No Entra/.test(t)) && opciones.some((t) => /Nadia Nueva Marcar .*por marcar/.test(t)), 'no lista a quien no entra a la secuencia y dice a quién falta marcar', opciones.join(' | '));
     ok(!opciones.some((t) => /Rosa Antigua|Hugo/.test(t)), 'no lista a los de hace más de 45 días ni a los excluidos');
     ok((await page.textContent('#aj-resumen')).includes('Promoción 5'), 'carga la promoción guardada');
 
@@ -476,8 +501,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
       (await page.textContent('#bvst-1')) + ' / ' + (await page.textContent('#bvst-2')));
     ok(await page.evaluate(() => { const r = document.getElementById('dia-2').getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0; }), 'y lleva a su día');
     const u2 = await popup('#wa-2');
-    ok(u2.startsWith('https://wa.me/51959000014?text=') && u2.includes('Día 2 de 30'), 'abre su chat con el texto del día 2', u2.slice(0, 120));
-    ok(vivos('s14', 'bv2').length === 1 && /Día 2 de 30/.test(vivos('s14', 'bv2')[0].texto || ''), 'queda anotado como bv2, con su texto');
+    ok(u2.startsWith('https://wa.me/51959000014?text=') && u2.includes('Día 3 de 30') && u2.includes('Video del extractor Nutrex Press') && !/Folleto/.test(u2), 'abre su chat con el día 2: como va tarde, dice su día real (3 de 30)', u2.slice(0, 160));
+    ok(vivos('s14', 'bv2').length === 1 && /Día 3 de 30/.test(vivos('s14', 'bv2')[0].texto || ''), 'queda anotado como bv2, con su texto');
     ok((await page.textContent('#bvst-2')).includes('Enviado el mié 21 oct'), 'la tarjeta pasa a enviado');
     const tomas = await page.$eval('#bv-hoy [data-id="s14"]', (b) => b.closest('.hoy-row').innerText.replace(/\s+/g, ' ')).catch(() => '');
     ok(/Día 3 · Precios y promociones/.test(tomas) && !/tocaba/.test(tomas), 'y le toca el día 3, que es hoy', tomas);
@@ -523,6 +548,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.inputValue('#fecha')) === HOY, 'toma la fecha de inicio');
     const m1 = await page.textContent('#msg-1');
     ok(m1.includes('¡Felicitaciones, Ana!'), 'el día 1 la saluda por su nombre');
+    ok(m1.includes('Día 1 de 30') && m1.includes('Hoy empieza tu camino en Rena Ware') && !/te quedan/.test(m1), 'si sale en su día: «Día 1 de 30» y «hoy empieza»');
     ok(m1.includes('Tu código de asesor: 1234567'), 'el día 1 lleva su código');
     ok(m1.includes('Martes, 9:30 a. m.') && m1.includes('Viernes, 4:30 p. m.'), 'el día 1 lista el horario');
     ok(m1.includes('Av. Cayma 628, Of. 502, a media cuadra de la Av. Ejército.'), 'el día 1 lleva dirección y referencia');
@@ -533,14 +559,33 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(wa1.startsWith('https://wa.me/51987654321?text=') && decodeURIComponent(wa1).includes('Felicitaciones, Ana'), 'abre el chat del asesor con el texto');
     const m3 = await page.textContent('#msg-3');
     ok(m3.includes('S/ 9,629') && m3.includes('promoción 5') && m3.includes('S/ 793') && m3.includes('S/ 1,700 menos'), 'el día 3 arma precios con los datos guardados');
-    const m4 = await page.textContent('#msg-4');
-    ok(m4.includes('Costa Rica') && !m4.includes('S/ 1'), 'el día 4 lleva el Nivel 4 y no menciona S/ 1 por punto');
+    const m4 = (await page.textContent('#msg-4')).replace(/\s+/g, ' ');
+    ok(/Nivel I: 750 puntos \+ 2 nuevos afiliados\s*🎁 Utensilio de 1\.5L \+ Botella de Acero Inoxidable/.test(m4) &&
+      /Nivel III: 3,500 puntos entre tú y tu equipo o ascender a Desarrollador\(a\) de Equipo, \+ 4 nuevos afiliados \(mínimo 750 puntos tuyos\)\s*🎁 Utensilio de 1\.5L \+ Botella de Acero Inoxidable \+ Olla a Presión 8 L/.test(m4),
+      'el día 4 lleva los niveles del Empiece Ya del catálogo vigente en su ingreso', m4);
+    ok(/concursar por el Nivel IV \(5 ganadores personales ¡Empiece Ya! hasta 3 periodos después de ganar el Nivel III\): Asistencia al Tour Élite Zylstra \+ Convención Internacional 2027 ✈️/.test(m4) && !/Costa Rica|Nutrex/.test(m4),
+      'y el Nivel IV con su premio de hoy', m4);
+    ok(/Tienes hasta el miércoles 25 de noviembre para lograrlo\./.test(m4) && /Cualquier duda, me la haces saber\./.test(m4) && !/¿Qué nivel quieres ganar\?/.test(m4) && !m4.includes('S/ 1'),
+      'su plazo es el de Nivel Cero (su período y dos más) y ya no pregunta qué nivel quiere', m4);
+    ok(!(await page.isVisible('#warn-4')), 'con el catálogo vigente, el día 4 no avisa nada');
     await page.selectOption('#asesor-sel', 'p2');
     ok((await page.inputValue('#celular')) === '911222333', 'quita el 51 del celular');
     ok((await page.isVisible('#warn-1')) && (await page.textContent('#warn-1')).includes('código de asesor'), 'sin código, el día 1 avisa antes de enviar');
     ok((await page.textContent('#when-1')).includes('Tocaba'), 'si ya pasó su día, avisa que tocaba');
+    const m1t = (await page.textContent('#msg-1')).replace(/\s+/g, ' ');
+    ok(m1t.includes('Día 11 de 30') && m1t.includes('Ya empezaste tu camino en Rena Ware') && m1t.includes('hasta el martes 10 de noviembre (te quedan 20 días)'),
+      'si sale tarde: su día real, «ya empezaste» y cuántos días le quedan', m1t.slice(0, 600));
+    ok((await page.textContent('#msg-2')).includes('Día 11 de 30') && (await page.textContent('#msg-5')).includes('Día 11 de 30'), 'los demás días también dicen en qué día va');
+    await page.selectOption('#asesor-sel', 'n1');
+    ok((await page.inputValue('#codigo')) === '1770021' && (await page.textContent('#msg-1')).includes('Tu código de asesor: 1770021'), 'el código sale solo de la base de asesores (por su DNI)');
     await page.click('#reset');
     ok(await page.isHidden('#bvst-1'), 'a mano no hay nada que anotar');
+    await page.fill('#fecha', '2026-12-10');
+    await esperar(100);
+    ok(/no tiene un Empiece Ya vigente para su fecha de ingreso/.test(await page.textContent('#warn-4')) && (await page.textContent('#msg-4')).includes('Nivel III'),
+      'si el catálogo no tiene un Empiece Ya vigente para su fecha, usa el último y lo avisa', await page.textContent('#warn-4'));
+    await page.fill('#fecha', HOY);
+    await esperar(100);
 
     console.log('Promoción');
     await page.click('#aj-panel summary').catch(() => {});
@@ -554,7 +599,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     console.log('Archivos');
     const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('#add-5')]);
     await fc.setFiles({ name: 'Sorteo de noviembre.png', mimeType: 'image/png', buffer: PNG_1x1 });
-    await page.waitForFunction(() => document.querySelectorAll('#files-5 .file').length === 2 && !document.querySelector('#files-5 .is-busy'));
+    await page.waitForFunction(() => document.querySelectorAll('#files-5 .file').length === 3 && !document.querySelector('#files-5 .is-busy'));
     ok(hubo((l) => l.fn === 'storage' && l.args.ruta.startsWith('bienvenida/d5/') && l.args.apikey), 'sube el archivo a wa-media/bienvenida con la clave publicable');
     ok(hubo((l) => l.fn === 'wa_bv_adjunto_guardar' && l.args.p_id === null && l.args.p_datos.dia === 5 && l.args.p_datos.tipo === 'imagen'), 'registra el archivo nuevo como imagen');
     ok(await page.isVisible('#files-5 .fedit'), 'abre la edición del archivo nuevo');
@@ -566,13 +611,21 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
 
     const [fc2] = await Promise.all([page.waitForEvent('filechooser'), page.click('#files-1 [data-act="subir"]')]);
     await fc2.setFiles({ name: 'bienvenida.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4096, 7) });
-    await page.waitForSelector('#files-1 [data-act="compartir"]');
+    await page.waitForSelector('#files-1 a[data-descargar]');
     ok((await page.textContent('#files-1 .fmeta')).includes('Video'), 'el espacio del día 1 queda con su video');
+    ok(/\?download=Video%20de%20bienvenida\.mp4$/.test(await page.getAttribute('#files-1 a[data-descargar]', 'href')) && !(await page.$('#files-1 [data-act="compartir"]')),
+      'cada archivo tiene «Descargar» (en la computadora no hay menú de compartir)');
     const [descarga] = await Promise.all([
       page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
-      page.click('#files-1 [data-act="compartir"]')
+      page.click('#files-1 a[data-descargar]')
     ]);
-    ok(descarga && descarga.suggestedFilename() === 'Video de bienvenida.mp4', 'sin menú de compartir, lo descarga con su nombre');
+    ok(descarga && descarga.suggestedFilename() === 'Video de bienvenida.mp4', 'y se descarga con su nombre', descarga && descarga.suggestedFilename());
+    // la guía para sacar citas: al subirla, el mensaje del día 5 la menciona
+    ok(!(await page.textContent('#msg-5')).includes('guía en PDF'), 'sin la guía subida, el día 5 no la menciona');
+    const [fc3] = await Promise.all([page.waitForEvent('filechooser'), page.click('#files-5 [data-act="subir"][data-id="a12"]')]);
+    await fc3.setFiles({ name: 'citas.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 prueba') });
+    await page.waitForFunction(() => !!document.querySelector('#files-5 a[data-descargar][href*="Gu%C3%ADa%20para%20sacar%20citas.pdf"]'));
+    ok((await page.textContent('#msg-5')).includes('Te comparto también una guía en PDF sobre cómo sacar citas'), 'con la guía subida, el día 5 la menciona');
 
     const antes = await page.$$eval('#files-2 .fname', (l) => l.map((x) => x.textContent));
     await page.click('#files-2 [data-act="editar"]');
@@ -581,11 +634,38 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(250);
     const despues = await page.$$eval('#files-2 .fname', (l) => l.map((x) => x.textContent));
     ok(despues[0] === antes[1] && despues[1] === antes[0], 'baja un archivo en la lista');
-    ok(hubo((l) => l.fn === 'wa_bv_ordenar' && l.args.p_ids.length === 8), 'guarda el nuevo orden');
+    ok(hubo((l) => l.fn === 'wa_bv_ordenar' && l.args.p_ids.length === 6), 'guarda el nuevo orden');
     await page.click('#files-2 [data-act="eliminar"]');
     await page.click('#files-2 [data-act="confirmar-eliminar"]');
-    await page.waitForFunction(() => document.querySelectorAll('#files-2 .file').length === 7);
+    await page.waitForFunction(() => document.querySelectorAll('#files-2 .file').length === 5);
     ok(hubo((l) => l.fn === 'wa_bv_adjunto_borrar'), 'quita el archivo');
+
+    console.log('Compartir con su texto');
+    {
+      // un celular con menú de compartir: el video va con su texto, y el texto además queda copiado
+      const ctxCel = await browser.newContext({ viewport: { width: 400, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'], timezoneId: 'America/Lima', reducedMotion: 'reduce' });
+      await conectar(ctxCel);
+      await ctxCel.addInitScript(() => {
+        window.__compartido = [];
+        Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+        Object.defineProperty(navigator, 'share', { configurable: true, value: (d) => { window.__compartido.push({ archivos: (d.files || []).map((f) => f.name), texto: d.text || null }); return Promise.resolve(); } });
+        try { localStorage.setItem('wa-bv-token', 'tok-1'); } catch (e) {}
+      });
+      db.adjuntos.find((x) => x.nombre === 'Video de bienvenida').descripcion = 'Mira este video con calma.';
+      const cel = await ctxCel.newPage();
+      await cel.clock.setFixedTime(AHORA);
+      cel.on('pageerror', (e) => errores.push(e.message));
+      await cel.goto(base + '?cel=1');
+      await cel.waitForSelector('#files-1 [data-act="compartir"]');
+      ok(!!(await cel.$('#files-1 a[data-descargar]')) && /Va con el video, debajo:\s*Mira este video con calma\./.test(await cel.textContent('#files-1')), 'en el celular: Compartir y Descargar, y el texto que va con el video');
+      await cel.click('#files-1 [data-act="compartir"]');
+      await cel.waitForFunction(() => window.__compartido.length > 0, null, { timeout: 5000 }).catch(() => {});
+      const comp = await cel.evaluate(() => window.__compartido[0] || null);
+      ok(!!comp && comp.archivos[0] === 'Video de bienvenida.mp4' && comp.texto === 'Mira este video con calma.', 'Compartir manda el video con su texto debajo', JSON.stringify(comp));
+      ok((await cel.evaluate(() => navigator.clipboard.readText())) === 'Mira este video con calma.' && /El texto quedó copiado/.test(await cel.textContent('#toast')), 'y deja el texto copiado, por si WhatsApp no lo pone');
+      await ctxCel.close();
+      db.adjuntos.find((x) => x.nombre === 'Video de bienvenida').descripcion = '';
+    }
 
     console.log('Texto');
     await page.click('[data-copy="1"]');

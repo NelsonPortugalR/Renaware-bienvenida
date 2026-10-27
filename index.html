@@ -420,6 +420,7 @@ details[open] .chev { transform: rotate(180deg); }
 .fbtns { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; }
 .fdesc { display: grid; gap: 4px; padding: 8px 10px; border-radius: 9px; background: var(--surface-2); }
 .fdesc p { margin: 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.fdesc p.fdesc-h { font-size: 12.5px; font-weight: 700; color: var(--muted); }
 .thumb { display: block; max-width: 100%; max-height: 160px; width: auto; border-radius: 8px; border: 1px solid var(--line); }
 .vid { display: block; width: 100%; max-height: 280px; border-radius: 8px; background: #000; }
 .fedit { display: grid; gap: 10px; padding: 12px; border-radius: 10px; background: var(--surface-2); }
@@ -1127,6 +1128,71 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     if (!hs.length) return '[horario de capacitaciones]';
     return hs.map(function (s) { return '• ' + DIAS_CAP[s.dow] + ', ' + fmtHora(s.h, s.m); }).join('\n');
   }
+  /* Cuándo sale el mensaje n: el día que le toca o, si ya pasó, hoy. Y en qué día de sus 30 está. */
+  function fechaEnvio(ctx, n) {
+    var hoy = startOfDay(ctx.ahora), plan = plannedDate(ctx, n);
+    return plan && plan.getTime() > hoy.getTime() ? plan : hoy;
+  }
+  function vaTarde(ctx, n) { var plan = plannedDate(ctx, n); return !!plan && startOfDay(ctx.ahora).getTime() > plan.getTime(); }
+  function diaDeEnvio(ctx, n) {
+    var ini = parseISO(ctx.fecha);
+    if (!ini) return n;
+    return Math.max(n, Math.min(diasEntre(ini, fechaEnvio(ctx, n)) + 1, ctx.plazo || 30));
+  }
+
+  /* Empiece Ya: los niveles salen del catálogo de Premios (pr_catalogo), de la edición vigente en su
+     fecha de ingreso; si no hay una vigente, de la última cargada antes (y la tarjeta lo avisa). */
+  var ROMANOS = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
+  function nivelNum(nv) { var m = /Nivel\s+([IVX]+)\b/.exec(nv || ''); return m ? (ROMANOS[m[1]] || 9) : 9; }
+  function edicionEY(fechaISO) {
+    var l = (S.empieceYa || []).filter(function (r) { return r && r.nivel && r.desde; });
+    if (!l.length) return null;
+    var f = fechaISO || hoyISO();
+    var vig = l.filter(function (r) { return r.desde <= f && (!r.hasta || f <= r.hasta); });
+    var antes = l.filter(function (r) { return r.desde <= f; });
+    var base = vig.length ? vig : antes.length ? antes : l;
+    var desde = base.map(function (r) { return r.desde; }).sort()[vig.length || antes.length ? base.length - 1 : 0];
+    var niveles = base.filter(function (r) { return r.desde === desde; }).sort(function (a, b) { return nivelNum(a.nivel) - nivelNum(b.nivel); });
+    return { niveles: niveles, vigente: vig.length > 0, desde: desde };
+  }
+  function requisitoCorto(t) {
+    return String(t || '').replace(/^\s*En tus primeras? \d+ semanas?:\s*/i, '')
+      .replace(/m[ií]nimo\s+([\d.,]+)\s*PPV/gi, 'mínimo $1 puntos tuyos')
+      .replace(/([\d.,]+)\s*GPV/g, '$1 puntos entre tú y tu equipo')
+      .replace(/([\d.,]+)\s*PPV/g, '$1 puntos')
+      .split(/\.\s+/)[0].replace(/\s*\.\s*$/, '').trim();
+  }
+  /* Plazo del Empiece Ya, igual que en Nivel Cero: el período en que ingresó y dos más. */
+  function finEY(fechaISO) {
+    var ps = S.periodos || [];
+    for (var i = 0; i < ps.length; i++) {
+      if (ps[i].desde <= fechaISO && fechaISO <= ps[i].cierre) return ps[i + 2] ? ps[i + 2].cierre : null;
+    }
+    return null;
+  }
+  function valoresEY(ctx) {
+    var ed = edicionEY(ctx.fecha), fin = ctx.fecha ? finEY(ctx.fecha) : null;
+    var v = { EY_FECHA: fin ? fmtLargo(parseISO(fin)) : '[fecha del Empiece Ya]', EY_NIVELES: '[niveles del Empiece Ya]', EY_IMPULSO: '' };
+    if (!ed || !ed.niveles.length) return v;
+    var l = ed.niveles, top = l.length >= 4 ? l[l.length - 1] : null, lista = top ? l.slice(0, -1) : l;
+    v.EY_NIVELES = lista.map(function (r) { return '*' + r.nivel + ':* ' + requisitoCorto(r.requisito) + '\n🎁 ' + String(r.premio || '').trim(); }).join('\n\n');
+    var primero = lista[0].nivel, ultimo = lista[lista.length - 1].nivel;
+    v.EY_IMPULSO = 'Asegura tu ' + primero + ' cuanto antes' + (lista.length > 1 ? ' y, si ya lo tienes, ¡corre por el ' + ultimo + '!' : '.') +
+      (top ? ' Te da la opción de concursar por el *' + top.nivel + '* (' + requisitoCorto(top.requisito) + '): *' + String(top.premio || '').trim() + '* ' +
+        (/viaje|tour|convenci/i.test(top.premio || '') ? '✈️' : '🏆') : '');
+    return v;
+  }
+  /* Lo que la tarjeta avisa aparte de los datos que faltan. */
+  function avisosDia(n, ctx) {
+    if (n !== 4) return [];
+    var ed = edicionEY(ctx.fecha);
+    return ed && !ed.vigente ? ['El catálogo de Premios no tiene un Empiece Ya vigente para su fecha de ingreso: el texto usa el último cargado. Revísalo en Premios.'] : [];
+  }
+  /* Si ya subiste un PDF en el día 5, el texto lo menciona. */
+  function guiaCitas() {
+    return S.items.some(function (i) { return Number(i.dia) === 5 && i.ruta && tipoDeItem(i) === 'pdf'; })
+      ? '\n\n📄 Te comparto también una guía en PDF sobre cómo sacar citas. Revísala con calma: te va a ayudar mucho.' : '';
+  }
   function valores(ctx, n) {
     var a = ctx.ajustes || {};
     var gourmet = num(a.gourmetPrecio);
@@ -1140,7 +1206,18 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
       : '';
     var direccion = String(a.direccion || '').trim().replace(/[\s.]+$/, '');
     var referencia = String(a.referencia || '').trim().replace(/[\s.]+$/, '');
+    var tarde = vaTarde(ctx, n), lim = fechaLimite(ctx.fecha, ctx.plazo);
+    var quedan = lim ? diasEntre(fechaEnvio(ctx, n), lim) : null;
+    var ey = n === 4 ? valoresEY(ctx) : {};
     return {
+      DIA: String(diaDeEnvio(ctx, n)),
+      PLAZO: String(ctx.plazo || 30),
+      EMPIEZA: tarde ? 'Ya empezaste tu camino en Rena Ware.' : 'Hoy empieza tu camino en Rena Ware.',
+      QUEDAN: tarde && quedan > 0 ? ' (te ' + (quedan === 1 ? 'queda 1 día' : 'quedan ' + quedan + ' días') + ')' : '',
+      EY_FECHA: ey.EY_FECHA || '',
+      EY_NIVELES: ey.EY_NIVELES || '',
+      EY_IMPULSO: ey.EY_IMPULSO || '',
+      GUIA_CITAS: n === 5 ? guiaCitas() : '',
       COMA_NOMBRE: ctx.nombre ? ', ' + ctx.nombre : '',
       CODIGO: ctx.codigo || '[código]',
       DIRECCION: direccion || '[dirección]',
@@ -1167,9 +1244,9 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
       n: 1,
       title: 'Bienvenida, código y horario',
       goal: 'Que reciba su código, sepa dónde y cuándo capacitarse, y venga a la oficina.',
-      body: `📅 *Día 1 de 30*
+      body: `📅 *Día {DIA} de {PLAZO}*
 
-🎉 *¡Felicitaciones{COMA_NOMBRE}! Hoy empieza tu camino en Rena Ware.*
+🎉 *¡Felicitaciones{COMA_NOMBRE}! {EMPIEZA}*
 
 Te dejo este video de bienvenida. Míralo con calma.
 
@@ -1185,7 +1262,7 @@ Como parte del equipo, puedes participar en todas las reuniones que quieras, inv
 {HORARIO_LISTA}
 Por el grupo te avisaremos cuando haya eventos adicionales.
 
-🎁 *Te premiamos por capacitarte:* si asistes *5 veces* a la oficina en tus primeros 30 días, en cualquiera de estos horarios hasta el *{FECHA_LIMITE}*, te adelantamos tu *botella de acero Rena Ware*.
+🎁 *Te premiamos por capacitarte:* si asistes *5 veces* a la oficina en tus primeros 30 días, en cualquiera de estos horarios hasta el *{FECHA_LIMITE}*{QUEDAN}, te adelantamos tu *botella de acero Rena Ware*.
 
 👉 ¡Te esperamos {OPCIONES_O}!`
     },
@@ -1193,15 +1270,15 @@ Por el grupo te avisaremos cuando haya eventos adicionales.
       n: 2,
       title: 'Kit y material digital',
       goal: 'Que recoja su kit y empiece a conocer los productos con el material digital.',
-      body: `📅 *Día 2 de 30*
+      body: `📅 *Día {DIA} de {PLAZO}*
 
 🎒 *Tu Kit de Inicio viene con un detalle extra.* Si aún no lo tienes, ¡recógelo en la oficina!
 
 Mientras tanto, te comparto el material digital:
-• Folleto y video de las ollas
-• Folletos y video del filtro
-• Video del detector
-• Video de la cocina
+• Video de los utensilios
+• Video del filtro Aqua Nano
+• Video del extractor Nutrex Press
+• Video de la cocina de inducción
 • Catálogo de productos
 
 Revísalos con calma: te van a servir en tus primeras citas.
@@ -1214,7 +1291,7 @@ Mañana te comparto la lista de precios y las promociones.
       n: 3,
       title: 'Precios y promociones',
       goal: 'Que entienda las dos listas, cómo paga el cliente y el poder de las promociones.',
-      body: `📅 *Día 3 de 30*
+      body: `📅 *Día {DIA} de {PLAZO}*
 
 💰 *Precios y promociones: así funcionan*
 
@@ -1239,7 +1316,7 @@ Mañana te cuento qué premios puedes ganar por comprar o vender Rena Ware. 🏆
       n: 4,
       title: 'Empiece Ya',
       goal: 'Que conozca los niveles y su fecha límite, y vaya por el Nivel 1.',
-      body: `📅 *Día 4 de 30*
+      body: `📅 *Día {DIA} de {PLAZO}*
 
 🏆 *Empiece Ya: tus premios por empezar con todo*
 
@@ -1248,20 +1325,13 @@ Aparte de tus comisiones de venta o el descuento de tu autocompra, ganas estos p
 *Nivel 0:* 5 capacitaciones en la oficina
 🎁 Botella de acero. Viene en todos los niveles, por eso te la adelantamos.
 
-*Nivel 1:* 750 puntos (1 venta promedio) + 2 afiliados
-🎁 Además, utensilio de 1,5 litros
+{EY_NIVELES}
 
-*Nivel 2:* 1500 puntos + 3 afiliados
-🎁 Además, utensilio de 1,5 litros y Multi Cooker
+📆 Tienes hasta el *{EY_FECHA}* para lograrlo.
 
-*Nivel 3:* 3500 puntos entre tú y tu equipo (mínimo 750 tuyos) + 4 afiliados
-🎁 Además, utensilio de 1,5 litros y extractor Nutrex Press
+{EY_IMPULSO}
 
-📆 Tienes 30 días desde tu fecha de inicio para lograrlo, es decir, hasta el *{FECHA_LIMITE}*.
-
-Asegura tu Nivel 1 cuanto antes y, si ya lo tienes, ¡corre por el Nivel 3! Te da la opción de concursar por un *nivel oculto, el Nivel 4*, que te premia con un *viaje a Costa Rica todo pagado* ✈️
-
-¿Qué nivel quieres ganar? Cualquier duda, me la haces saber.
+Cualquier duda, me la haces saber.
 
 Mañana, en nuestro quinto y último mensaje, aprenderás a manejar y aprovechar las principales objeciones que te dirán las personas.`
     },
@@ -1269,7 +1339,7 @@ Mañana, en nuestro quinto y último mensaje, aprenderás a manejar y aprovechar
       n: 5,
       title: 'Citas y objeciones',
       goal: 'Que sepa sacar una cita con la frase de oro y responder a las objeciones.',
-      body: `📅 *Día 5 de 30*
+      body: `📅 *Día {DIA} de {PLAZO}*
 
 📲 *Cómo sacar citas y responder a las objeciones*
 
@@ -1277,7 +1347,7 @@ Para sacar citas tienes *2 herramientas*:
 🎟️ *Ticket de sorteo:* te envío la imagen del próximo sorteo. Solo por escuchar la presentación, inscribes a la persona.
 🎁 *Regalos:* para dar solo por escuchar.
 
-Si aún no tienes tus tickets o te faltan regalos, pídemelos en la próxima capacitación y con gusto te los entrego.
+Si aún no tienes tus tickets o te faltan regalos, pídemelos en la próxima capacitación y con gusto te los entrego.{GUIA_CITAS}
 
 Hay varias formas de prospectar, pero la más práctica es la *frase de oro*:
 💬 _"Estoy trabajando en Rena Ware. ¿Has escuchado de Rena Ware?"_
@@ -1304,7 +1374,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var v = valores(ctx, day.n);
     return day.body.replace(/\{([A-Z_]+)\}/g, function (m, k) {
       return Object.prototype.hasOwnProperty.call(v, k) ? v[k] : m;
-    });
+    }).replace(/\n{3,}/g, '\n\n');                     // lo que no aplica no deja renglones vacíos de más
   }
   function cuandoEnviar(ctx, n) {
     var plan = plannedDate(ctx, n);
@@ -1333,6 +1403,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     'comisión mínima': 'la comisión mínima',
     'comisión máxima': 'la comisión máxima',
     'próximas capacitaciones': 'el horario de capacitaciones',
+    'niveles del Empiece Ya': 'los niveles del Empiece Ya en el catálogo de Premios',
+    'fecha del Empiece Ya': 'la fecha de inicio',
     'horario de capacitaciones': 'el horario de capacitaciones'
   };
   var TIPOS = {
@@ -1451,6 +1523,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function rutaUrl(ruta) { return String(ruta).split('/').map(encodeURIComponent).join('/'); }
   function urlPublica(ruta) { return SB_URL + '/storage/v1/object/public/' + BUCKET + '/' + rutaUrl(ruta); }
+  /* El storage lo entrega como descarga, con su nombre (?download=). */
+  function urlDescarga(it) { return urlPublica(it.ruta) + '?download=' + encodeURIComponent(nombreParaGuardar(it)); }
   function subirStorage(file, ruta, mime, alAvanzar) {
     return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
@@ -1518,6 +1592,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     listo: {},
     colas: {},
     plantillas: [],
+    empieceYa: [],                                       // niveles del Empiece Ya por edición (catálogo de Premios)
+    periodos: [],                                        // períodos de 14 días, para el plazo del Empiece Ya
     asesoresError: false,
     vista: 'bv',
     modal: null,
@@ -1643,11 +1719,12 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var actual = asesorSel.value || guardadoAsesor.sel || '';
     var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
     var orden = { en_curso: 0, logro: 1, sin_seguimiento: 2, vencio: 3 };
-    var lista = S.asesores.filter(esReciente).sort(function (a, b) {
+    // quien no entra a la secuencia (✗) no sale para elegir
+    var lista = S.asesores.filter(function (a) { return esReciente(a) && marcaDe(a) !== false; }).sort(function (a, b) {
       return ((orden[a.estado] || 0) - (orden[b.estado] || 0)) || String(b.inicio).localeCompare(String(a.inicio));
     });
     asesorSel.innerHTML = '<option value="">Escribir los datos a mano</option>' + lista.map(function (a) {
-      var extra = (ESTADO_TXT[a.estado] ? ' · ' + ESTADO_TXT[a.estado] : '') + (marcaDe(a) === false ? ' · no entra a la secuencia' : porMarcar(a) ? ' · por marcar' : '');
+      var extra = (ESTADO_TXT[a.estado] ? ' · ' + ESTADO_TXT[a.estado] : '') + (porMarcar(a) ? ' · por marcar' : '');
       var etiqueta = titulo(a.nombre) + ' · desde ' + fCorta(a.inicio) + ' · ' + (a.validas || 0) + '/' + meta + ' clases' + extra;
       return '<option value="' + esc(a.id) + '">' + esc(etiqueta) + '</option>';
     }).join('');
@@ -1723,7 +1800,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var vence = fechaLimite(ctx.fecha, ctx.plazo);
     var n = diasEntre(ini, ctx.ahora) + 1;
     var hoy = n < 1 ? 'Su plazo todavía no empieza.' : (diasEntre(ctx.ahora, vence) >= 0 ? 'Hoy va en su día ' + n + '.' : 'Su plazo ya terminó.');
-    r.innerHTML = 'Plazo para la botella y Empiece Ya: hasta el <strong>' + esc(fmtLargo(vence)) + '</strong>, igual que en Nivel Cero. ' + esc(hoy);
+    var fin = finEY(ctx.fecha);
+    r.innerHTML = 'Plazo para la botella: hasta el <strong>' + esc(fmtLargo(vence)) + '</strong>' +
+      (fin ? '; para el Empiece Ya: hasta el <strong>' + esc(fmtLargo(parseISO(fin))) + '</strong> (su período de ingreso y dos más)' : '') +
+      ', igual que en Nivel Cero. ' + esc(hoy);
   }
   function renderMessages() {
     var ctx = leerCtx();
@@ -1734,10 +1814,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       var text = messageFor(d, ctx);
       $('msg-' + d.n).innerHTML = waHtml(text);
       $('fbwrap-' + d.n).hidden = true;
-      var faltan = faltantes(text);
+      var faltan = faltantes(text), extra = avisosDia(d.n, ctx);
       var w = $('warn-' + d.n);
-      w.hidden = !faltan.length;
-      w.textContent = faltan.length ? 'Antes de enviar, completa ' + unirY(faltan) + '.' : '';
+      w.hidden = !faltan.length && !extra.length;
+      w.textContent = (faltan.length ? 'Antes de enviar, completa ' + unirY(faltan) + '. ' : '') + extra.join(' ');
       var a = $('wa-' + d.n);
       a.href = waLink(text);
       a.lastChild.textContent = cel.length === 9 && nom ? 'Abrir chat con ' + nom : 'Abrir en WhatsApp';
@@ -1841,8 +1921,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       : '<p class="fmeta is-miss" data-meta="' + esc(it.id) + '">Falta subir el archivo</p>';
     var btns = '';
     if (tiene) {
-      var etiqueta = S.listo[it.id] ? 'Toca para compartir' : (PUEDE_COMPARTIR ? 'Compartir' : 'Descargar');
-      btns += boton('compartir', it.id, (PUEDE_COMPARTIR ? ICON.share : ICON.down) + '<span>' + etiqueta + '</span>', 'btn-sm ' + (S.listo[it.id] ? 'listo' : 'primary'), !!ocupado);
+      // en el celular: compartir (va con su texto) y descargar; en la computadora, descargar
+      if (PUEDE_COMPARTIR) {
+        btns += boton('compartir', it.id, ICON.share + '<span>' + (S.listo[it.id] ? 'Toca para compartir' : 'Compartir') + '</span>', 'btn-sm ' + (S.listo[it.id] ? 'listo' : 'primary'), !!ocupado);
+      }
+      btns += '<a class="btn-sm' + (PUEDE_COMPARTIR ? '' : ' primary') + '" href="' + esc(urlDescarga(it)) + '" download="' + esc(nombreParaGuardar(it)) + '" data-descargar="' + esc(it.id) + '">' + ICON.down + '<span>Descargar</span></a>';
       if (tipo === 'video') btns += boton('ver', it.id, S.verVideo[it.id] ? 'Ocultar video' : 'Ver video', 'btn-sm');
       if (tipo === 'pdf') btns += '<a class="btn-sm" href="' + esc(urlPublica(it.ruta)) + '" target="_blank" rel="noopener">Ver PDF</a>';
     } else if (gestiona) {
@@ -1850,7 +1933,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
     if (gestiona) btns += boton('editar', it.id, S.editando === it.id ? 'Cerrar' : 'Editar', 'btn-sm', !!ocupado);
     var desc = it.descripcion
-      ? '<div class="fdesc"><p>' + esc(it.descripcion).replace(/\n/g, '<br>') + '</p>' + boton('copiar-desc', it.id, 'Copiar descripción', 'btn-link') + '</div>'
+      ? '<div class="fdesc"><p class="fdesc-h">Va con ' + (tipo === 'video' ? 'el video' : tipo === 'imagen' ? 'la imagen' : 'el archivo') + ', debajo:</p><p>' + esc(it.descripcion).replace(/\n/g, '<br>') + '</p>' +
+        boton('copiar-desc', it.id, 'Copiar texto', 'btn-link') + '</div>'
       : '';
     var vista = '';
     if (tiene && tipo === 'imagen') vista = '<img class="thumb" src="' + esc(urlPublica(it.ruta)) + '" alt="' + esc(it.nombre || 'Imagen') + '" loading="lazy">';
@@ -1868,8 +1952,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var h = '<div class="fedit">' +
       '<div class="field"><label class="flabel" for="fn-' + id + '">Nombre</label>' +
         '<input type="text" id="fn-' + id + '" data-field="nombre" data-id="' + id + '" value="' + esc(it.nombre || '') + '" maxlength="120" autocomplete="off"></div>' +
-      '<div class="field"><label class="flabel" for="fd-' + id + '">Descripción para WhatsApp <span class="opt">(opcional)</span></label>' +
-        '<textarea id="fd-' + id + '" rows="2" maxlength="1000" data-field="descripcion" data-id="' + id + '">' + esc(it.descripcion || '') + '</textarea></div>' +
+      '<div class="field"><label class="flabel" for="fd-' + id + '">Texto que va con el archivo <span class="opt">(opcional)</span></label>' +
+        '<textarea id="fd-' + id + '" rows="4" maxlength="1500" data-field="descripcion" data-id="' + id + '">' + esc(it.descripcion || '') + '</textarea>' +
+        '<p class="hint">Al tocar «Compartir» va debajo del video o la imagen en WhatsApp, y además queda copiado por si hay que pegarlo.</p></div>' +
       '<div class="fedit-btns">' +
         boton('cambiar', it.id, ICON.up + '<span>' + (it.ruta ? 'Cambiar archivo' : 'Subir archivo') + '</span>', 'btn-sm') +
         boton('arriba', it.id, '↑ Arriba', 'btn-sm', i === 0) +
@@ -2002,6 +2087,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       delete S.cache[fila.id];
       delete S.listo[fila.id];
       if (!destino.id) setEditando(fila.id);
+      renderMessages();                                   // el texto del día puede depender de sus archivos
       anunciar('Archivo subido.');
     }).catch(function (e) {
       if (S.token) errorArchivos(n, msgErrorSubida(e, file, t.tipo));
@@ -2027,8 +2113,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     a.click();
     setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 5000);
   }
-  function compartirArchivo(file) {
+  /* Con su texto, si lo tiene: WhatsApp lo pone debajo del video o la imagen. */
+  function compartirArchivo(file, texto) {
     if (PUEDE_COMPARTIR) {
+      var conTexto = texto ? { files: [file], text: texto } : null;
+      if (conTexto && navigator.canShare(conTexto)) return navigator.share(conTexto);
       var datos = { files: [file] };
       if (navigator.canShare(datos)) return navigator.share(datos);
     }
@@ -2036,8 +2125,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return Promise.resolve();
   }
   function compartir(it) {
-    var n = Number(it.dia);
+    var n = Number(it.dia), texto = String(it.descripcion || '').trim();
     errorArchivos(n, '');
+    // el texto queda copiado de una vez (con el toque), por si WhatsApp no lo pone solo
+    if (texto) copiarTexto(texto, function () { aviso('El texto quedó copiado: si no aparece debajo del ' + (tipoDeItem(it) === 'video' ? 'video' : 'archivo') + ', pégalo ahí'); }, function () {});
     var listo = S.cache[it.id] ? Promise.resolve(S.cache[it.id]) : null;
     if (!listo) {
       S.ocupado[it.id] = 'Preparando… 0%';
@@ -2053,7 +2144,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
     listo.then(function (f) {
       delete S.ocupado[it.id];
-      return compartirArchivo(f).then(function () {
+      return compartirArchivo(f, texto).then(function () {
         delete S.listo[it.id];
       }, function (e) {
         if (e && e.name === 'AbortError') { delete S.listo[it.id]; return; }
@@ -2092,6 +2183,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       S.editando = null;
       S.borrando = null;
       delete S.cache[it.id];
+      renderMessages();
       anunciar('Archivo quitado.');
     }).catch(function (e) {
       if (S.token) errorArchivos(n, bonito(e.message));
@@ -2141,8 +2233,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (act === 'cancelar-eliminar') { S.borrando = null; renderFiles(n); return; }
     if (act === 'confirmar-eliminar') { eliminar(it); return; }
     if (act === 'copiar-desc') {
-      copiarTexto(it.descripcion || '', function () { anunciar('Descripción copiada.'); }, function () {
-        errorArchivos(n, 'No se pudo copiar. Mantén presionada la descripción para copiarla.');
+      copiarTexto(it.descripcion || '', function () { aviso('Texto copiado'); }, function () {
+        errorArchivos(n, 'No se pudo copiar. Mantén presionado el texto para copiarlo.');
       });
     }
   }
@@ -2870,7 +2962,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     cambiarVista('bv');
     if (asesorSel.value !== String(p.id)) {
       asesorSel.value = String(p.id);
-      if (asesorSel.value !== String(p.id)) { aviso('No está entre los nuevos de los últimos 45 días', true); return; }
+      if (asesorSel.value !== String(p.id)) {
+        aviso(marcaDe(p) === false ? 'No entra a la secuencia: márcalo con ✓ para preparar su bienvenida' : 'No está entre los nuevos de los últimos 45 días', true);
+        return;
+      }
       asesorSel.dispatchEvent(new Event('change'));
     }
     var card = $('dia-' + Math.max(1, Math.min(n || 1, DAYS.length)));
@@ -3098,7 +3193,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     });
     h += '</ul>';
     var pend = bvPendiente(p), n = pend ? pend.n : Math.max(1, Math.min(d + 1, DAYS.length));
-    h += '<button type="button" class="ghost" data-sg="preparar" data-id="' + esc(p.id) + '" data-n="' + n + '">Abrir su bienvenida, con sus archivos</button>';
+    if (marcaDe(p) !== false) h += '<button type="button" class="ghost" data-sg="preparar" data-id="' + esc(p.id) + '" data-n="' + n + '">Abrir su bienvenida, con sus archivos</button>';
     return h + '</section>';
   }
   function bloqueSeguimiento(p, d) {
@@ -4240,6 +4335,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       S.asesores.forEach(function (p) { aplicarPendientes(p); aplicarSecCamino('asesor', p); });
       S.asesoresError = d.asesores_error ? String(d.asesores_error) : '';
       S.plantillas = Array.isArray(d.plantillas) ? d.plantillas : [];
+      S.empieceYa = Array.isArray(d.empiece_ya) ? d.empiece_ya : [];
+      S.periodos = Array.isArray(d.periodos) ? d.periodos : [];
       S.nivel0 = d.nivel0 || null;
       S.plazo = (S.nivel0 && Number(S.nivel0.plazo)) || 30;
       if (!S.horarioListo) {
