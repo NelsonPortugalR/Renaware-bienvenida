@@ -24,20 +24,23 @@ salir en «Para hoy».
 - **Asesores**: hay que decidir. Cada asesor nuevo sale arriba de «Para hoy»
   (en Bienvenida o en Seguimiento, según su día) con ✓ / ✗ de un toque, y la
   pestaña lo cuenta. Mientras está **por marcar** no se le propone ningún
-  mensaje. Lo marcado hoy se puede deshacer (vuelve a por marcar); «Ver y
-  cambiar» abre la lista de todos (por marcar, entran, no entran), con
-  buscador, ✓ / ✗ en cada fila y «Que entren los N» para marcar de una vez a
-  todos los que faltan (con confirmación y deshacer). También se cambia desde
-  su ficha. Quien no entra sigue en Nivel Cero con sus clases y sale al
-  buscarlo.
+  mensaje. Lo cambiado hoy se puede deshacer (vuelve a como estaba antes de
+  hoy: por marcar, o ✓ / ✗ si ya lo tenía); «Ver y cambiar» abre la lista de
+  todos (por marcar, entran, no entran), con buscador, ✓ / ✗ en cada fila y
+  «Que entren los N» para marcar de una vez a todos los que faltan (con
+  confirmación y deshacer). También se cambia desde su ficha. Quien no entra
+  sigue en Nivel Cero con sus clases y sale al buscarlo.
 - **Clientes**: todos entran, salvo los que se quiten. Desde su ficha o desde
-  la lista «Ver y cambiar» (todos / no entran, buscador por nombre o celular).
+  la lista «Ver y cambiar» (todos / no entran, buscador por nombre o celular;
+  muestra 60 y el buscador encuentra al resto).
   Quien no entra no sale en «Para hoy» ni en los avisados; en su ficha se
   puede seguir anotando el cambio de filtro o mandar algo a mano. El contador
   de clientes del inicio de la plataforma (`hoy_items`) tampoco lo cuenta.
 - Las marcas van a `wa_secuencia` (`tipo` asesor o cliente, `ref` = id de
   `n0_inscritos` o de `clientes`, `entra` true / false / null). Solo se agregan
-  filas: la vigente es la última, y cambiar o deshacer es otra fila.
+  filas: la vigente es la última, y cambiar o deshacer es otra fila. Salen de a
+  una y en orden, así queda la última que se tocó; tras marcar en una lista,
+  un segundo toque rápido no cae en la fila que sube.
 
 ## Clientes
 
@@ -147,8 +150,8 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
   `wa_bv_trato_defecto`, `wa_bv_plantilla_guardar`, `wa_secuencia_marcar`
   (marca ✓ / ✗ / sin marcar a una o varias personas; solo agrega una fila si
   cambia). `wa_bv_asesor_json` arma cada asesor y `wa_secuencia_de` da la marca
-  vigente (`sec`: `{entra, en}`) de cada asesor y cliente (internas, sin
-  permisos públicos).
+  vigente (`sec`: `{entra, en, antes_hoy}`) de cada asesor y cliente (internas,
+  sin permisos públicos).
 - Envíos sin señal (o con la sesión cerrada): quedan en el celular y se anotan
   al volver; cada uno sale de la cola solo cuando el servidor lo confirma. Lo
   que aún no confirma se mantiene aunque la página recargue, y el servidor no
@@ -160,7 +163,7 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 226 aserciones y capturas en /tmp/bv-*.png
+node pruebas/prueba.js   # Chromium real con un Supabase falso; 238 aserciones y capturas en /tmp/bv-*.png
 ```
 
 ## Despliegue

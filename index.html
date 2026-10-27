@@ -2288,9 +2288,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   /* Quién entra a la secuencia (wa_secuencia): ✓ entra, ✗ no entra. Un asesor nuevo queda «por marcar»
      y no se le propone nada hasta que se decida. A un cliente se le escribe salvo que se le quite. */
-  function marcaDe(x) { return x && x.sec && (x.sec.entra === true || x.sec.entra === false) ? x.sec.entra : null; }
+  function norm(v) { return v === true || v === false ? v : null; }
+  function marcaDe(x) { return x && x.sec ? norm(x.sec.entra) : null; }
   function enSecuencia(p) { return marcaDe(p) === true; }
-  function marcable(p) { return !!p && (p.estado === 'en_curso' || candidatos(p).length > 0); }   // le puede tocar algo
+  function marcable(p) { return !!p && (p.estado === 'en_curso' || enBienvenida(p) || candidatos(p).length > 0); }   // le puede tocar algo
   function porMarcar(p) { return marcaDe(p) === null && marcable(p); }
   function deLaPestana(p, v) { var d = diaDe(p); return v === 'bv' ? !(d >= DIA_SEG - 1) : d >= DIA_SEG - 1; }
   function porMarcarDe(v) {
@@ -2298,6 +2299,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       .sort(function (a, b) { return String(b.inicio).localeCompare(String(a.inicio)) || titulo(a.nombre).localeCompare(titulo(b.nombre), 'es'); });
   }
   function fechaMarca(x) { var d = x && x.sec && x.sec.en ? new Date(x.sec.en) : null; return d && !isNaN(d) ? isoDe(d) : null; }
+  /* Cambió hoy: la marca de ahora no es la que tenía antes de hoy (antes_hoy). Deshacer vuelve a esa. */
+  function cambioHoy(x) { return !!(x && x.sec && fechaMarca(x) === hoyISO() && norm(x.sec.entra) !== norm(x.sec.antes_hoy)); }
   function plantilla(k) {
     var b = pasoDef(k) || { tu: '', usted: '' };
     var g = {};
@@ -2485,6 +2488,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function ponerAsesor(fila) {
     if (!fila || !fila.id) return;
     aplicarPendientes(fila);
+    var actual = asesorPorId(fila.id);
+    if (actual) fila.sec = secMasNueva(actual.sec, fila.sec);
     aplicarSecCamino('asesor', fila);
     for (var i = 0; i < S.asesores.length; i++) {
       if (String(S.asesores[i].id) === String(fila.id)) { S.asesores[i] = fila; return; }
@@ -2592,20 +2597,32 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
      se vuelve a poner sobre cualquier dato que llegue. Si falla, vuelve a como estaba. */
   var secCamino = {};                                    // 'asesor:<id>' o 'cliente:<id>' → marca en camino
   function aplicarSecCamino(tipo, x) { var m = x && secCamino[tipo + ':' + x.id]; if (m) x.sec = m; }
+  /* De dos marcas confirmadas, la más reciente: una respuesta armada antes de marcar no la pisa. */
+  function secMasNueva(vieja, nueva) {
+    if (!vieja || vieja.tmp) return nueva || null;
+    if (!nueva) return vieja;
+    var a = Date.parse(vieja.en), b = Date.parse(nueva.en);
+    return isFinite(a) && isFinite(b) && a > b ? vieja : nueva;
+  }
+  /* Las marcas salen de a una (en orden), así la última que se tocó es la que queda. */
   function marcarSecuencia(tipo, ids, v, msg) {
     if (!S.token || !ids || !ids.length) return;
-    var porId = tipo === 'asesor' ? asesorPorId : clientePorId;
-    var ahora = { entra: v, en: new Date().toISOString(), tmp: true }, antes = {};
+    var porId = tipo === 'asesor' ? asesorPorId : clientePorId, hoy = hoyISO(), en = new Date().toISOString();
+    var nuevas = {}, antes = {};
     ids.forEach(function (id) {
-      var x = porId(id);
-      antes[id] = x ? (x.sec || null) : null;
-      if (x) x.sec = ahora;
-      secCamino[tipo + ':' + id] = ahora;
+      var x = porId(id), prev = x ? (x.sec || null) : null;
+      var m = { entra: v, en: en, tmp: true, antes_hoy: prev ? (fechaMarca(x) === hoy ? norm(prev.antes_hoy) : norm(prev.entra)) : null };
+      antes[id] = prev;
+      nuevas[id] = m;
+      if (x) x.sec = m;
+      secCamino[tipo + ':' + id] = m;
     });
     S.escrituras++;
     repintar();
-    rpc('wa_secuencia_marcar', { p_token: S.token, p_tipo: tipo, p_refs: ids, p_entra: v }).then(function (l) {
-      ids.forEach(function (id) { if (secCamino[tipo + ':' + id] === ahora) delete secCamino[tipo + ':' + id]; });
+    enCola('sec', function () {
+      return rpc('wa_secuencia_marcar', { p_token: S.token, p_tipo: tipo, p_refs: ids, p_entra: v });
+    }).then(function (l) {
+      ids.forEach(function (id) { if (secCamino[tipo + ':' + id] === nuevas[id]) delete secCamino[tipo + ':' + id]; });
       (Array.isArray(l) ? l : []).forEach(function (r) {
         var x = r && porId(r.ref);
         if (x && !secCamino[tipo + ':' + x.id]) x.sec = r.sec || null;   // si ya hay otra marca en camino, manda esa
@@ -2616,12 +2633,12 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       if (msg) aviso(msg);
     }).catch(function (e) {
       ids.forEach(function (id) {
-        if (secCamino[tipo + ':' + id] !== ahora) return;
+        if (secCamino[tipo + ':' + id] !== nuevas[id]) return;
         delete secCamino[tipo + ':' + id];
         var x = porId(id);
-        if (x && x.sec === ahora) x.sec = antes[id];
+        if (x && x.sec === nuevas[id]) x.sec = antes[id];
       });
-      if (S.modal && S.modal.lote === ids) S.modal.lote = null;
+      [S.modal, S.modal && S.modal.volver].forEach(function (md) { if (md && md.lote === ids) md.lote = null; });
       repintar();
       if (S.token) aviso('No se guardó: ' + bonito(e.message), true);
     });
@@ -2671,19 +2688,33 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     pintarCuenta('cuenta-as', bv + sg);
     pintarCuenta('cuenta-cl', cb + cs);
   }
+  /* Lo que tenía el foco en la página, para volver a él si se vuelve a pintar: el mismo control, dentro
+     de la misma caja (la más cercana con id) y en el mismo orden, por si la persona sale dos veces. */
+  function recordarFoco() {
+    var a = document.activeElement;
+    if (!a || a === document.body || $('capa').contains(a)) return null;
+    var sel = claveFoco(a, true);
+    if (!sel) return null;
+    var caja = a.parentNode && a.parentNode.closest ? a.parentNode.closest('[id]') : null, l = [];
+    try { l = Array.prototype.slice.call((caja || document).querySelectorAll(sel)); } catch (e) { return null; }
+    return { a: a, sel: sel, caja: caja ? caja.id : null, i: Math.max(0, l.indexOf(a)) };
+  }
+  function volverAlFoco(r) {
+    if (!r || r.a.isConnected) return;
+    var l = [];
+    try { l = ((r.caja && $(r.caja)) || document).querySelectorAll(r.sel); } catch (e) { return; }
+    var b = l[Math.min(r.i, l.length - 1)];
+    if (b && visible(b)) b.focus({ preventScroll: true });
+  }
   function repintar() {
-    var a = document.activeElement, sel = a && a !== document.body && !$('capa').contains(a) ? claveFoco(a, true) : null;
+    var foco = S.modal ? null : recordarFoco();
     renderTabs();
     renderBvHoy();
     renderBvEstados();
     if (S.vista === 'sg') renderSeg();
     if (grupoDe(S.vista) === 'cl') renderCl();
     if (S.modal) refrescarModal();
-    else if (sel && !a.isConnected) {                    // lo que tenía el foco se volvió a pintar: vuelve a él
-      var b = null;
-      try { b = document.querySelector(sel); } catch (e) { b = null; }
-      if (b && visible(b)) b.focus({ preventScroll: true });
-    }
+    else volverAlFoco(foco);
   }
   VISTAS.forEach(function (v) { $('tab-' + v).addEventListener('click', function () { cambiarVista(v); }); });
   $('grupo-as').addEventListener('click', function () { cambiarVista(lsGet(LS_VISTA + '-as') === 'sg' ? 'sg' : 'bv'); });
@@ -2730,14 +2761,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (l.length > MAX_MARCAR) h += '<button type="button" class="btn-link" data-sg="gestionAs" data-f="marcar">Ver los ' + total + ' por marcar</button>';
     return h + '</div>';
   }
-  /* Lo marcado hoy, para deshacer: vuelve a «por marcar». */
+  /* Lo que se cambió hoy, para deshacer: vuelve a la marca que tenía antes de hoy. */
+  function textoMarca(m) { return m === true ? 'entra a la secuencia' : m === false ? 'no entra' : 'por marcar'; }
   function listaMarcadosHoy(v) {
-    var h0 = hoyISO();
-    var l = S.asesores.filter(function (p) { return marcaDe(p) !== null && fechaMarca(p) === h0 && deLaPestana(p, v); });
+    var l = S.asesores.filter(function (p) { return cambioHoy(p) && deLaPestana(p, v); });
     if (!l.length) return '';
     var MAX = 8;
     return '<h3 class="sg-grupo">Marcados hoy <span class="cuenta gris">' + l.length + '</span></h3><ul class="hist' + (v === 'sg' ? ' card' : '') + '">' + l.slice(0, MAX).map(function (p) {
-      return '<li><span>' + esc(titulo(p.nombre) + ' · ' + (marcaDe(p) ? 'entra a la secuencia' : 'no entra')) + '</span>' +
+      return '<li><span>' + esc(titulo(p.nombre) + ' · ' + textoMarca(marcaDe(p))) + '</span>' +
         (p.sec.tmp ? '' : '<button type="button" class="btn-link" data-sg="secDeshacer" data-id="' + esc(p.id) + '">deshacer</button>') + '</li>';
     }).join('') + (l.length > MAX ? '<li><button type="button" class="btn-link" data-sg="gestionAs" data-f="todos">y ' + (l.length - MAX) + ' más: ver la lista</button></li>' : '') + '</ul>';
   }
@@ -3254,18 +3285,31 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var b = filas[Math.min(f.i, filas.length - 1)].querySelector('[data-v="' + f.v + '"]');
     if (b && document.activeElement !== b) b.focus({ preventScroll: true });
   }
+  /* Si la fila marcada se va de la lista, la de abajo sube a su lugar: un segundo toque rápido (doble
+     toque, o Enter dos veces) no debe caer en otra persona. */
+  var pausaMarca = 0;
+  function ahoraMs() { return window.performance && performance.now ? performance.now() : Date.now(); }
+  function marcarDesde(el, accion, tipo, id, v, msg) {
+    var f = focoFila(el);
+    if (f && ahoraMs() < pausaMarca) return;
+    marcarSecuencia(tipo, [id], v, msg);
+    if (!f) return;
+    var caja = $(f.caja), sigue = caja && caja.querySelector('[data-sg="' + accion + '"][data-id="' + String(id).replace(/"/g, '') + '"]');
+    if (!sigue) pausaMarca = ahoraMs() + 700;
+    moverFoco(f);
+  }
   var ACC = {
     ficha: function (el) { abrirModal({ tipo: 'ficha', id: el.getAttribute('data-id'), paso: null, otros: false, volver: desdeLista('secAs') }); },
     secAs: function (el) {
       var p = asesorPorId(el.getAttribute('data-id')), v = el.getAttribute('data-v') === 'si';
       if (!p || marcaDe(p) === v) return;
-      var f = focoFila(el);
-      marcarSecuencia('asesor', [p.id], v, pila(p.nombre) + (v ? ' entra a la secuencia' : ' no entra a la secuencia'));
-      moverFoco(f);
+      marcarDesde(el, 'secAs', 'asesor', p.id, v, pila(p.nombre) + (v ? ' entra a la secuencia' : ' no entra a la secuencia'));
     },
     secDeshacer: function (el) {
       var p = asesorPorId(el.getAttribute('data-id'));
-      if (p && marcaDe(p) !== null) marcarSecuencia('asesor', [p.id], null, 'Deshecho: ' + pila(p.nombre) + ' vuelve a por marcar');
+      if (!p || !cambioHoy(p)) return;
+      var a = norm(p.sec.antes_hoy);
+      marcarSecuencia('asesor', [p.id], a, 'Deshecho: ' + pila(p.nombre) + (a === true ? ' vuelve a entrar a la secuencia' : a === false ? ' vuelve a quedar fuera' : ' vuelve a por marcar'));
     },
     gestionAs: function (el) { abrirModal({ tipo: 'secAs', filtro: el.getAttribute('data-f') || 'marcar', busca: '', confirmar: false, lote: null }); },
     secFiltro: function (el) { S.modal.filtro = el.getAttribute('data-f'); S.modal.confirmar = false; refrescarModal(); },
@@ -3913,27 +3957,41 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return '<p class="sec-resumen"><span>' + esc(n ? plural(n, 'cliente no entra', 'clientes no entran') + ' a las secuencias.' : 'Todos los clientes entran a las secuencias.') + '</span>' +
       '<button type="button" class="btn-link" data-sg="gestionCl" data-f="' + (n ? 'no' : 'todos') + '">' + (n ? 'Ver y cambiar' : 'Quitar a alguno') + '</button></p>';
   }
-  function lineaCl(c) {
+  /* pend: sus acciones vencidas o próximas (se arman una sola vez para toda la lista). */
+  function lineaCl(c, pend) {
     var bits = [], n = (c.ordenes || []).length;
     if (c.ciudad) bits.push(String(c.ciudad).split(',')[0]);
     bits.push(plural(n, 'compra', 'compras'));
-    var l = accionesDe(c.id).filter(function (a) { return a.estado === 'vencido' || a.estado === 'proximo'; })
-      .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)); });
-    if (l[0]) bits.push((esCiclo(l[0]) ? nombreFiltro(l[0].tipo) : (pasoCl(l[0]) || { corto: l[0].tipo }).corto) + ': ' + diasTxt(l[0]));
+    var a = null;
+    (pend || []).forEach(function (x) { if (!a || String(x.vence) < String(a.vence)) a = x; });
+    if (a) bits.push((esCiclo(a) ? nombreFiltro(a.tipo) : (pasoCl(a) || { corto: a.tipo }).corto) + ': ' + diasTxt(a));
     if (!celularWA({ celular: c.celular })) bits.push('sin celular');
     return bits.join(' · ');
   }
+  var COLL = window.Intl && Intl.Collator ? new Intl.Collator('es') : null;
+  function comparaEs(a, b) { return COLL ? COLL.compare(a, b) : String(a).localeCompare(String(b), 'es'); }
+  var MAX_LISTA_CL = 60;                                 // la lista no crece sin fin: el buscador encuentra al resto
   function listaSecCl() {
     var md = S.modal, q = plano(String(md.busca || '').trim()), qd = q.replace(/\D/g, '');
+    var pend = Object.create(null);
+    CL.acciones.forEach(function (a) {
+      if (a.estado !== 'vencido' && a.estado !== 'proximo') return;
+      var k = String(a.cliente_id);
+      (pend[k] = pend[k] || []).push(a);
+    });
     var l = clientesLista().filter(function (c) {
       if (md.filtro === 'no' && marcaDe(c) !== false) return false;
       return !q || plano(c.nombre).indexOf(q) >= 0 || (qd.length >= 3 && String(c.celular || '').replace(/\D/g, '').indexOf(qd) >= 0);
-    }).sort(function (a, b) { return titulo(a.nombre).localeCompare(titulo(b.nombre), 'es'); });
+    }).map(function (c) { return { c: c, t: titulo(c.nombre) }; });
+    l.sort(function (a, b) { return comparaEs(a.t, b.t); });
     if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre o celular.' : md.filtro === 'no' ? 'Todos los clientes entran a las secuencias.' : 'Todavía no hay clientes.') + '</p>';
-    return '<ul class="sec-lista">' + l.map(function (c) {
-      return '<li class="sec-row"><span class="sec-main"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(c.id) + '">' + esc(titulo(c.nombre)) + '</button>' +
-        '<span class="sg-sub">' + esc(lineaCl(c)) + '</span></span>' + botonesSiNo('secCl', c.id, marcaDe(c) !== false, titulo(c.nombre)) + '</li>';
-    }).join('') + '</ul>';
+    var ver = l.slice(0, MAX_LISTA_CL);
+    return '<ul class="sec-lista">' + ver.map(function (y) {
+      var c = y.c;
+      return '<li class="sec-row"><span class="sec-main"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(c.id) + '">' + esc(y.t) + '</button>' +
+        '<span class="sg-sub">' + esc(lineaCl(c, pend[String(c.id)])) + '</span></span>' + botonesSiNo('secCl', c.id, marcaDe(c) !== false, y.t) + '</li>';
+    }).join('') + '</ul>' +
+      (l.length > ver.length ? '<p class="hint" style="margin-top:8px">' + esc('Se ven ' + ver.length + ' de ' + l.length + ': busca por nombre o celular para encontrar a los demás.') + '</p>' : '');
   }
   function modalSecCl() {
     var md = S.modal, todos = clientesLista(), no = todos.filter(function (c) { return marcaDe(c) === false; }).length;
@@ -3981,8 +4039,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function ponerCliente(fila) {
     if (!fila || !fila.id) return;
     var id = String(fila.id), acc = Array.isArray(fila.acciones) ? fila.acciones : [];
-    var c = Object.assign({}, fila);
+    var c = Object.assign({}, fila), actual = CL.clientes[id];
     delete c.acciones;
+    if (actual) c.sec = secMasNueva(actual.sec, c.sec);
     aplicarSecCamino('cliente', c);
     CL.clientes[id] = c;
     CL.acciones = CL.acciones.filter(function (a) { return String(a.cliente_id) !== id; }).concat(acc.filter(function (a) { return a.estado !== 'caducado'; }));
@@ -4048,9 +4107,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     secCl: function (el) {
       var c = clientePorId(el.getAttribute('data-id')), v = el.getAttribute('data-v') === 'si';
       if (!c || (marcaDe(c) !== false) === v) return;
-      var f = focoFila(el);
-      marcarSecuencia('cliente', [c.id], v, pila(c.nombre) + (v ? ' vuelve a las secuencias' : ' sale de las secuencias'));
-      moverFoco(f);
+      marcarDesde(el, 'secCl', 'cliente', c.id, v, pila(c.nombre) + (v ? ' vuelve a las secuencias' : ' sale de las secuencias'));
     },
     gestionCl: function (el) { abrirModal({ tipo: 'secCl', filtro: el.getAttribute('data-f') || 'todos', busca: '' }); },
     editorCl: function (el) {

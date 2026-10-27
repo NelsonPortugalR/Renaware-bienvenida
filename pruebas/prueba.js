@@ -83,10 +83,14 @@ const db = {
 };
 let secId = 0;
 const ponerSec = (tipo, ref, entra, en) => db.sec.push({ id: ++secId, tipo, ref, entra, en: en || AHORA.toISOString() });   // la hora de la prueba
-function secDe(tipo, ref) {
+const INICIO_HOY = Date.parse(HOY + 'T00:00:00-05:00');
+function secDe(tipo, ref) {                 // igual que wa_secuencia_de: la última marca y la que tenía antes de hoy
   const l = db.sec.filter((s) => s.tipo === tipo && s.ref === ref);
   const u = l[l.length - 1];
-  return u ? { entra: u.entra, en: u.en } : null;
+  if (!u) return null;
+  const previas = l.filter((s) => Date.parse(s.en) < INICIO_HOY);
+  const p = previas[previas.length - 1];
+  return { entra: u.entra, en: u.en, antes_hoy: p ? p.entra : null };
 }
 db.ins.forEach((p) => { if (!/^n/.test(p.id)) ponerSec('asesor', p.id, true, '2026-10-20T15:00:00Z'); });
 ponerSec('asesor', 'n2', false, '2026-10-19T15:00:00Z');
@@ -144,7 +148,8 @@ const retrasos = {};            // paso → ms antes de anotar (para cruzar resp
 let retrasoDatos = 0;           // ms antes de devolver wa_bv_datos
 let errorAsesores = null;       // simula que falla la lista de Nivel Cero
 let errorSec = null;            // simula que falla guardar quién entra a la secuencia
-let retrasoSec = 0;             // ms antes de responder wa_secuencia_marcar
+let retrasoSec = 0;             // ms antes de anotar wa_secuencia_marcar
+const retrasoSecPor = {};       // 'true' / 'false' / 'null' → ms: para que una marca llegue después que la siguiente
 
 /* ---------------- clientes (lo que arma crm_acciones en Supabase, aquí calculado igual) ---------------- */
 const MESES_CL = { prefiltro: 12, filtroppal: 48, aire: 18 };
@@ -209,8 +214,9 @@ function accionesCl(c) {
   });
   return out;
 }
+let respuestaVieja = false;     // la respuesta de un envío se armó antes de marcar: trae la marca de antes
 function clienteJson(c) {
-  return { id: c.id, nombre: c.nombre, celular: c.celular, ciudad: c.ciudad, trato: c.trato, sec: secDe('cliente', c.id),
+  return { id: c.id, nombre: c.nombre, celular: c.celular, ciudad: c.ciudad, trato: c.trato, sec: respuestaVieja ? null : secDe('cliente', c.id),
     ordenes: c.ordenes.map((o) => ({ n_orden: o.n_orden, fecha: o.entrega, estatus: 'ENTREGADA', productos: o.productos, total: o.total, vendedor: o.vendedor, credito: o.credito, cuotas: o.cuotas })) };
 }
 function clienteConAcciones(c) { return Object.assign(clienteJson(c), { acciones: accionesCl(c) }); }
@@ -355,7 +361,7 @@ async function conectar(ctx) {
       if (fn === 'wa_bv_envio_registrar' && cortar > 0) { cortar--; return route.abort('internetdisconnected'); }
       const args = JSON.parse(req.postData() || '{}');
       if (fn === 'wa_bv_envio_registrar' && retrasos[args.p_paso]) await esperar(retrasos[args.p_paso]);   // se anota más tarde
-      if (fn === 'wa_secuencia_marcar' && retrasoSec) await esperar(retrasoSec);
+      if (fn === 'wa_secuencia_marcar') { const ms = retrasoSecPor[String(args.p_entra)] || retrasoSec; if (ms) await esperar(ms); }
       llamadas.push({ fn, args });
       const r = rpc(fn, args);
       if (fn === 'wa_bv_datos' && retrasoDatos) await esperar(retrasoDatos);   // la foto de los datos es de antes; llega tarde
@@ -829,7 +835,19 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('.modal [data-sg="secLoteDeshacer"]');
     await esperar(500);
     ok(secDe('asesor', 'n3').entra === null && secDe('asesor', 'n4').entra === null && /Por marcar · 2/.test(await page.textContent('.modal')), 'deshacer los devuelve a por marcar');
+    // si marcar a todos falla mientras se mira la ficha de alguien, al volver la lista no dice que entraron
+    errorSec = 'falla de prueba'; retrasoSec = 900;
+    await page.click('.modal [data-sg="secTodos"]');
+    await page.click('.modal [data-sg="secTodosOk"]');
     await page.click('.modal [data-sg="secFiltro"][data-f="todos"]');
+    await page.click('#secas-lista .sg-nom[data-id="n4"]');
+    await esperar(1300);
+    ok(/Quique Marcar Tambien/.test(await page.textContent('.modal')) && secDe('asesor', 'n4').entra === null && /No se guardó/.test(await toast()), 'si falla, la ficha vuelve a por marcar y lo dice');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    gm = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(/¿Quién entra a la secuencia\?/.test(gm) && !/entraron a la secuencia/.test(gm) && /Por marcar · 2/.test(gm), 'y al volver, la lista no dice que entraron', gm.slice(0, 400));
+    errorSec = null; retrasoSec = 0;
     await page.fill('#secas-busca', 'norma');
     await esperar(150);
     ok((await page.$$('#secas-lista .sec-row')).length === 1 && (await page.evaluate(() => document.activeElement.id)) === 'secas-busca', 'busca en la lista sin perder el foco');
@@ -837,6 +855,13 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('#secas-lista [data-sg="secAs"][data-id="n2"][data-v="si"]');
     await esperar(500);
     ok(secDe('asesor', 'n2').entra === true && (await page.getAttribute('#secas-lista [data-id="n2"][data-v="si"]', 'aria-pressed')) === 'true', 'cambia de ✗ a ✓ en la lista');
+    // ✗ y enseguida ✓: aunque la primera tarde más en llegar, queda la última que se tocó
+    retrasoSecPor['false'] = 700;
+    await page.click('#secas-lista [data-sg="secAs"][data-id="n2"][data-v="no"]');
+    await page.click('#secas-lista [data-sg="secAs"][data-id="n2"][data-v="si"]');
+    await esperar(1300);
+    ok(secDe('asesor', 'n2').entra === true && (await page.getAttribute('#secas-lista [data-id="n2"][data-v="si"]', 'aria-pressed')) === 'true', 'las marcas salen en orden: queda la última que se tocó');
+    delete retrasoSecPor['false'];
     await page.click('#secas-lista .sg-nom[data-id="n2"]');
     await esperar(200);
     const fn2 = (await page.textContent('.modal')).replace(/\s+/g, ' ');
@@ -869,11 +894,29 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(150);
     ok(/Sara Uno Semana.*No entra a la secuencia/.test((await page.textContent('#sg-lista')).replace(/\s+/g, ' ')), 'al buscarla sí sale, con su marca');
     await page.fill('#sg-busca', '');
+    await esperar(100);
+    ok(/Marcados hoy \d+/.test(sgh) && /Sara Uno Semana · no entra/.test(sgh), 'lo cambiado hoy queda para deshacer', sgh.slice(0, 600));
+    await page.click('#vista-sg [data-sg="secDeshacer"][data-id="s1"]');
+    await esperar(500);
+    sgh = (await page.textContent('#vista-sg')).replace(/\s+/g, ' ');
+    ok(secDe('asesor', 's1').entra === true && !/Sara Uno Semana · /.test(sgh) && /^Va una semana/.test(await grupoDe('s1')), 'deshacer vuelve a como estaba antes de hoy (entraba), no a por marcar', sgh.slice(0, 500));
+    // doble toque en un por marcar: la fila se va y la de abajo sube, pero el segundo toque no la marca
+    await page.dblclick('#vista-sg .pormarcar-row [data-sg="secAs"][data-id="n4"][data-v="si"]');
+    await esperar(600);
+    ok(secDe('asesor', 'n4').entra === true && secDe('asesor', 'n3').entra === null && !!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')), 'un doble toque marca solo a quien se tocó');
+    await esperar(400);                                   // pasada la pausa del doble toque
+    // al repintar, el foco vuelve al mismo control y en la misma lista (Sofía sale en «Para hoy» y en la lista)
+    await page.evaluate(() => document.querySelector('#sg-lista .sg-row[data-id="s2"]').focus());
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+    await esperar(150);
+    ok(await page.evaluate(() => { const a = document.activeElement; return !!a && a.getAttribute('data-id') === 's2' && !!a.closest('#sg-lista'); }), 'al repintar, el foco sigue en la misma fila de la lista');
+    await page.evaluate(() => { delete document.hidden; });
     errorSec = 'falla de prueba';
     await page.click('#vista-sg .pormarcar-row [data-sg="secAs"][data-id="n3"][data-v="si"]');
     await esperar(500);
     ok(/No se guardó: falla de prueba/.test(await toast()) && !!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')) && secDe('asesor', 'n3').entra === null, 'si no se guarda, vuelve a como estaba y lo dice', await toast());
     errorSec = null;
+    await esperar(400);                                   // pasada la pausa del toque anterior
     // marca mientras llega una carga que salió antes: no se pierde
     await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
     await page.clock.setFixedTime(new Date(AHORA.getTime() + 120000));
@@ -924,6 +967,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.waitForSelector('.modal', { timeout: 5000 }).catch(() => {});
     ok(traspasos === 2 && /Simon Cinco Activo/.test((await page.textContent('.modal').catch(() => '')) || ''), 'también si ya tenía sesión: no pierde el enlace');
     await page.keyboard.press('Escape');
+    ponerSec('asesor', 'n4', null);                       // vuelve a por marcar
     await page.goto(base + '?desde=n0c#a=n4');
     await page.waitForSelector('.modal');
     ficha = (await page.textContent('.modal')).replace(/\s+/g, ' ');
@@ -941,6 +985,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
       'si falla la lista de Nivel Cero lo dice, no muestra una lista vacía', await page.textContent('#bv-hoy'));
     errorAsesores = null;
     ponerSec('asesor', 'n1', null);                       // vuelve a por marcar: para ver el recuadro en el celular chico
+    ['UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS'].forEach((n, i) => db.ins.push({ id: 'x' + (i + 1), nombre: 'XIMENA EXTRA ' + n, celular: '95900004' + i, fecha_inscripcion: '2026-10-19', codigo: null }));
     await page.goto(base + '?ok=1');
     await page.waitForFunction(() => !document.getElementById('bv-hoy').hidden);
 
@@ -962,6 +1007,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('#tab-bv');
     await esperar(150);
     ok(!!(await page.$('#bv-hoy .pormarcar-row [data-id="n1"]')) && (await page.evaluate(() => document.documentElement.scrollWidth)) <= 360, 'el recuadro de por marcar cabe a 360 px');
+    ok((await page.$$('#bv-hoy .pormarcar-row')).length === 6 && /Ver los 8 por marcar/.test(await page.textContent('#bv-hoy .pormarcar')) && /¿Entran a la secuencia\?\s*7/.test(await page.textContent('#bv-hoy')),
+      'con más de 6 muestra los 6 más nuevos y lleva a la lista completa', await page.textContent('#bv-hoy .pormarcar'));
     await (await page.$('#bv-hoy')).screenshot({ path: '/tmp/bv-secuencia-360.png' });
     await page.click('#bv-hoy [data-sg="gestionAs"]');
     await esperar(200);
@@ -1177,8 +1224,35 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.fill('#cs-busca', 'carmen');
     await esperar(150);
     ok((await page.$$('#cs-lista .sg-row')).length === 2 && /no entra/.test(await page.textContent('#cs-lista')), 'pero al buscarla sale, marcada');
+    // anotar el cambio de filtro a quien no entra: aunque la respuesta traiga la marca de antes, sigue fuera
+    await page.click('#cs-lista .sg-row[data-id="c3"]');
+    await esperar(200);
+    respuestaVieja = true;
+    await page.click('.modal [data-sg="clCambio"][data-clave="c3::prefiltro"]');
+    await page.click('.modal [data-sg="clCambioOk"][data-clave="c3::prefiltro"]');
+    await esperar(600);
+    respuestaVieja = false;
+    ok(hubo((l) => l.fn === 'wa_cl_envio_registrar' && l.args.p_n_orden === 9003 && l.args.p_modo === 'cambio') && /No entra a las secuencias desde el 21 oct/.test(await page.textContent('.modal')) &&
+      (await page.getAttribute('.modal [data-sg="secCl"][data-v="no"]', 'aria-pressed')) === 'true', 'anotar su cambio de filtro no la vuelve a meter');
+    await page.keyboard.press('Escape');
+    await esperar(150);
     await page.fill('#cs-busca', '');
     await esperar(100);
+    ok(!(await page.$('#cs-lista .sg-row[data-id="c3"]')), 'y sigue fuera de la lista');
+    // con muchos clientes la lista muestra los primeros y el buscador encuentra al resto
+    for (let i = 1; i <= 70; i++) db.cl.clientes.push({ id: 'cx' + i, nombre: 'CLIENTE EXTRA ' + String(i).padStart(2, '0'), celular: '9591' + String(i).padStart(5, '0'), ciudad: 'Cayma, Arequipa', trato: null, ordenes: [] });
+    await page.goto(base + '?muchos=1');
+    await page.waitForFunction(() => !!document.querySelector('#vista-cs [data-sg="gestionCl"]'));
+    await page.click('#vista-cs [data-sg="gestionCl"]');
+    await esperar(200);
+    await page.click('.modal [data-sg="secFiltro"][data-f="todos"]');
+    await esperar(150);
+    ok((await page.$$('#seccl-lista .sec-row')).length === 60 && /Se ven 60 de 75: busca por nombre o celular/.test(await page.textContent('#seccl-lista')), 'con 75 clientes muestra 60 y avisa', (await page.$$('#seccl-lista .sec-row')).length);
+    await page.fill('#seccl-busca', 'extra 70');
+    await esperar(150);
+    ok((await page.$$('#seccl-lista .sec-row')).length === 1 && /Cliente Extra 70/.test(await page.textContent('#seccl-lista')), 'y el buscador encuentra a uno que no se veía');
+    await page.keyboard.press('Escape');
+    await esperar(150);
     await page.click('#grupo-as');
     await esperar(150);
     ok(await page.isVisible('#vistas-as') && ((await page.isVisible('#vista-bv')) || (await page.isVisible('#vista-sg'))) && await page.isVisible('#horario-panel') && !(await page.isVisible('#vista-cs')), 'volver a Asesores restaura su vista');
