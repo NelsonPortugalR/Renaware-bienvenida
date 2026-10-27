@@ -15,6 +15,30 @@ Todos los mensajes de WhatsApp del equipo, en dos grupos: **Asesores** y
 5 clases dentro de su plazo de 30 días = botella de acero, el adelanto del
 Empiece Ya.
 
+## Quién entra a la secuencia
+
+No todo el que se afilia va a hacer el negocio. Por eso cada persona tiene un
+check: **✓ entra** o **✗ no entra**. Quitar a alguien no lo borra: solo deja de
+salir en «Para hoy».
+
+- **Asesores**: hay que decidir. Cada asesor nuevo sale arriba de «Para hoy»
+  (en Bienvenida o en Seguimiento, según su día) con ✓ / ✗ de un toque, y la
+  pestaña lo cuenta. Mientras está **por marcar** no se le propone ningún
+  mensaje. Lo marcado hoy se puede deshacer (vuelve a por marcar); «Ver y
+  cambiar» abre la lista de todos (por marcar, entran, no entran), con
+  buscador, ✓ / ✗ en cada fila y «Que entren los N» para marcar de una vez a
+  todos los que faltan (con confirmación y deshacer). También se cambia desde
+  su ficha. Quien no entra sigue en Nivel Cero con sus clases y sale al
+  buscarlo.
+- **Clientes**: todos entran, salvo los que se quiten. Desde su ficha o desde
+  la lista «Ver y cambiar» (todos / no entran, buscador por nombre o celular).
+  Quien no entra no sale en «Para hoy» ni en los avisados; en su ficha se
+  puede seguir anotando el cambio de filtro o mandar algo a mano. El contador
+  de clientes del inicio de la plataforma (`hoy_items`) tampoco lo cuenta.
+- Las marcas van a `wa_secuencia` (`tipo` asesor o cliente, `ref` = id de
+  `n0_inscritos` o de `clientes`, `entra` true / false / null). Solo se agregan
+  filas: la vigente es la última, y cambiar o deshacer es otra fila.
+
 ## Clientes
 
 Los mensajes a quienes compraron, con los datos que carga **Pedidos**
@@ -44,7 +68,7 @@ Los mensajes a quienes compraron, con los datos que carga **Pedidos**
 ## Qué hace
 
 - **Para hoy**: cada pestaña dice a quién le toca qué mensaje hoy, y la pestaña
-  muestra cuántos son.
+  muestra cuántos son (más los asesores por marcar).
 - **Bienvenida**: «Preparar» carga sus datos (nombre, celular, fecha de inicio
   y código, si ya es un código real de Rena Ware) y lleva a su día. Cada
   tarjeta dice qué día enviarla, los archivos que van y el texto listo, con
@@ -63,7 +87,8 @@ Los mensajes a quienes compraron, con los datos que carga **Pedidos**
   **Promoción y oficina** (precio del Gourmet, promoción de ejemplo, inicial,
   regalo y comisión), editables en la página.
 - **Desde Nivel Cero**: `#a=<id>` abre su ficha (o su bienvenida si va en sus
-  días 1 a 5) y `#a=<id>&paso=recoger` el aviso para que recoja su botella.
+  días 1 a 5 y entra a la secuencia; si falta marcarlo, su ficha para decidir)
+  y `#a=<id>&paso=recoger` el aviso para que recoja su botella.
   Nivel Cero manda además un código de traspaso (`#traspaso=<código>&a=<id>`)
   para entrar sin escribir la clave.
 
@@ -71,6 +96,8 @@ Los mensajes a quienes compraron, con los datos que carga **Pedidos**
 
 - **Plazo y clases**: los de Nivel Cero. El plazo va del inicio a 30 días
   después, ambos incluidos.
+- **Secuencia**: solo a los asesores marcados con ✓ se les propone algo; a los
+  clientes, a todos menos los marcados con ✗.
 - **Bienvenida**: el día N va en inicio + N − 1. «Para hoy» propone el primer
   día que falta mandar, si ya llegó su fecha, mientras está en sus días 1 a 5.
   Si se envía tarde, el texto propone capacitaciones desde hoy, con 2 horas de
@@ -117,8 +144,11 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
   clases y mensajes, y los textos editados), `wa_bv_ajustes_guardar`,
   `wa_bv_adjunto_guardar`, `wa_bv_adjunto_borrar`, `wa_bv_ordenar`,
   `wa_bv_envio_registrar`, `wa_bv_envio_anular`, `wa_bv_trato_guardar`,
-  `wa_bv_trato_defecto`, `wa_bv_plantilla_guardar`. `wa_bv_asesor_json` arma
-  cada asesor (interna, sin permisos públicos).
+  `wa_bv_trato_defecto`, `wa_bv_plantilla_guardar`, `wa_secuencia_marcar`
+  (marca ✓ / ✗ / sin marcar a una o varias personas; solo agrega una fila si
+  cambia). `wa_bv_asesor_json` arma cada asesor y `wa_secuencia_de` da la marca
+  vigente (`sec`: `{entra, en}`) de cada asesor y cliente (internas, sin
+  permisos públicos).
 - Envíos sin señal (o con la sesión cerrada): quedan en el celular y se anotan
   al volver; cada uno sale de la cola solo cuando el servidor lo confirma. Lo
   que aún no confirma se mantiene aunque la página recargue, y el servidor no
@@ -130,7 +160,7 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 181 aserciones y capturas en /tmp/bv-*.png
+node pruebas/prueba.js   # Chromium real con un Supabase falso; 226 aserciones y capturas en /tmp/bv-*.png
 ```
 
 ## Despliegue

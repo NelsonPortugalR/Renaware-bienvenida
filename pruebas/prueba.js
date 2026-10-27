@@ -65,7 +65,12 @@ const db = {
     ['s11', 'HUGO EXCLUIDO', '959000011', '2026-10-10', null],
     ['s12', 'VICTOR VENCIDO HACE ONCE', null, '2026-09-10', null],         // venció hace 11 días: ya no se le escribe
     ['s14', 'TOMAS ATRASADO', '959000014', '2026-10-19', null],             // día 3, solo tiene el día 1 → Día 2, tocaba ayer
-    ['s15', 'TERESA DOS DIAS', '959000015', '2026-10-18', null]             // día 4, solo tiene el día 1 → Día 2, tocaba el lunes
+    ['s15', 'TERESA DOS DIAS', '959000015', '2026-10-18', null],            // día 4, solo tiene el día 1 → Día 2, tocaba el lunes
+    // quién entra a la secuencia: los de arriba ya entran; estos no están marcados (o no entran)
+    ['n1', 'NADIA NUEVA MARCAR', '959000021', '2026-10-20', null],          // día 2, sin marcar → por marcar en Bienvenida
+    ['n2', 'NORMA NO ENTRA', '959000022', '2026-10-10', null],              // día 12, ✗ → le tocaría «Va una semana», pero no entra
+    ['n3', 'PEDRO MARCAR SEGUIMIENTO', '959000023', '2026-10-12', null],    // día 10, sin marcar → por marcar en Seguimiento
+    ['n4', 'QUIQUE MARCAR TAMBIEN', '959000024', '2026-10-14', null]        // día 8, sin marcar
   ].map(([id, nombre, celular, fecha_inscripcion, codigo]) => ({ id, nombre, celular, fecha_inscripcion, codigo })),
   estado: { s11: { excluido: true } },
   ey: { s9: true },
@@ -73,8 +78,18 @@ const db = {
   asis: [],
   mensajes: [],
   plantillas: [],
-  archivos: {}
+  archivos: {},
+  sec: []                                    // wa_secuencia: {id, tipo, ref, entra, en} — solo se agregan filas
 };
+let secId = 0;
+const ponerSec = (tipo, ref, entra, en) => db.sec.push({ id: ++secId, tipo, ref, entra, en: en || AHORA.toISOString() });   // la hora de la prueba
+function secDe(tipo, ref) {
+  const l = db.sec.filter((s) => s.tipo === tipo && s.ref === ref);
+  const u = l[l.length - 1];
+  return u ? { entra: u.entra, en: u.en } : null;
+}
+db.ins.forEach((p) => { if (!/^n/.test(p.id)) ponerSec('asesor', p.id, true, '2026-10-20T15:00:00Z'); });
+ponerSec('asesor', 'n2', false, '2026-10-19T15:00:00Z');
 [['k1', '2026-08-04'], ['k2', '2026-08-05'], ['k3', '2026-08-07'], ['k4', '2026-08-11'], ['k5', '2026-08-12'],
  ['k6', '2026-09-16'], ['k7', '2026-09-18'], ['k8', '2026-09-23'], ['k9', '2026-09-25'], ['k10', '2026-09-29'],
  ['k11', '2026-09-30'], ['k12', '2026-10-02'], ['k13', '2026-10-06'], ['k14', '2026-10-07'], ['k15', '2026-10-13'],
@@ -119,7 +134,8 @@ function asesor(p) {
     logro_fecha: val.length >= meta ? val[meta - 1].fecha : null,
     botella_entregada_en: e.botella_entregada_en || null, ey: !!db.ey[p.id],
     asistencias: mias.map((c) => ({ f: c.fecha, v: c.fecha >= inicio && c.fecha <= vence })),
-    mensajes: db.mensajes.filter((m) => m.ins === p.id && !m.anulado).map((m) => ({ id: m.id, paso: m.paso, modo: m.modo, en: m.en }))
+    mensajes: db.mensajes.filter((m) => m.ins === p.id && !m.anulado).map((m) => ({ id: m.id, paso: m.paso, modo: m.modo, en: m.en })),
+    sec: secDe('asesor', p.id)
   };
 }
 let sesionInvalida = false;
@@ -127,6 +143,8 @@ let cortar = 0;
 const retrasos = {};            // paso → ms antes de anotar (para cruzar respuestas)
 let retrasoDatos = 0;           // ms antes de devolver wa_bv_datos
 let errorAsesores = null;       // simula que falla la lista de Nivel Cero
+let errorSec = null;            // simula que falla guardar quién entra a la secuencia
+let retrasoSec = 0;             // ms antes de responder wa_secuencia_marcar
 
 /* ---------------- clientes (lo que arma crm_acciones en Supabase, aquí calculado igual) ---------------- */
 const MESES_CL = { prefiltro: 12, filtroppal: 48, aire: 18 };
@@ -192,7 +210,7 @@ function accionesCl(c) {
   return out;
 }
 function clienteJson(c) {
-  return { id: c.id, nombre: c.nombre, celular: c.celular, ciudad: c.ciudad, trato: c.trato,
+  return { id: c.id, nombre: c.nombre, celular: c.celular, ciudad: c.ciudad, trato: c.trato, sec: secDe('cliente', c.id),
     ordenes: c.ordenes.map((o) => ({ n_orden: o.n_orden, fecha: o.entrega, estatus: 'ENTREGADA', productos: o.productos, total: o.total, vendedor: o.vendedor, credito: o.credito, cuotas: o.cuotas })) };
 }
 function clienteConAcciones(c) { return Object.assign(clienteJson(c), { acciones: accionesCl(c) }); }
@@ -251,6 +269,16 @@ function rpc(fn, a) {
     return ok(db.plantillas.map((y) => Object.assign({}, y)));
   }
   if (fn === 'wa_bv_ajustes_guardar') { db.ajustes = a.p_data; return ok(a.p_data); }
+  if (fn === 'wa_secuencia_marcar') {               // igual que en Supabase: valida, agrega una fila solo si cambia, devuelve [{ref, sec}]
+    if (errorSec) return err(errorSec);
+    if (['asesor', 'cliente'].indexOf(a.p_tipo) < 0) return err('Tipo no valido');
+    const refs = Array.from(new Set((a.p_refs || []).filter(Boolean)));
+    if (!refs.length) return err('No hay a quien marcar');
+    const existe = (r) => (a.p_tipo === 'asesor' ? db.ins.some((x) => x.id === r) : db.cl.clientes.some((x) => x.id === r));
+    if (!refs.every(existe)) return err('La persona no existe');
+    refs.forEach((r) => { const s = secDe(a.p_tipo, r); if ((s ? s.entra : null) !== (a.p_entra == null ? null : a.p_entra)) ponerSec(a.p_tipo, r, a.p_entra == null ? null : a.p_entra); });
+    return ok(refs.map((r) => ({ ref: r, sec: secDe(a.p_tipo, r) })));
+  }
   if (fn === 'wa_cl_datos') {
     let acc = [];
     db.cl.clientes.forEach((c) => { acc = acc.concat(accionesCl(c)); });
@@ -327,6 +355,7 @@ async function conectar(ctx) {
       if (fn === 'wa_bv_envio_registrar' && cortar > 0) { cortar--; return route.abort('internetdisconnected'); }
       const args = JSON.parse(req.postData() || '{}');
       if (fn === 'wa_bv_envio_registrar' && retrasos[args.p_paso]) await esperar(retrasos[args.p_paso]);   // se anota más tarde
+      if (fn === 'wa_secuencia_marcar' && retrasoSec) await esperar(retrasoSec);
       llamadas.push({ fn, args });
       const r = rpc(fn, args);
       if (fn === 'wa_bv_datos' && retrasoDatos) await esperar(retrasoDatos);   // la foto de los datos es de antes; llega tarde
@@ -417,13 +446,14 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.$eval('#h-dia-0', (e) => e.value)) === '2' && (await page.$eval('#h-hora-0', (e) => e.value)) === '09:30', 'el horario viene de Nivel Cero');
     ok((await page.textContent('#horario-resumen')) === 'Mar 9:30 a. m. · Mié 4:00 p. m. · Vie 4:30 p. m.', 'el horario se resume arriba', await page.textContent('#horario-resumen'));
     const opciones = await page.$$eval('#asesor-sel option', (l) => l.map((o) => o.textContent));
-    ok(opciones.length === 15, 'para elegir: los 14 nuevos de los últimos 45 días más «a mano»', opciones.length);
+    ok(opciones.length === 19, 'para elegir: los 18 nuevos de los últimos 45 días más «a mano»', opciones.length);
+    ok(opciones.some((t) => /Norma No Entra .*no entra a la secuencia/.test(t)) && opciones.some((t) => /Nadia Nueva Marcar .*por marcar/.test(t)), 'y dice quién no entra o falta marcar', opciones.join(' | '));
     ok(!opciones.some((t) => /Rosa Antigua|Hugo/.test(t)), 'no lista a los de hace más de 45 días ni a los excluidos');
     ok((await page.textContent('#aj-resumen')).includes('Promoción 5'), 'carga la promoción guardada');
 
     console.log('Bienvenida · para hoy');
     await page.screenshot({ path: '/tmp/bv-inicio.png', fullPage: true });
-    ok((await page.textContent('#cuenta-bv')).startsWith('4') && (await page.textContent('#cuenta-sg')).startsWith('8'), 'las pestañas cuentan lo de hoy: 4 de bienvenida y 8 de seguimiento',
+    ok((await page.textContent('#cuenta-bv')).startsWith('5') && (await page.textContent('#cuenta-sg')).startsWith('10'), 'las pestañas cuentan lo de hoy: 4 de bienvenida + 1 por marcar, y 8 de seguimiento + 2 por marcar',
       (await page.textContent('#cuenta-bv')) + ' / ' + (await page.textContent('#cuenta-sg')));
     const hoyBv = await page.$$eval('#bv-hoy .hoy-row', (l) => l.map((x) => x.innerText.replace(/\s+/g, ' ')));
     ok(hoyBv.length === 4 && /Teresa Dos Dias Día 2 · Kit y material digital · tocaba el lun 19 oct/.test(hoyBv[0]) && /Tomas Atrasado Día 2 · Kit y material digital · tocaba ayer/.test(hoyBv[1]),
@@ -451,7 +481,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(vivos('s14', 'bv3').length === 0 && !!(await page.$('#bv-hoy [data-id="s14"]')), 'deshacer lo devuelve');
     await page.click('#bvst-3 [data-sg="bvMarcar"]');
     await esperar(500);
-    ok((await page.textContent('#cuenta-bv')).startsWith('3'), 'la pestaña se actualiza');
+    ok((await page.textContent('#cuenta-bv')).startsWith('4'), 'la pestaña se actualiza');
     await page.click('#bv-hoy .sg-nom[data-id="s6"]');
     await esperar(250);
     const fichaS = await page.textContent('.modal');
@@ -734,7 +764,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
 
     console.log('Seguimiento · lista y horario');
     const filas = await page.$$eval('#sg-lista .sg-row', (l) => l.map((x) => x.innerText.replace(/\s+/g, ' ')));
-    ok(filas.length === 11, 'lista a todos los del día 6 en adelante', filas.length);
+    ok(filas.length === 13, 'lista a todos los del día 6 en adelante, menos a quien no entra a la secuencia', filas.length);
+    ok(filas.some((t) => /Pedro Marcar Seguimiento .*Por marcar: ¿entra a la secuencia\?/.test(t)) && !filas.some((t) => /Norma No Entra/.test(t)), 'los por marcar salen con su aviso', filas.join(' | '));
     ok(filas.some((t) => /Rosa Antigua Botella .*botella por recoger/.test(t)), 'incluye a quien aún no recoge su botella, aunque sea de antes', filas.join(' | '));
     ok(filas.some((t) => /Simon Cinco Activo .*Al día · si no viene, el mié 28 oct: Quedan 7 días/.test(t)), 'dice qué le toca o qué le tocará', filas.join(' | '));
     await page.fill('#sg-busca', 'fanny');
@@ -750,6 +781,113 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.textContent('#horario-resumen')) === 'Mar 9:30 a. m. · Vie 4:30 p. m.', 'y el resumen del horario cambia');
     await page.selectOption('#h-dia-1', '3');
     await page.click('#horario-panel summary');
+
+    console.log('Secuencia · asesores');
+    await page.click('#tab-bv');
+    await esperar(150);
+    const filasHoyBv = () => page.$$eval('#bv-hoy .hoy-row', (l) => l.map((x) => x.innerText.replace(/\s+/g, ' ')));
+    let bvh = (await page.textContent('#bv-hoy')).replace(/\s+/g, ' ');
+    ok(/¿Entran a la secuencia\? 1/.test(bvh) && /Nadia Nueva Marcar\s*Desde el mar 20 oct · día 2 · 0 de 5 clases/.test(bvh) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)),
+      'la nueva sale arriba para marcarla y todavía no se le propone nada', bvh.slice(0, 400));
+    await page.screenshot({ path: '/tmp/bv-secuencia.png' });
+    await page.click('#bv-hoy [data-sg="secAs"][data-id="n1"][data-v="si"]');
+    await esperar(500);
+    ok(hubo((l) => l.fn === 'wa_secuencia_marcar' && l.args.p_tipo === 'asesor' && l.args.p_refs.length === 1 && l.args.p_refs[0] === 'n1' && l.args.p_entra === true) && secDe('asesor', 'n1').entra === true,
+      '✓ con un toque, anotado en wa_secuencia');
+    bvh = (await page.textContent('#bv-hoy')).replace(/\s+/g, ' ');
+    ok(!(await page.$('#bv-hoy .pormarcar')) && (await filasHoyBv()).some((t) => /Nadia Nueva Marcar Día 1 · Bienvenida, código y horario · tocaba ayer/.test(t)), 'pasa a «Para hoy» con su día 1', (await filasHoyBv()).join(' | '));
+    ok(/Marcados hoy 1/.test(bvh) && /Nadia Nueva Marcar · entra a la secuencia/.test(bvh) && /Secuencia: 16 entran · 1 no entra · 2 por marcar/.test(bvh), 'queda en lo marcado hoy y en el resumen', bvh.slice(-400));
+    ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'bv-hoy-h'), 'el foco no se pierde: pasa al título de «Para hoy»');
+    await page.click('#bv-hoy [data-sg="secDeshacer"][data-id="n1"]');
+    await esperar(500);
+    ok(!!(await page.$('#bv-hoy .pormarcar-row [data-id="n1"]')) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)) && secDe('asesor', 'n1').entra === null && db.sec.filter((s) => s.ref === 'n1').length === 2,
+      'deshacer la devuelve a por marcar, sin borrar lo anotado');
+    await page.click('#bv-hoy [data-sg="secAs"][data-id="n1"][data-v="no"]');
+    await esperar(500);
+    bvh = (await page.textContent('#bv-hoy')).replace(/\s+/g, ' ');
+    ok(secDe('asesor', 'n1').entra === false && !(await page.$('#bv-hoy .pormarcar')) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)) && /Nadia Nueva Marcar · no entra/.test(bvh),
+      '✗ no entra: no sale en «Para hoy»', bvh.slice(0, 300));
+    await page.click('#bv-hoy [data-sg="gestionAs"]');
+    await esperar(200);
+    let gm = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(/¿Quién entra a la secuencia\?/.test(gm) && /Por marcar · 2/.test(gm) && /Entran · 15/.test(gm) && /No entran · 2/.test(gm) && /Todos · 19/.test(gm), 'la lista cuenta por marcar, entran y no entran', gm.slice(0, 500));
+    ok((await page.$$eval('#secas-lista .sec-row', (l) => l.map((x) => x.innerText))).length === 2 && /Quique Marcar Tambien[^]*Pedro Marcar Seguimiento/.test(await page.textContent('#secas-lista')), 'abre en los por marcar, los más nuevos primero');
+    await page.screenshot({ path: '/tmp/bv-secuencia-lista.png' });
+    await page.click('.modal [data-sg="secTodos"]');
+    await esperar(150);
+    ok(/¿Los 2 por marcar entran a la secuencia\?/.test(await page.textContent('.modal')) && await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-sg') === 'secTodosOk'),
+      'marcar a todos pide confirmar, con el foco en confirmar');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!!(await page.$('.modal')) && !!(await page.$('.modal [data-sg="secTodos"]')) && !hubo((l) => l.fn === 'wa_secuencia_marcar' && l.args.p_refs.length === 2), 'Escape cancela la confirmación sin cerrar la lista');
+    await page.click('.modal [data-sg="secTodos"]');
+    await page.click('.modal [data-sg="secTodosOk"]');
+    await esperar(500);
+    gm = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(hubo((l) => l.fn === 'wa_secuencia_marcar' && l.args.p_refs.length === 2 && l.args.p_entra === true) && secDe('asesor', 'n3').entra === true && secDe('asesor', 'n4').entra === true &&
+      /2 asesores entraron a la secuencia\./.test(gm) && /No hay nadie por marcar\./.test(gm), 'los dos entran de una vez, con deshacer', gm.slice(0, 600));
+    await page.click('.modal [data-sg="secLoteDeshacer"]');
+    await esperar(500);
+    ok(secDe('asesor', 'n3').entra === null && secDe('asesor', 'n4').entra === null && /Por marcar · 2/.test(await page.textContent('.modal')), 'deshacer los devuelve a por marcar');
+    await page.click('.modal [data-sg="secFiltro"][data-f="todos"]');
+    await page.fill('#secas-busca', 'norma');
+    await esperar(150);
+    ok((await page.$$('#secas-lista .sec-row')).length === 1 && (await page.evaluate(() => document.activeElement.id)) === 'secas-busca', 'busca en la lista sin perder el foco');
+    ok((await page.getAttribute('#secas-lista [data-id="n2"][data-v="no"]', 'aria-pressed')) === 'true', 'Norma aparece con ✗');
+    await page.click('#secas-lista [data-sg="secAs"][data-id="n2"][data-v="si"]');
+    await esperar(500);
+    ok(secDe('asesor', 'n2').entra === true && (await page.getAttribute('#secas-lista [data-id="n2"][data-v="si"]', 'aria-pressed')) === 'true', 'cambia de ✗ a ✓ en la lista');
+    await page.click('#secas-lista .sg-nom[data-id="n2"]');
+    await esperar(200);
+    const fn2 = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(/Norma No Entra/.test(fn2) && /Secuencia\s*✓ Entra · Norma No Entra\s*✗ No entra · Norma No Entra\s*desde el 21 oct/.test(fn2) && /Le toca: Va una semana/.test(fn2), 'su ficha dice que entra desde hoy y qué le toca', fn2.slice(0, 600));
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(/¿Quién entra a la secuencia\?/.test(await page.textContent('.modal')) && (await page.inputValue('#secas-busca')) === 'norma' &&
+      await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-id') === 'n2'), 'al cerrar la ficha vuelve a la lista como estaba');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!(await page.$('.modal')), 'y Escape cierra la lista');
+    await page.click('#tab-sg');
+    await esperar(150);
+    let sgh = (await page.textContent('#vista-sg')).replace(/\s+/g, ' ');
+    ok(/^Va una semana/.test(await grupoDe('n2')) && /¿Entran a la secuencia\? 2/.test(sgh) && !!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')), 'al entrar le toca su mensaje; en seguimiento también salen los por marcar', sgh.slice(0, 400));
+    await page.click('#vista-sg .sg-items .sg-nom[data-id="s1"]');
+    await esperar(200);
+    await page.click('.modal [data-sg="secAs"][data-v="no"]');
+    await esperar(500);
+    const fs1 = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(/No entra a la secuencia: no se le propone ningún mensaje/.test(fs1) && (await page.getAttribute('.modal [data-sg="secAs"][data-v="no"]', 'aria-pressed')) === 'true' && secDe('asesor', 's1').entra === false,
+      'desde su ficha: ✗ y ya no se le propone nada', fs1.slice(0, 500));
+    ok(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-sg') === 'secAs' && document.activeElement.getAttribute('data-v') === 'no'), 'el foco sigue en lo que tocó');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    sgh = (await page.textContent('#vista-sg')).replace(/\s+/g, ' ');
+    ok(!(await page.$('#vista-sg .sg-items .sg-nom[data-id="s1"]')) && !(await page.$('#sg-lista .sg-row[data-id="s1"]')) && /1 asesor no entra a la secuencia: no salen en la lista\./.test(sgh),
+      'sale de «Para hoy» y de la lista, y lo dice', sgh.slice(-500));
+    await page.fill('#sg-busca', 'sara');
+    await esperar(150);
+    ok(/Sara Uno Semana.*No entra a la secuencia/.test((await page.textContent('#sg-lista')).replace(/\s+/g, ' ')), 'al buscarla sí sale, con su marca');
+    await page.fill('#sg-busca', '');
+    errorSec = 'falla de prueba';
+    await page.click('#vista-sg .pormarcar-row [data-sg="secAs"][data-id="n3"][data-v="si"]');
+    await esperar(500);
+    ok(/No se guardó: falla de prueba/.test(await toast()) && !!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')) && secDe('asesor', 'n3').entra === null, 'si no se guarda, vuelve a como estaba y lo dice', await toast());
+    errorSec = null;
+    // marca mientras llega una carga que salió antes: no se pierde
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await page.clock.setFixedTime(new Date(AHORA.getTime() + 120000));
+    retrasoDatos = 1200;
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+    await esperar(100);
+    await page.click('#vista-sg .pormarcar-row [data-sg="secAs"][data-id="n3"][data-v="si"]');
+    await esperar(1500);
+    ok(!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')), 'una carga que salió antes de marcar no la devuelve a por marcar');
+    await esperar(1400);
+    ok(!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')) && secDe('asesor', 'n3').entra === true && !!(await page.$('#vista-sg .sg-items .sg-nom[data-id="n3"]')), 'y al terminar de cargar sigue marcada, con su mensaje');
+    retrasoDatos = 0;
+    await page.evaluate(() => { delete document.hidden; });
+    await page.clock.setFixedTime(AHORA);
 
     console.log('Enlace desde Nivel Cero');
     db.mensajes.push({ id: nuevoId(), ins: 's9', paso: 'botella', modo: 'whatsapp', texto: null, en: '2026-10-17', anulado: false });
@@ -786,12 +924,23 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.waitForSelector('.modal', { timeout: 5000 }).catch(() => {});
     ok(traspasos === 2 && /Simon Cinco Activo/.test((await page.textContent('.modal').catch(() => '')) || ''), 'también si ya tenía sesión: no pierde el enlace');
     await page.keyboard.press('Escape');
+    await page.goto(base + '?desde=n0c#a=n4');
+    await page.waitForSelector('.modal');
+    ficha = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(await page.isVisible('#vista-sg') && /Quique Marcar Tambien/.test(ficha) && /Por marcar: hasta que marques arriba que entra/.test(ficha), 'si falta marcarlo, el enlace abre su ficha para decidir', ficha.slice(0, 300));
+    await page.keyboard.press('Escape');
+    await page.goto(base + '?desde=n0d#a=n1');
+    await page.waitForSelector('.modal');
+    ok(await page.isVisible('#vista-bv') && /Nadia Nueva Marcar/.test(await page.textContent('.modal')) && (await page.inputValue('#asesor-sel')) !== 'n1',
+      'y si no entra, también su ficha (no su bienvenida), aunque vaya en sus días 1 a 5');
+    await page.keyboard.press('Escape');
     errorAsesores = 'tiempo de espera agotado';
     await page.goto(base + '?err=1');
     await page.waitForFunction(() => !document.getElementById('bv-hoy').hidden);
     ok(/No se pudo leer la lista de Nivel Cero \(tiempo de espera agotado\)/.test(await page.textContent('#bv-hoy')) && /No se pudo leer la lista/.test(await page.textContent('#asesor-hint')),
       'si falla la lista de Nivel Cero lo dice, no muestra una lista vacía', await page.textContent('#bv-hoy'));
     errorAsesores = null;
+    ponerSec('asesor', 'n1', null);                       // vuelve a por marcar: para ver el recuadro en el celular chico
     await page.goto(base + '?ok=1');
     await page.waitForFunction(() => !document.getElementById('bv-hoy').hidden);
 
@@ -810,6 +959,19 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(await page.evaluate(() => { const m = document.querySelector('.modal'); return m && m.scrollWidth <= m.clientWidth; }), 'la ficha cabe a 360 px');
     await page.screenshot({ path: '/tmp/bv-ficha-360.png' });
     await page.keyboard.press('Escape');
+    await page.click('#tab-bv');
+    await esperar(150);
+    ok(!!(await page.$('#bv-hoy .pormarcar-row [data-id="n1"]')) && (await page.evaluate(() => document.documentElement.scrollWidth)) <= 360, 'el recuadro de por marcar cabe a 360 px');
+    await (await page.$('#bv-hoy')).screenshot({ path: '/tmp/bv-secuencia-360.png' });
+    await page.click('#bv-hoy [data-sg="gestionAs"]');
+    await esperar(200);
+    await page.click('.modal [data-sg="secFiltro"][data-f="todos"]');
+    await esperar(150);
+    ok(await page.evaluate(() => { const m = document.querySelector('.modal'); return m && m.scrollWidth <= m.clientWidth; }), 'la lista de la secuencia cabe a 360 px');
+    await page.screenshot({ path: '/tmp/bv-secuencia-lista-360.png' });
+    await page.keyboard.press('Escape');
+    await page.click('#tab-sg');
+    await esperar(150);
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.screenshot({ path: '/tmp/bv-seguimiento-oscuro.png' });
     await page.emulateMedia({ colorScheme: 'light' });
@@ -960,6 +1122,63 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.evaluate(() => location.hash)) === '', 'y limpia el enlace');
     await page.keyboard.press('Escape');
     await esperar(150);
+
+    console.log('Secuencia · clientes');
+    const cuentaDe = async (sel) => Number((((await page.textContent(sel)) || '').trim().match(/^\d+/) || [0])[0]);
+    await page.click('#tab-cb');
+    await esperar(150);
+    const cbAntes = await cuentaDe('#cuenta-cb');
+    ok(/Todos los clientes entran a las secuencias\./.test(await page.textContent('#vista-cb')) && !!(await page.$('#vista-cb .sg-item .sg-nom[data-id="c2"]')), 'todos los clientes entran por defecto');
+    await page.click('#vista-cb .sg-item .sg-nom[data-id="c2"]');
+    await esperar(200);
+    ok((await page.getAttribute('.modal [data-sg="secCl"][data-v="si"]', 'aria-pressed')) === 'true', 'su ficha lo muestra con ✓');
+    await page.click('.modal [data-sg="secCl"][data-v="no"]');
+    await esperar(500);
+    const fj = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(hubo((l) => l.fn === 'wa_secuencia_marcar' && l.args.p_tipo === 'cliente' && l.args.p_refs[0] === 'c2' && l.args.p_entra === false) && secDe('cliente', 'c2').entra === false &&
+      /No entra a las secuencias desde el 21 oct: no sale en «Para hoy»/.test(fj), '✗ lo saca de las secuencias, sin borrarlo', fj.slice(0, 300));
+    ok(!(await page.$('.modal a[data-envio-cl]')) && !(await page.$('.modal [data-sg="clAviso"]')) && /Mandar otro mensaje/.test(fj), 'su ficha ya no le ofrece los mensajes de la secuencia (a mano, sí)');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    let cbS = (await page.textContent('#vista-cb')).replace(/\s+/g, ' ');
+    ok(!(await page.$('#vista-cb .sg-item .sg-nom[data-id="c2"]')) && /1 cliente no entra a las secuencias\./.test(cbS) && (await cuentaDe('#cuenta-cb')) === cbAntes - 1,
+      'sale de «Para hoy» y la pestaña cuenta uno menos', cbS.slice(0, 300));
+    await page.click('#vista-cb [data-sg="gestionCl"]');
+    await esperar(200);
+    let gcl = (await page.textContent('.modal')).replace(/\s+/g, ' ');
+    ok(/Clientes en las secuencias/.test(gcl) && /No entran · 1/.test(gcl) && /Todos · 5/.test(gcl) && (await page.$$('#seccl-lista .sec-row')).length === 1 && /Juan Perez Quispe/.test(gcl),
+      'la lista abre en los que no entran', gcl.slice(0, 500));
+    await page.click('.modal [data-sg="secFiltro"][data-f="todos"]');
+    await page.fill('#seccl-busca', '959111003');
+    await esperar(150);
+    ok((await page.$$('#seccl-lista .sec-row')).length === 1 && /Carmen Quispe Choque/.test(await page.textContent('#seccl-lista')), 'busca también por celular');
+    await page.fill('#seccl-busca', '');
+    await esperar(100);
+    await page.click('.modal [data-sg="secFiltro"][data-f="no"]');
+    await page.click('#seccl-lista [data-sg="secCl"][data-id="c2"][data-v="si"]');
+    await esperar(500);
+    ok(secDe('cliente', 'c2').entra === true && /Todos los clientes entran a las secuencias\./.test(await page.textContent('.modal')) && db.sec.filter((s) => s.ref === 'c2').length === 2, '✓ lo vuelve a incluir');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!!(await page.$('#vista-cb .sg-item .sg-nom[data-id="c2"]')) && (await cuentaDe('#cuenta-cb')) === cbAntes, 'y vuelve a «Para hoy»');
+    await page.click('#tab-cs');
+    await esperar(150);
+    await page.click('#cs-lista .sg-row[data-id="c3"]');
+    await esperar(200);
+    const avisoAntes = !!(await page.$('.modal a[data-envio-cl="c3::prefiltro"]')) && !!(await page.$('.modal a[data-envio-cl="9003::fincuotas"]'));
+    await page.click('.modal [data-sg="secCl"][data-v="no"]');
+    await esperar(500);
+    ok(avisoAntes && !!(await page.$('.modal [data-sg="clCambio"][data-clave="c3::prefiltro"]')) && !(await page.$('.modal a[data-envio-cl="c3::prefiltro"]')) && !(await page.$('.modal a[data-envio-cl="9003::fincuotas"]')),
+      'sus filtros siguen: se anota el cambio, pero ya no se le avisa');
+    await page.keyboard.press('Escape');
+    await esperar(150);
+    ok(!(await page.$('#cs-lista .sg-row[data-id="c3"]')) && !(await page.$('#vista-cs .sg-item [data-clave="c3::prefiltro"]')) && /2 filtros son de clientes que no entran a las secuencias/.test(await page.textContent('#vista-cs')),
+      'sale de la lista de filtros y de los avisados');
+    await page.fill('#cs-busca', 'carmen');
+    await esperar(150);
+    ok((await page.$$('#cs-lista .sg-row')).length === 2 && /no entra/.test(await page.textContent('#cs-lista')), 'pero al buscarla sale, marcada');
+    await page.fill('#cs-busca', '');
+    await esperar(100);
     await page.click('#grupo-as');
     await esperar(150);
     ok(await page.isVisible('#vistas-as') && ((await page.isVisible('#vista-bv')) || (await page.isVisible('#vista-sg'))) && await page.isVisible('#horario-panel') && !(await page.isVisible('#vista-cs')), 'volver a Asesores restaura su vista');

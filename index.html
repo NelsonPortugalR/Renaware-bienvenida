@@ -664,6 +664,28 @@ details[open] .chev { transform: rotate(180deg); }
 .hist li > span { min-width: 0; overflow-wrap: anywhere; }
 .hist li > button { flex: none; }
 
+/* Quién entra a la secuencia: ✓ entra, ✗ no entra (nada se borra) */
+.pormarcar { display: grid; gap: 10px; padding: 12px 14px; border: 1.5px solid var(--accent); border-radius: 14px; background: var(--accent-soft); min-width: 0; }
+.pormarcar-h { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.pormarcar-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pormarcar-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.pormarcar-row > div { min-width: 0; flex: 1 1 11rem; }
+.pormarcar > .btn-link { justify-self: start; }
+.sino { display: inline-flex; flex-wrap: wrap; gap: 6px; flex: none; }
+.sino button { font: inherit; font-weight: 700; font-size: 14px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.sino .si:hover { border-color: var(--ok); }
+.sino .no:hover { border-color: var(--danger); }
+.sino .si[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: var(--on-ok); }
+.sino .no[aria-pressed="true"] { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
+.sino button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.sec-resumen { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; font-size: 14px; color: var(--muted); }
+.sg-next.marcar-t { color: var(--accent); }
+.tag.no { background: var(--danger-soft); color: var(--danger); }
+.sec-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.sec-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.sec-lista li:first-child { border-top: 0; }
+.sec-main { display: grid; gap: 1px; min-width: 0; flex: 1 1 11rem; }
+
 /* Ficha y editor */
 body.con-modal { overflow: hidden; }
 .ov {
@@ -839,6 +861,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   <section aria-labelledby="logic-h">
     <h2 class="section-h" id="logic-h">Cómo funciona</h2>
     <ul class="dots">
+      <li><strong>Primero, quién entra a la secuencia.</strong> Cada asesor nuevo sale arriba para marcarlo: ✓ si va a hacer el negocio, ✗ si no. Solo a los que entran les toca la bienvenida y el seguimiento; nadie se borra.</li>
       <li><strong>«Para hoy» dice a quién le toca.</strong> Toca «Preparar»: se cargan sus datos y vas directo a su día.</li>
       <li><strong>Un mensaje por día, con sus archivos.</strong> Cada tarjeta dice qué día enviarla. Si abres el chat con el botón de WhatsApp, queda anotado.</li>
       <li><strong>No preguntamos si vendrá.</strong> Cada invitación propone las dos capacitaciones más cercanas a la fecha de envío.</li>
@@ -1397,7 +1420,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return (bytes / 1048576).toFixed(1).replace('.', ',') + ' MB';
   }
   function anunciar(t) { var l = $('live'); l.textContent = ''; setTimeout(function () { l.textContent = t; }, 30); }
-  var TILDES = [[/Sesion/g, 'Sesión'], [/invalida/g, 'inválida'], [/no validos/g, 'no válidos'], [/Dia no valido/g, 'Día no válido']];
+  var TILDES = [[/Sesion/g, 'Sesión'], [/invalida/g, 'inválida'], [/no validos/g, 'no válidos'], [/Dia no valido/g, 'Día no válido'], [/ no valid([oa])\b/g, ' no válid$1']];
   function bonito(msg) {
     var s = String(msg || 'Algo falló');
     if (/Failed to fetch|NetworkError|Load failed|network/i.test(s)) return 'Sin conexión. Revisa tu internet e intenta de nuevo.';
@@ -1624,7 +1647,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       return ((orden[a.estado] || 0) - (orden[b.estado] || 0)) || String(b.inicio).localeCompare(String(a.inicio));
     });
     asesorSel.innerHTML = '<option value="">Escribir los datos a mano</option>' + lista.map(function (a) {
-      var extra = ESTADO_TXT[a.estado] ? ' · ' + ESTADO_TXT[a.estado] : '';
+      var extra = (ESTADO_TXT[a.estado] ? ' · ' + ESTADO_TXT[a.estado] : '') + (marcaDe(a) === false ? ' · no entra a la secuencia' : porMarcar(a) ? ' · por marcar' : '');
       var etiqueta = titulo(a.nombre) + ' · desde ' + fCorta(a.inicio) + ' · ' + (a.validas || 0) + '/' + meta + ' clases' + extra;
       return '<option value="' + esc(a.id) + '">' + esc(etiqueta) + '</option>';
     }).join('');
@@ -2263,6 +2286,18 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var d = diaDe(p);
     return !!p && (p.estado === 'en_curso' || p.estado === 'logro' || p.estado === 'vencio') && d != null && d >= DIA_SEG - 1;
   }
+  /* Quién entra a la secuencia (wa_secuencia): ✓ entra, ✗ no entra. Un asesor nuevo queda «por marcar»
+     y no se le propone nada hasta que se decida. A un cliente se le escribe salvo que se le quite. */
+  function marcaDe(x) { return x && x.sec && (x.sec.entra === true || x.sec.entra === false) ? x.sec.entra : null; }
+  function enSecuencia(p) { return marcaDe(p) === true; }
+  function marcable(p) { return !!p && (p.estado === 'en_curso' || candidatos(p).length > 0); }   // le puede tocar algo
+  function porMarcar(p) { return marcaDe(p) === null && marcable(p); }
+  function deLaPestana(p, v) { var d = diaDe(p); return v === 'bv' ? !(d >= DIA_SEG - 1) : d >= DIA_SEG - 1; }
+  function porMarcarDe(v) {
+    return S.asesores.filter(function (p) { return porMarcar(p) && deLaPestana(p, v); })
+      .sort(function (a, b) { return String(b.inicio).localeCompare(String(a.inicio)) || titulo(a.nombre).localeCompare(titulo(b.nombre), 'es'); });
+  }
+  function fechaMarca(x) { var d = x && x.sec && x.sec.en ? new Date(x.sec.en) : null; return d && !isNaN(d) ? isoDe(d) : null; }
   function plantilla(k) {
     var b = pasoDef(k) || { tu: '', usted: '' };
     var g = {};
@@ -2359,6 +2394,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   /* Se propone solo el más reciente: si se pasó uno sin mandar y ya le tocó otro, el viejo ya no va. */
   function pasoQueToca(p) {
+    if (!enSecuencia(p)) return null;                    // por marcar o fuera de la secuencia: nada
     var c = candidatos(p);
     if (!c.length) return null;
     c.sort(function (a, b) { return a.f < b.f ? -1 : a.f > b.f ? 1 : PASO[a.k].i - PASO[b.k].i; });
@@ -2372,7 +2408,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   /* Qué le tocará si no viene, para mostrarlo en la lista y en su ficha. */
   function proximoAviso(p) {
-    if (p.estado !== 'en_curso') return null;
+    if (p.estado !== 'en_curso' || !enSecuencia(p)) return null;
     var h = hoyISO(), l = [];
     if (!p.validas) l.push({ k: 'semana1', f: sumarISO(p.inicio, 7) });
     l.push({ k: 'quedan15', f: sumarISO(p.vence, -15) }, { k: 'quedan7', f: sumarISO(p.vence, -7) }, { k: 'cierre', f: sumarISO(p.vence, 1) });
@@ -2380,7 +2416,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Solo en sus días 1 a 5. */
   function bvPendiente(p) {
-    if (!enBienvenida(p)) return null;
+    if (!enBienvenida(p) || !enSecuencia(p)) return null;
     var d = diaDe(p);
     for (var n = 1; n <= d + 1 && n <= DAYS.length; n++) if (!yaMandado(p, 'bv' + n)) return { n: n, atraso: d + 1 - n };
     return null;
@@ -2449,6 +2485,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function ponerAsesor(fila) {
     if (!fila || !fila.id) return;
     aplicarPendientes(fila);
+    aplicarSecCamino('asesor', fila);
     for (var i = 0; i < S.asesores.length; i++) {
       if (String(S.asesores[i].id) === String(fila.id)) { S.asesores[i] = fila; return; }
     }
@@ -2551,6 +2588,46 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }).catch(function (e) { S.guardando = false; if (S.token) aviso(bonito(e.message), true); });
   }
 
+  /* ---------- marcar quién entra a la secuencia. Se ve al instante; lo que el servidor aún no confirma
+     se vuelve a poner sobre cualquier dato que llegue. Si falla, vuelve a como estaba. */
+  var secCamino = {};                                    // 'asesor:<id>' o 'cliente:<id>' → marca en camino
+  function aplicarSecCamino(tipo, x) { var m = x && secCamino[tipo + ':' + x.id]; if (m) x.sec = m; }
+  function marcarSecuencia(tipo, ids, v, msg) {
+    if (!S.token || !ids || !ids.length) return;
+    var porId = tipo === 'asesor' ? asesorPorId : clientePorId;
+    var ahora = { entra: v, en: new Date().toISOString(), tmp: true }, antes = {};
+    ids.forEach(function (id) {
+      var x = porId(id);
+      antes[id] = x ? (x.sec || null) : null;
+      if (x) x.sec = ahora;
+      secCamino[tipo + ':' + id] = ahora;
+    });
+    S.escrituras++;
+    repintar();
+    rpc('wa_secuencia_marcar', { p_token: S.token, p_tipo: tipo, p_refs: ids, p_entra: v }).then(function (l) {
+      ids.forEach(function (id) { if (secCamino[tipo + ':' + id] === ahora) delete secCamino[tipo + ':' + id]; });
+      (Array.isArray(l) ? l : []).forEach(function (r) {
+        var x = r && porId(r.ref);
+        if (x && !secCamino[tipo + ':' + x.id]) x.sec = r.sec || null;   // si ya hay otra marca en camino, manda esa
+      });
+      S.escrituras++;                                    // una carga que salió antes de esto ya es vieja
+      despuesDeMarcar(tipo);
+      repintar();
+      if (msg) aviso(msg);
+    }).catch(function (e) {
+      ids.forEach(function (id) {
+        if (secCamino[tipo + ':' + id] !== ahora) return;
+        delete secCamino[tipo + ':' + id];
+        var x = porId(id);
+        if (x && x.sec === ahora) x.sec = antes[id];
+      });
+      if (S.modal && S.modal.lote === ids) S.modal.lote = null;
+      repintar();
+      if (S.token) aviso('No se guardó: ' + bonito(e.message), true);
+    });
+  }
+  function despuesDeMarcar(tipo) { if (tipo === 'asesor' && document.activeElement !== asesorSel) llenarAsesores(); }
+
   /* ---------- pestañas */
   var VISTAS = ['bv', 'sg', 'cb', 'cs'];
   function grupoDe(v) { return v === 'cb' || v === 'cs' ? 'cl' : 'as'; }
@@ -2584,7 +2661,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function renderTabs() {
     var ok = S.estado === 'ok', okCl = CL.estado === 'ok';
-    var bv = ok ? bvPorEnviar().length : 0, sg = ok ? porEscribir().length : 0;
+    // lo de hoy: los mensajes que tocan y los asesores por marcar de cada pestaña
+    var bv = ok ? bvPorEnviar().length + porMarcarDe('bv').length : 0, sg = ok ? porEscribir().length + porMarcarDe('sg').length : 0;
     var cb = okCl ? clBvHoy().length : 0, cs = okCl ? clCicloHoy().length : 0;
     pintarCuenta('cuenta-bv', bv);
     pintarCuenta('cuenta-sg', sg);
@@ -2594,12 +2672,18 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     pintarCuenta('cuenta-cl', cb + cs);
   }
   function repintar() {
+    var a = document.activeElement, sel = a && a !== document.body && !$('capa').contains(a) ? claveFoco(a, true) : null;
     renderTabs();
     renderBvHoy();
     renderBvEstados();
     if (S.vista === 'sg') renderSeg();
     if (grupoDe(S.vista) === 'cl') renderCl();
     if (S.modal) refrescarModal();
+    else if (sel && !a.isConnected) {                    // lo que tenía el foco se volvió a pintar: vuelve a él
+      var b = null;
+      try { b = document.querySelector(sel); } catch (e) { b = null; }
+      if (b && visible(b)) b.focus({ preventScroll: true });
+    }
   }
   VISTAS.forEach(function (v) { $('tab-' + v).addEventListener('click', function () { cambiarVista(v); }); });
   $('grupo-as').addEventListener('click', function () { cambiarVista(lsGet(LS_VISTA + '-as') === 'sg' ? 'sg' : 'bv'); });
@@ -2620,6 +2704,52 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     $(grupoDe(S.vista) === 'cl' ? 'grupo-cl' : 'grupo-as').focus();
   });
 
+  /* ---------- quién entra a la secuencia: los por marcar arriba de «Para hoy», con ✓ / ✗ de un toque */
+  var MAX_MARCAR = 6;
+  function botonesSiNo(accion, id, actual, quien) {
+    var q = '<span class="sr-only"> · ' + esc(quien) + '</span>';
+    return '<span class="sino">' +
+      '<button type="button" class="si" data-sg="' + accion + '" data-id="' + esc(id) + '" data-v="si" aria-pressed="' + (actual === true) + '">✓ Entra' + q + '</button>' +
+      '<button type="button" class="no" data-sg="' + accion + '" data-id="' + esc(id) + '" data-v="no" aria-pressed="' + (actual === false) + '">✗ No entra' + q + '</button></span>';
+  }
+  function lineaMarcar(p) {
+    var d = diaDe(p);
+    return 'Desde el ' + fDia(p.inicio) + (d != null && d >= 0 ? ' · día ' + (d + 1) : '') + ' · ' + (p.validas || 0) + ' de ' + metaClases() + ' clases' +
+      (ESTADO_TXT[p.estado] ? ' · ' + ESTADO_TXT[p.estado] : '') + (celularWA(p) ? '' : ' · sin celular');
+  }
+  function filaPorMarcar(p) {
+    return '<li class="pormarcar-row"><div><p class="hoy-nom"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button></p>' +
+      '<p class="hoy-sub">' + esc(lineaMarcar(p)) + '</p></div>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) + '</li>';
+  }
+  function cajaPorMarcar(v) {
+    var l = porMarcarDe(v), total = S.asesores.filter(porMarcar).length;
+    if (!l.length) return '';
+    var h = '<div class="pormarcar" role="group" aria-labelledby="pm-' + v + '-h"><h3 class="pormarcar-h" id="pm-' + v + '-h">¿Entran a la secuencia? <span class="cuenta">' + l.length + '</span></h3>' +
+      '<p class="hint">' + (v === 'bv' ? 'Asesores nuevos' : 'Asesores del día 6 en adelante') + ' sin marcar. ✓ si va a hacer el negocio: le llegan los mensajes. ✗ si no: no aparece en «Para hoy». No se borra a nadie.</p>' +
+      '<ul class="pormarcar-l">' + l.slice(0, MAX_MARCAR).map(filaPorMarcar).join('') + '</ul>';
+    if (l.length > MAX_MARCAR) h += '<button type="button" class="btn-link" data-sg="gestionAs" data-f="marcar">Ver los ' + total + ' por marcar</button>';
+    return h + '</div>';
+  }
+  /* Lo marcado hoy, para deshacer: vuelve a «por marcar». */
+  function listaMarcadosHoy(v) {
+    var h0 = hoyISO();
+    var l = S.asesores.filter(function (p) { return marcaDe(p) !== null && fechaMarca(p) === h0 && deLaPestana(p, v); });
+    if (!l.length) return '';
+    var MAX = 8;
+    return '<h3 class="sg-grupo">Marcados hoy <span class="cuenta gris">' + l.length + '</span></h3><ul class="hist' + (v === 'sg' ? ' card' : '') + '">' + l.slice(0, MAX).map(function (p) {
+      return '<li><span>' + esc(titulo(p.nombre) + ' · ' + (marcaDe(p) ? 'entra a la secuencia' : 'no entra')) + '</span>' +
+        (p.sec.tmp ? '' : '<button type="button" class="btn-link" data-sg="secDeshacer" data-id="' + esc(p.id) + '">deshacer</button>') + '</li>';
+    }).join('') + (l.length > MAX ? '<li><button type="button" class="btn-link" data-sg="gestionAs" data-f="todos">y ' + (l.length - MAX) + ' más: ver la lista</button></li>' : '') + '</ul>';
+  }
+  function gestionablesAs() { return S.asesores.filter(function (p) { return marcable(p) || marcaDe(p) !== null; }); }
+  function resumenSecAs() {
+    var l = gestionablesAs();
+    if (!l.length) return '';
+    var si = l.filter(enSecuencia).length, no = l.filter(function (p) { return marcaDe(p) === false; }).length, pm = l.filter(porMarcar).length;
+    return '<p class="sec-resumen"><span>' + esc('Secuencia: ' + [plural(si, 'entra', 'entran'), no ? plural(no, 'no entra', 'no entran') : '', pm ? pm + ' por marcar' : ''].filter(Boolean).join(' · ')) + '</span>' +
+      '<button type="button" class="btn-link" data-sg="gestionAs" data-f="' + (pm ? 'marcar' : 'todos') + '">Ver y cambiar</button></p>';
+  }
+
   /* ---------- bienvenida: para hoy y lo enviado en cada día */
   function filaBvHoy(y) {
     var p = y.p, n = y.x.n, f = sumarISO(p.inicio, n - 1);
@@ -2635,18 +2765,25 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     S.asesores.forEach(function (p) {
       (p.mensajes || []).forEach(function (m) { if (m.en === h0 && /^bv[1-5]$/.test(m.paso)) hechos.push({ p: p, m: m }); });
     });
-    var enVentana = S.asesores.filter(enBienvenida).length;
+    var enVentana = S.asesores.filter(enBienvenida), conSec = enVentana.filter(enSecuencia).length, pm = porMarcarDe('bv').length;
     pend.sort(function (a, b) { return (b.x.atraso - a.x.atraso) || titulo(a.p.nombre).localeCompare(titulo(b.p.nombre), 'es'); });
-    var h = '<h2 class="panel-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
+    var h = '<h2 class="panel-h" id="bv-hoy-h" tabindex="-1">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
     if (S.asesoresError) h += '<p class="status is-err">' + esc(errorLista()) + '</p>';
-    else if (!pend.length) h += '<p class="hint">' + (enVentana ? 'Al día: hoy no toca ningún mensaje de bienvenida.' : 'Nadie está en sus primeros 5 días.') + '</p>';
-    else h += '<ul class="hoy">' + pend.map(filaBvHoy).join('') + '</ul>';
+    else {
+      h += cajaPorMarcar('bv');
+      if (!pend.length) {
+        h += '<p class="hint">' + (conSec ? 'Al día: hoy no toca ningún mensaje de bienvenida.'
+          : pm ? 'Hoy no hay mensajes de bienvenida: falta marcar quién entra a la secuencia.'
+          : enVentana.length ? 'Nadie de sus primeros 5 días entra a la secuencia.' : 'Nadie está en sus primeros 5 días.') + '</p>';
+      } else h += '<ul class="hoy">' + pend.map(filaBvHoy).join('') + '</ul>';
+    }
     if (hechos.length) {
       h += '<h3 class="sg-grupo">Enviados hoy <span class="cuenta gris">' + hechos.length + '</span></h3><ul class="hist">' + hechos.reverse().map(function (y) {
         return '<li><span>' + esc(titulo(y.p.nombre) + ' · Día ' + y.m.paso.slice(2) + ' · ' + modoTxt(y.m.modo)) + '</span>' +
           (y.m.tmp ? '' : '<button type="button" class="btn-link" data-sg="anular" data-m="' + esc(y.m.id) + '">deshacer</button>') + '</li>';
       }).join('') + '</ul>';
     }
+    if (!S.asesoresError) h += listaMarcadosHoy('bv') + resumenSecAs();
     box.innerHTML = h;
     box.hidden = false;
   }
@@ -2715,8 +2852,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<div class="sg-acts">' + botonesPaso(p, k, true) + '</div></li>';
   }
   function filaSeg(p) {
-    var e = lineaEstado(p), toca = pasoQueToca(p), px = toca ? null : proximoAviso(p);
-    var sig = toca ? '<span class="sg-next">Hoy le toca: ' + esc(nombrePaso(toca.k)) + '</span>'
+    var e = lineaEstado(p), toca = pasoQueToca(p), px = toca ? null : proximoAviso(p), mk = marcaDe(p);
+    var sig = mk === false ? '<span class="sg-next al-dia">No entra a la secuencia</span>'
+      : mk === null ? (marcable(p) ? '<span class="sg-next marcar-t">Por marcar: ¿entra a la secuencia?</span>' : '')
+      : toca ? '<span class="sg-next">Hoy le toca: ' + esc(nombrePaso(toca.k)) + '</span>'
       : p.estado === 'en_curso' ? '<span class="sg-next al-dia">' + esc(px ? 'Al día · si no viene, el ' + fDia(px.f) + ': ' + nombrePaso(px.k) : 'Al día') + '</span>'
       : '';
     return '<li><button type="button" class="sg-row" data-sg="ficha" data-id="' + esc(p.id) + '">' +
@@ -2727,7 +2866,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function listaSeg() {
     var q = plano(S.buscaSeg.trim());
     var l = S.asesores.filter(enSeguimiento);
-    if (q) l = l.filter(function (p) { return plano(p.nombre).indexOf(q) >= 0; });
+    if (q) l = l.filter(function (p) { return plano(p.nombre).indexOf(q) >= 0; });   // al buscar salen todos, también los que no entran
+    else l = l.filter(function (p) { return marcaDe(p) !== false; });
     var ord = { en_curso: 0, logro: 1, vencio: 2 };
     l.sort(function (a, b) {
       var x = ord[a.estado] - ord[b.estado];
@@ -2753,8 +2893,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       (p.mensajes || []).forEach(function (m) { if (m.en === h0 && !/^bv[1-5]$/.test(m.paso)) hechos.push({ p: p, m: m }); });
     });
     var h = S.asesoresError ? '<p class="status is-err">' + esc(errorLista()) + '</p>' : '';
-    h += '<section aria-labelledby="sg-hoy-h"><h2 class="section-h" id="sg-hoy-h">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
-    if (!pend.length) h += '<p class="hint">Al día: hoy no toca ningún mensaje de seguimiento.</p>';
+    var pmSg = porMarcarDe('sg').length, conSec = S.asesores.filter(function (p) { return enSeguimiento(p) && enSecuencia(p); }).length;
+    h += '<section aria-labelledby="sg-hoy-h"><h2 class="section-h" id="sg-hoy-h" tabindex="-1">Para hoy' + (pend.length ? ' <span class="cuenta">' + pend.length + '</span>' : '') + '</h2>';
+    h += cajaPorMarcar('sg');
+    if (!pend.length) h += '<p class="hint">' + (conSec || !pmSg ? 'Al día: hoy no toca ningún mensaje de seguimiento.' : 'Hoy no hay mensajes de seguimiento: falta marcar quién entra a la secuencia.') + '</p>';
     PASOS.forEach(function (ps) {
       var g = pend.filter(function (y) { return y.x.k === ps.k; });
       if (!g.length) return;
@@ -2767,16 +2909,19 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
           (y.m.tmp ? '' : '<button type="button" class="btn-link" data-sg="anular" data-m="' + esc(y.m.id) + '">deshacer</button>') + '</li>';
       }).join('') + '</ul>';
     }
-    h += '</section>';
-    var n = S.asesores.filter(enSeguimiento).length, enBv = S.asesores.filter(enBienvenida).length;
+    h += listaMarcadosHoy('sg') + resumenSecAs() + '</section>';
+    var segs = S.asesores.filter(enSeguimiento), n = segs.filter(function (p) { return marcaDe(p) !== false; }).length, fuera = segs.length - n;
+    var enBv = S.asesores.filter(enBienvenida).length;
     h += '<section aria-labelledby="sg-lista-h"><h2 class="section-h" id="sg-lista-h">Del día 6 en adelante <span class="cuenta gris">' + n + '</span></h2>' +
       '<label class="sr-only" for="sg-busca">Buscar por nombre</label>' +
       '<input type="search" id="sg-busca" class="busca" placeholder="Buscar por nombre" autocomplete="off" enterkeyhint="search" value="' + esc(S.buscaSeg) + '">' +
       '<div id="sg-lista">' + listaSeg() + '</div>' +
+      (fuera ? '<p class="sec-resumen" style="margin-top:10px"><span>' + esc(plural(fuera, 'asesor no entra', 'asesores no entran') + ' a la secuencia: no salen en la lista.') + '</span>' +
+        '<button type="button" class="btn-link" data-sg="gestionAs" data-f="no">Ver</button></p>' : '') +
       (enBv ? '<p class="hint" style="margin-top:10px">' + esc(plural(enBv, 'asesor está', 'asesores están') + ' en sus primeros 5 días: ' + (enBv === 1 ? 'le toca' : 'les toca') + ' la bienvenida.') + '</p>' : '') +
       '</section>';
     h += '<section class="panel" aria-labelledby="sg-h"><h2 class="panel-h" id="sg-h">Cómo funciona el seguimiento</h2>' +
-      '<p class="hint">Desde el día 6 hasta su fecha límite. Cada mensaje sale de las clases que lleva en Nivel Cero y de los días que le quedan; si se pasó uno sin mandar, se propone solo el más reciente.</p>' +
+      '<p class="hint">Desde el día 6 hasta su fecha límite, solo a quienes entran a la secuencia (✓). Cada mensaje sale de las clases que lleva en Nivel Cero y de los días que le quedan; si se pasó uno sin mandar, se propone solo el más reciente.</p>' +
       '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>' +
       '<button type="button" class="ghost" data-sg="editor">Ver y editar los mensajes</button></section>';
     box.innerHTML = h;
@@ -2800,6 +2945,17 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function cerrarModal() {
     if (!S.modal) return;
     var md = S.modal, id = md.tipo === 'ficha' || md.tipo === 'fichaCl' ? md.id : null;
+    if (md.volver) {                                     // la ficha se abrió desde la lista de la secuencia: vuelve a ella
+      S.modal = md.volver;
+      renderModal();
+      var caja = document.querySelector('#capa .modal'), ov = document.querySelector('#capa .ov');
+      if (caja) caja.scrollTop = md.volver.y || 0;
+      if (ov) ov.scrollTop = md.volver.yo || 0;
+      var sel = '[data-sg="' + (md.tipo === 'fichaCl' ? 'fichaCl' : 'ficha') + '"][data-id="' + String(id).replace(/"/g, '') + '"]';
+      var vb = document.querySelector('#capa ' + sel) || document.querySelector('#capa .x');
+      if (vb) vb.focus({ preventScroll: true });
+      return;
+    }
     S.modal = null;
     renderModal();
     var b = visible(md.desde) ? md.desde : null;
@@ -2807,37 +2963,49 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="' + (md.tipo === 'fichaCl' ? 'fichaCl' : 'ficha') + '"][data-id="' + String(id).replace(/"/g, '') + '"]'), visible)[0];
     }
     if (!b && (md.tipo === 'editor' || md.tipo === 'editorCl')) b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="' + md.tipo + '"]'), visible)[0];
+    if (!b && (md.tipo === 'secAs' || md.tipo === 'secCl')) b = Array.prototype.filter.call(document.querySelectorAll('[data-sg="' + (md.tipo === 'secAs' ? 'gestionAs' : 'gestionCl') + '"]'), visible)[0];
     if (b) b.focus();
   }
-  /* Cómo volver a encontrar el control con foco después de repintar la ficha o el editor. */
-  function claveFoco(el) {
-    if (!el || !$('capa').contains(el)) return null;
+  /* Cómo volver a encontrar el control con foco después de repintar la ficha o el editor (o la página). */
+  function claveFoco(el, enPagina) {
+    if (!el || el === document.body || (!enPagina && !$('capa').contains(el))) return null;
     if (el.id) return '#' + el.id;
-    if (el.matches('a[data-envio]')) return 'a[data-envio="' + el.getAttribute('data-envio') + '"]';
-    var a = el.getAttribute('data-sg');
-    if (!a) return null;
-    var sel = '[data-sg="' + a + '"]';
-    ['data-k', 'data-t', 'data-m', 'data-n', 'data-clave', 'data-id'].forEach(function (k) { if (el.hasAttribute(k)) sel += '[' + k + '="' + el.getAttribute(k).replace(/"/g, '') + '"]'; });
+    var sel;
+    if (el.matches('a[data-envio]')) sel = 'a[data-envio="' + el.getAttribute('data-envio') + '"]';
+    else if (el.matches('a[data-envio-cl]')) sel = 'a[data-envio-cl="' + el.getAttribute('data-envio-cl').replace(/"/g, '') + '"]';
+    else {
+      var a = el.getAttribute('data-sg');
+      if (!a) return null;
+      sel = '[data-sg="' + a + '"]';
+    }
+    ['data-k', 'data-t', 'data-m', 'data-n', 'data-clave', 'data-id', 'data-f', 'data-v'].forEach(function (k) { if (el.hasAttribute(k)) sel += '[' + k + '="' + el.getAttribute(k).replace(/"/g, '') + '"]'; });
     return sel;
   }
   function renderModal() {
     var capa = $('capa');
     if (!S.modal) { capa.innerHTML = ''; document.body.classList.remove('con-modal'); return; }
-    var cont = S.modal.tipo === 'ficha' ? modalFicha() : S.modal.tipo === 'fichaCl' ? modalFichaCl() : S.modal.tipo === 'editorCl' ? modalEditorCl() : modalEditor();
+    var t = S.modal.tipo;
+    var cont = t === 'ficha' ? modalFicha() : t === 'fichaCl' ? modalFichaCl() : t === 'editorCl' ? modalEditorCl() : t === 'secAs' ? modalSecAs() : t === 'secCl' ? modalSecCl() : modalEditor();
     capa.innerHTML = '<div class="ov" data-sg="fondo"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-t">' + cont + '</div></div>';
     document.body.classList.add('con-modal');
   }
   function refrescarModal() {
-    var caja = document.querySelector('#capa .modal');
-    var y = caja ? caja.scrollTop : 0;
-    var foco = claveFoco(document.activeElement);
+    var caja = document.querySelector('#capa .modal'), ov = document.querySelector('#capa .ov');
+    var y = caja ? caja.scrollTop : 0, yo = ov ? ov.scrollTop : 0;
+    var act = document.activeElement, foco = claveFoco(act);
+    var pos = act && act.tagName === 'INPUT' && act.type === 'search' ? act.selectionStart : null;
     renderModal();
     caja = document.querySelector('#capa .modal');
     if (!caja) return;
     caja.scrollTop = y;
+    ov = document.querySelector('#capa .ov');
+    if (ov) ov.scrollTop = yo;
     var el = foco && caja.querySelector(foco);
     if (!el) el = caja.querySelector('.x');
-    if (el && document.activeElement !== el) el.focus({ preventScroll: true });
+    if (el && document.activeElement !== el) {
+      el.focus({ preventScroll: true });
+      if (pos != null && el.setSelectionRange) { try { el.setSelectionRange(pos, pos); } catch (e) {} }
+    }
   }
   function cabModal(t, sub) {
     return '<div class="mhead"><div><h2 id="modal-t">' + esc(t) + '</h2>' + (sub ? '<p class="msub">' + esc(sub) + '</p>' : '') + '</div>' +
@@ -2882,6 +3050,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
         '<p class="msj-texto">' + esc(textoPaso(k, p)) + '</p>' +
         '<div class="sg-acts">' + botonesPaso(p, k, !md.paso) +
         (md.paso ? '<button type="button" class="btn-link" data-sg="elegirPaso" data-k="">Cancelar</button>' : '') + '</div></div>';
+    } else if (!enSecuencia(p)) {
+      h += '<p class="hint">' + esc(marcaDe(p) === false ? 'No entra a la secuencia: no se le propone ningún mensaje. Sigue en Nivel Cero con sus clases.'
+        : 'Por marcar: hasta que marques arriba que entra (✓), no se le propone ningún mensaje.') + '</p>';
     } else if (activo(p) && d != null && d < DIA_SEG - 1) {
       h += '<p class="hint">Empieza el ' + esc(fLargaISO(sumarISO(p.inicio, DIA_SEG - 1))) + ', su día 6. Hasta entonces le toca la bienvenida.</p>';
     } else {
@@ -2914,6 +3085,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<dt>Celular</dt><dd>' + (p.celular ? esc(p.celular) + (cel ? ' · <a class="btn-link" href="' + esc(linkWA(p, '')) + '" target="_blank" rel="noopener">Abrir chat</a>' : ' <span class="hint">· no parece un celular</span>') : '—') + '</dd>' +
       '<dt>Clases</dt><dd>' + puntos(Math.min(p.validas || 0, m)) + ' <b>' + (p.validas || 0) + ' de ' + m + '</b>' + listaClases(p) + '</dd>' +
       '<dt>Trato</dt><dd><span class="chips">' + chipsTrato('tratoPersona', tratoDe(p)) + '</span>' + (p.trato ? '' : ' <span class="hint">el de por defecto</span>') + '</dd>' +
+      '<dt>Secuencia</dt><dd>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) +
+        ' <span class="hint">' + esc(marcaDe(p) === null ? 'por marcar' : fechaMarca(p) ? 'desde el ' + fCorta(fechaMarca(p)) : '') + '</span></dd>' +
       '</dl>';
     return h + bloqueBienvenida(p, d) + bloqueSeguimiento(p, d) + bloqueHistorial(p) + '</div>';
   }
@@ -2957,6 +3130,60 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return h + '</div>';
   }
 
+  /* ---------- la lista para ver y cambiar quién entra a la secuencia */
+  var FILTROS_AS = [['marcar', 'Por marcar'], ['si', 'Entran'], ['no', 'No entran'], ['todos', 'Todos']];
+  function filtrarSecAs(f, q) {
+    q = plano(String(q || '').trim());
+    return gestionablesAs().filter(function (p) {
+      var mk = marcaDe(p);
+      if (f === 'marcar' && !porMarcar(p)) return false;
+      if (f === 'si' && mk !== true) return false;
+      if (f === 'no' && mk !== false) return false;
+      return !q || plano(p.nombre).indexOf(q) >= 0;
+    }).sort(function (a, b) { return String(b.inicio).localeCompare(String(a.inicio)) || titulo(a.nombre).localeCompare(titulo(b.nombre), 'es'); });
+  }
+  function listaSecAs() {
+    var md = S.modal, l = filtrarSecAs(md.filtro, md.busca);
+    if (!l.length) {
+      return '<p class="hint">' + (String(md.busca || '').trim() ? 'Nadie con ese nombre.' : md.filtro === 'marcar' ? 'No hay nadie por marcar.'
+        : md.filtro === 'no' ? 'Todos entran a la secuencia.' : md.filtro === 'si' ? 'Todavía nadie entra a la secuencia.' : 'Todavía no hay asesores nuevos.') + '</p>';
+    }
+    return '<ul class="sec-lista">' + l.map(function (p) {
+      return '<li class="sec-row"><span class="sec-main"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button>' +
+        '<span class="sg-sub">' + esc(lineaMarcar(p)) + '</span></span>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) + '</li>';
+    }).join('') + '</ul>';
+  }
+  /* Todos los por marcar de una vez, con confirmación y deshacer. */
+  function cajaTodosAs() {
+    var md = S.modal, n = filtrarSecAs('marcar', '').length;
+    if (md.lote) {
+      return '<p class="sec-resumen" role="status"><span>' + esc(plural(md.lote.length, 'asesor entró', 'asesores entraron') + ' a la secuencia.') + '</span>' +
+        '<button type="button" class="btn-link" data-sg="secLoteDeshacer">Deshacer</button></p>';
+    }
+    if (md.filtro !== 'marcar' || n < 2 || String(md.busca || '').trim()) return '';
+    if (md.confirmar) {
+      return '<div class="confirm"><p>' + esc('¿Los ' + n + ' por marcar entran a la secuencia? Desde hoy se les proponen sus mensajes. Puedes cambiar a cualquiera después.') + '</p>' +
+        '<div class="sg-acts"><button type="button" class="btn-sm primary" data-sg="secTodosOk">Sí, que entren los ' + n + '</button>' +
+        '<button type="button" class="btn-link" data-sg="secTodosNo">Cancelar</button></div></div>';
+    }
+    return '<div class="sg-acts"><button type="button" class="btn-sm" data-sg="secTodos">✓ Que entren los ' + n + '</button>' +
+      '<span class="hint">o márcalos uno por uno.</span></div>';
+  }
+  function modalSecAs() {
+    var md = S.modal, todos = gestionablesAs();
+    var cuenta = { marcar: todos.filter(porMarcar).length, si: todos.filter(enSecuencia).length, no: todos.filter(function (p) { return marcaDe(p) === false; }).length, todos: todos.length };
+    var h = cabModal('¿Quién entra a la secuencia?', 'Asesores nuevos y en sus 30 días') + '<div class="mbody">';
+    h += '<p class="hint">✓ Entra: le llegan la bienvenida y el seguimiento. ✗ No entra: no aparece en «Para hoy», pero sigue en Nivel Cero con sus clases. Puedes cambiarlo cuando quieras; no se borra a nadie.</p>';
+    h += '<div class="chips" role="group" aria-label="Mostrar">' + FILTROS_AS.map(function (f) {
+      return '<button type="button" class="chip' + (md.filtro === f[0] ? ' on' : '') + '" aria-pressed="' + (md.filtro === f[0]) + '" data-sg="secFiltro" data-f="' + f[0] + '">' + esc(f[1]) + ' · ' + cuenta[f[0]] + '</button>';
+    }).join('') + '</div>';
+    h += '<div><label class="sr-only" for="secas-busca">Buscar por nombre</label>' +
+      '<input type="search" id="secas-busca" class="busca" placeholder="Buscar por nombre" autocomplete="off" enterkeyhint="search" value="' + esc(md.busca || '') + '">' +
+      '<div id="secas-todos">' + cajaTodosAs() + '</div></div>';
+    h += '<div id="secas-lista">' + listaSecAs() + '</div>';
+    return h + '</div>';
+  }
+
   /* ---------- enlace desde Nivel Cero: #a=<id> abre su ficha (o su bienvenida si va en sus días 1 a 5) */
   function leerEnlace() {
     var o = {};
@@ -2986,8 +3213,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (!en.a) { cambiarVista(vistaDeEnlace(en.v)); return; }
     var p = asesorPorId(en.a), paso = PASO[en.paso] ? en.paso : null;
     if (!p) { aviso('Esa persona no está entre los nuevos de los últimos 45 días', true); return; }
-    if (!paso && enBienvenida(p)) { prepararBienvenida(p.id, (bvPendiente(p) || { n: diaDe(p) + 1 }).n); return; }
-    cambiarVista('sg');
+    if (!paso && enBienvenida(p) && enSecuencia(p)) { prepararBienvenida(p.id, (bvPendiente(p) || { n: diaDe(p) + 1 }).n); return; }
+    cambiarVista(paso || !deLaPestana(p, 'bv') ? 'sg' : 'bv');   // por marcar o fuera: su ficha, para decidir ahí
     abrirModal({ tipo: 'ficha', id: p.id, paso: paso, otros: false });
   }
 
@@ -2998,8 +3225,77 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (/^bv[1-5]$/.test(k) && yaMandado(p, k)) return;          // la bienvenida ya anotada no se repite
     registrarEnvio(p.id, k, 'whatsapp', textoEnvio(k, p));
   }
+  /* Si una ficha se abre desde la lista de la secuencia, al cerrarla se vuelve a la lista, en el mismo lugar. */
+  function desdeLista(tipo) {
+    var md = S.modal;
+    if (!md || md.tipo !== tipo) return null;
+    var caja = document.querySelector('#capa .modal'), ov = document.querySelector('#capa .ov');
+    md.y = caja ? caja.scrollTop : 0;
+    md.yo = ov ? ov.scrollTop : 0;
+    md.confirmar = false;
+    return md;
+  }
+  /* Al marcar en una lista donde la fila se va (por marcar), el foco pasa a la fila que queda en su lugar. */
+  function focoFila(el) {
+    var row = el && el.closest && el.closest('.pormarcar-row, .sec-row');
+    var caja = row && row.parentNode && row.parentNode.closest('[id]');
+    if (!caja) return null;
+    return { caja: caja.id, clase: row.classList.contains('sec-row') ? 'sec-row' : 'pormarcar-row', i: Array.prototype.indexOf.call(row.parentNode.children, row), v: el.getAttribute('data-v') };
+  }
+  function moverFoco(f) {
+    var caja = f && $(f.caja);
+    if (!caja) return;
+    var filas = caja.querySelectorAll('.' + f.clase);
+    if (!filas.length) {
+      var hd = caja.querySelector('h2, h3');
+      if (hd) { hd.tabIndex = -1; hd.focus({ preventScroll: true }); }
+      return;
+    }
+    var b = filas[Math.min(f.i, filas.length - 1)].querySelector('[data-v="' + f.v + '"]');
+    if (b && document.activeElement !== b) b.focus({ preventScroll: true });
+  }
   var ACC = {
-    ficha: function (el) { abrirModal({ tipo: 'ficha', id: el.getAttribute('data-id'), paso: null, otros: false }); },
+    ficha: function (el) { abrirModal({ tipo: 'ficha', id: el.getAttribute('data-id'), paso: null, otros: false, volver: desdeLista('secAs') }); },
+    secAs: function (el) {
+      var p = asesorPorId(el.getAttribute('data-id')), v = el.getAttribute('data-v') === 'si';
+      if (!p || marcaDe(p) === v) return;
+      var f = focoFila(el);
+      marcarSecuencia('asesor', [p.id], v, pila(p.nombre) + (v ? ' entra a la secuencia' : ' no entra a la secuencia'));
+      moverFoco(f);
+    },
+    secDeshacer: function (el) {
+      var p = asesorPorId(el.getAttribute('data-id'));
+      if (p && marcaDe(p) !== null) marcarSecuencia('asesor', [p.id], null, 'Deshecho: ' + pila(p.nombre) + ' vuelve a por marcar');
+    },
+    gestionAs: function (el) { abrirModal({ tipo: 'secAs', filtro: el.getAttribute('data-f') || 'marcar', busca: '', confirmar: false, lote: null }); },
+    secFiltro: function (el) { S.modal.filtro = el.getAttribute('data-f'); S.modal.confirmar = false; refrescarModal(); },
+    secTodos: function () {
+      S.modal.confirmar = true;
+      refrescarModal();
+      var b = document.querySelector('#capa [data-sg="secTodosOk"]');
+      if (b) b.focus();
+    },
+    secTodosNo: function () {
+      S.modal.confirmar = false;
+      refrescarModal();
+      var b = document.querySelector('#capa [data-sg="secTodos"]');
+      if (b) b.focus();
+    },
+    secTodosOk: function () {
+      var ids = filtrarSecAs('marcar', '').map(function (p) { return p.id; });
+      S.modal.confirmar = false;
+      if (!ids.length) { refrescarModal(); return; }
+      S.modal.lote = ids;
+      marcarSecuencia('asesor', ids, true, plural(ids.length, 'asesor entra', 'asesores entran') + ' a la secuencia');
+      var b = document.querySelector('#capa [data-sg="secLoteDeshacer"]');
+      if (b) b.focus();
+    },
+    secLoteDeshacer: function () {
+      var ids = (S.modal && S.modal.lote) || [];
+      S.modal.lote = null;
+      if (ids.length) marcarSecuencia('asesor', ids, null, 'Deshecho: vuelven a por marcar');
+      else refrescarModal();
+    },
     cerrar: cerrarModal,
     fondo: cerrarModal,
     editor: function () { abrirModal({ tipo: 'editor', abierto: null }); },
@@ -3090,6 +3386,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       ev.preventDefault();
       if ((S.modal.tipo === 'editor' || S.modal.tipo === 'editorCl') && S.modal.abierto) { S.modal.abierto = null; refrescarModal(); }   // primero cierra el mensaje abierto
       else if ((S.modal.tipo === 'ficha' || S.modal.tipo === 'fichaCl') && (S.modal.paso || S.modal.otros)) { S.modal.paso = null; S.modal.otros = false; refrescarModal(); }
+      else if (S.modal.tipo === 'secAs' && S.modal.confirmar) ACC.secTodosNo();   // primero cancela la confirmación
       else cerrarModal();
       return;
     }
@@ -3112,6 +3409,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     } else if (el.id === 'cs-busca') {
       CL.busca = el.value;
       $('cs-lista').innerHTML = listaCiclos();
+    } else if (el.id === 'secas-busca' && S.modal && S.modal.tipo === 'secAs') {
+      S.modal.busca = el.value;
+      S.modal.confirmar = false;
+      $('secas-todos').innerHTML = cajaTodosAs();
+      $('secas-lista').innerHTML = listaSecAs();
+    } else if (el.id === 'seccl-busca' && S.modal && S.modal.tipo === 'secCl') {
+      S.modal.busca = el.value;
+      $('seccl-lista').innerHTML = listaSecCl();
     } else if (el.id === 'mTexto' && S.modal && (S.modal.tipo === 'editor' || S.modal.tipo === 'editorCl') && S.modal.borrador) {
       S.modal.borrador[S.modal.ver] = el.value;
       S.modal.cursor = el.selectionStart;
@@ -3272,22 +3577,25 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function celCl(a) { var c = clientePorId(a.cliente_id); return celularWA({ celular: (c && c.celular) || a.celular }); }
   function linkCl(a, texto) { var c = celularWA({ celular: (clientePorId(a.cliente_id) || {}).celular || a.celular }); return c ? 'https://wa.me/51' + c + (texto ? '?text=' + encodeURIComponent(texto) : '') : null; }
   function activoCl(a) { var x = pasoCl(a); return !!x && plantilla(x.k).activo; }
+  /* Todo cliente entra a las secuencias salvo que se le quite (✗): entonces no sale en «Para hoy». */
+  function fueraCl(cid) { return marcaDe(clientePorId(cid)) === false; }
+  function enSecCl(a) { return !fueraCl(a.cliente_id); }
 
   /* ---------- qué toca */
   function clBvHoy() {
-    return CL.acciones.filter(function (a) { return !esCiclo(a) && activoCl(a) && (a.estado === 'vencido' || (a.estado === 'proximo' && a.dias <= 0)); })
+    return CL.acciones.filter(function (a) { return !esCiclo(a) && activoCl(a) && enSecCl(a) && (a.estado === 'vencido' || (a.estado === 'proximo' && a.dias <= 0)); })
       .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)) || titulo(a.cliente).localeCompare(titulo(b.cliente), 'es'); });
   }
   function clBvProximos() {
-    return CL.acciones.filter(function (a) { return !esCiclo(a) && activoCl(a) && a.estado === 'proximo' && a.dias > 0 && a.dias <= 7; })
+    return CL.acciones.filter(function (a) { return !esCiclo(a) && activoCl(a) && enSecCl(a) && a.estado === 'proximo' && a.dias > 0 && a.dias <= 7; })
       .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)); });
   }
   function clCicloHoy() {
-    return CL.acciones.filter(function (a) { return esCiclo(a) && activoCl(a) && (a.estado === 'vencido' || (a.estado === 'proximo' && a.dias <= 30)); })
+    return CL.acciones.filter(function (a) { return esCiclo(a) && activoCl(a) && enSecCl(a) && (a.estado === 'vencido' || (a.estado === 'proximo' && a.dias <= 30)); })
       .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)) || titulo(a.cliente).localeCompare(titulo(b.cliente), 'es'); });
   }
   function clAvisados() {
-    return CL.acciones.filter(function (a) { return esCiclo(a) && a.estado === 'avisado'; })
+    return CL.acciones.filter(function (a) { return esCiclo(a) && enSecCl(a) && a.estado === 'avisado'; })
       .sort(function (a, b) { return String(a.ultimo_aviso).localeCompare(String(b.ultimo_aviso)); });
   }
   function gestionesHoy() {
@@ -3336,7 +3644,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<button type="button" class="btn-sm" data-sg="clAviso" data-clave="' + k + '">Le avisé en persona</button>' +
       (conOmitir ? '<button type="button" class="btn-link" data-sg="clOmitir" data-clave="' + k + '">Omitir</button>' : '');
   }
-  function botonesCiclo(a) {
+  function botonesCiclo(a, sinAviso) {                  // sinAviso: el cliente no entra a las secuencias
     var k = esc(a.clave), h = '';
     if (CL.fechaPara === a.clave) {
       return '<div class="fecha-fila"><label class="flabel" for="clFecha">Fecha del cambio</label>' +
@@ -3349,7 +3657,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       return '<span class="hint">Marcado como «ya no aplica»' + (ult ? ' el ' + esc(fCorta(ult.fecha)) : '') + '.</span>' +
         (ult && !ult.tmp ? '<button type="button" class="btn-link" data-sg="clAnular" data-m="' + esc(ult.id) + '">reabrir</button>' : '');
     }
-    if (a.estado === 'vencido' || a.estado === 'proximo' || a.estado === 'avisado') {
+    if (!sinAviso && (a.estado === 'vencido' || a.estado === 'proximo' || a.estado === 'avisado')) {
       h += botonWaCl(a) + '<button type="button" class="btn-sm" data-sg="clAviso" data-clave="' + k + '">Le avisé en persona</button>';
     }
     h += '<button type="button" class="btn-sm" data-sg="clCambio" data-clave="' + k + '">Cambio hecho</button>' +
@@ -3430,11 +3738,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
         return '<li><span><button type="button" class="btn-link nom" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' + esc(titulo(a.cliente)) + '</button> · ' + esc(nombrePasoCl(a.tipo) + ' · ' + diasTxt(a)) + '</span></li>';
       }).join('') + '</ul>';
     }
-    h += listaHechosHoy() + '</section>';
+    h += listaHechosHoy() + resumenSecCl() + '</section>';
     h += '<section aria-labelledby="cb-pasos-h"><h2 class="section-h" id="cb-pasos-h">Los mensajes</h2><div class="days">' +
       PASOS_CL.filter(function (x) { return x.g === 'cbv'; }).map(tarjetaPaso).join('') + '</div></section>';
     h += '<section class="panel" aria-labelledby="cb-h"><h2 class="panel-h" id="cb-h">Cómo funciona</h2>' +
-      '<p class="hint">Sale de los pedidos entregados que carga Pedidos cada período. Al recibir va para todos; la semana y el mes solo si compró ollas; fin de cuotas si compró al crédito. Lo que anotes aquí se ve también en Pedidos.</p>' +
+      '<p class="hint">Sale de los pedidos entregados que carga Pedidos cada período. Al recibir va para todos; la semana y el mes solo si compró ollas; fin de cuotas si compró al crédito. Todos los clientes entran a las secuencias, salvo los que quites (✗). Lo que anotes aquí se ve también en Pedidos.</p>' +
       '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>' +
       '<button type="button" class="ghost" data-sg="editorCl">Ver y editar los mensajes a clientes</button></section>';
     box.innerHTML = h;
@@ -3445,12 +3753,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<span class="sg-row-main"><span class="sg-row-nom">' + esc(titulo(a.cliente)) + '</span>' +
       '<span class="sg-sub">' + esc(nombreFiltro(a.tipo) + ' · ' + lineaCiclo(a)) + '</span>' +
       '<span class="sg-next' + (a.estado === 'al_dia' ? ' al-dia' : '') + '">' + esc(a.estado === 'cerrado' ? 'Ya no aplica' : 'Vence el ' + fDia(a.vence) + (a.estado === 'vencido' || a.estado === 'proximo' ? ' · ' + diasTxt(a) : '')) + '</span></span>' +
-      tagEstado(a) + '</button></li>';
+      (fueraCl(a.cliente_id) ? '<span class="tag no">no entra</span>' : tagEstado(a)) + '</button></li>';
   }
   function listaCiclos() {
     var q = plano(CL.busca.trim());
     var l = CL.acciones.filter(esCiclo);
-    if (q) l = l.filter(function (a) { return plano(a.cliente).indexOf(q) >= 0 || String(a.n_orden).indexOf(q) >= 0; });
+    if (q) l = l.filter(function (a) { return plano(a.cliente).indexOf(q) >= 0 || String(a.n_orden).indexOf(q) >= 0; });   // al buscar salen todos
+    else l = l.filter(enSecCl);
     var ord = { vencido: 0, proximo: 1, avisado: 2, al_dia: 3, cerrado: 4 };
     l.sort(function (a, b) { return (ord[a.estado] - ord[b.estado]) || String(a.vence).localeCompare(String(b.vence)) || titulo(a.cliente).localeCompare(titulo(b.cliente), 'es'); });
     if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre.' : 'Todavía no hay clientes con filtro.') + '</p>';
@@ -3472,16 +3781,18 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (avis.length) {
       h += '<h3 class="sg-grupo">Avisados, esperando el cambio <span class="cuenta gris">' + avis.length + '</span></h3><ul class="sg-items">' + avis.map(itemCiclo).join('') + '</ul>';
     }
-    h += listaHechosHoy() + '</section>';
-    var n = CL.acciones.filter(esCiclo).length;
+    h += listaHechosHoy() + resumenSecCl() + '</section>';
+    var cics = CL.acciones.filter(esCiclo), n = cics.filter(enSecCl).length, fuera = cics.length - n;
     h += '<section aria-labelledby="cs-lista-h"><h2 class="section-h" id="cs-lista-h">Todos los filtros <span class="cuenta gris">' + n + '</span></h2>' +
       '<label class="sr-only" for="cs-busca">Buscar cliente</label>' +
       '<input type="search" id="cs-busca" class="busca" placeholder="Buscar cliente o pedido" autocomplete="off" enterkeyhint="search" value="' + esc(CL.busca) + '">' +
-      '<div id="cs-lista">' + listaCiclos() + '</div></section>';
+      '<div id="cs-lista">' + listaCiclos() + '</div>' +
+      (fuera ? '<p class="sec-resumen" style="margin-top:10px"><span>' + esc(plural(fuera, 'filtro es', 'filtros son') + ' de clientes que no entran a las secuencias: salen solo al buscarlos.') + '</span></p>' : '') +
+      '</section>';
     h += '<section aria-labelledby="cs-pasos-h"><h2 class="section-h" id="cs-pasos-h">Los mensajes</h2><div class="days">' +
       PASOS_CL.filter(function (x) { return x.g === 'ccic'; }).map(tarjetaPaso).join('') + '</div></section>';
     h += '<section class="panel" aria-labelledby="cs-h"><h2 class="panel-h" id="cs-h">Cómo funciona</h2>' +
-      '<p class="hint">Cada filtro corre desde que el cliente recibió el sistema o compró su último repuesto (pre-filtro, elemento desechable, filtro de aire); comprar un repuesto reinicia su ciclo. Se avisa un mes antes. «Cambio hecho» reinicia el ciclo desde esa fecha; «Ya no aplica» lo cierra. Lo mismo se ve en Pedidos.</p>' +
+      '<p class="hint">Cada filtro corre desde que el cliente recibió el sistema o compró su último repuesto (pre-filtro, elemento desechable, filtro de aire); comprar un repuesto reinicia su ciclo. Se avisa un mes antes. «Cambio hecho» reinicia el ciclo desde esa fecha; «Ya no aplica» lo cierra. Todos los clientes entran a las secuencias, salvo los que quites (✗). Lo mismo se ve en Pedidos.</p>' +
       '<div class="trato-fila"><span class="flabel">Trato por defecto</span><span class="chips">' + chipsTrato('tratoDefecto', tratoDefecto()) + '</span></div>' +
       '<button type="button" class="ghost" data-sg="editorCl">Ver y editar los mensajes a clientes</button></section>';
     box.innerHTML = h;
@@ -3521,12 +3832,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (!c) return cabModal('No encontrado') + '<div class="mbody"><p class="hint">Este cliente ya no está en la lista.</p></div>';
     var md = S.modal, acts = accionesDe(c.id), unos = acts.filter(function (a) { return !esCiclo(a); }), cics = acts.filter(esCiclo);
     unos.sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)); });
-    var cel = celularWA({ celular: c.celular }), ords = c.ordenes || [], ult = ords[0];
+    var cel = celularWA({ celular: c.celular }), ords = c.ordenes || [], ult = ords[0], fuera = marcaDe(c) === false;
     var h = cabModal(titulo(c.nombre), (c.ciudad ? String(c.ciudad).split(',')[0] + ' · ' : '') + plural(ords.length, 'compra', 'compras')) + '<div class="mbody">';
+    if (fuera) h += '<p class="estado mal">' + esc('No entra a las secuencias' + (fechaMarca(c) ? ' desde el ' + fCorta(fechaMarca(c)) : '') + ': no sale en «Para hoy». Sigue en Pedidos con sus compras y sus filtros.') + '</p>';
     h += '<dl class="datos">' +
       '<dt>Celular</dt><dd>' + (c.celular ? esc(c.celular) + (cel ? ' · <a class="btn-link" href="https://wa.me/51' + cel + '" target="_blank" rel="noopener">Abrir chat</a>' : ' <span class="hint">· no parece un celular</span>') : '—') + '</dd>' +
       (ult && ult.vendedor ? '<dt>Asesor(a)</dt><dd>' + esc(titulo(ult.vendedor)) + '</dd>' : '') +
       '<dt>Trato</dt><dd><span class="chips">' + chipsTrato('tratoCl', tratoCl(c)) + '</span>' + (c.trato ? '' : ' <span class="hint">el de por defecto</span>') + '</dd>' +
+      '<dt>Secuencia</dt><dd>' + botonesSiNo('secCl', c.id, !fuera, titulo(c.nombre)) + '</dd>' +
       '</dl>';
     h += '<section class="msec"><h3 class="msec-h">Lo que compró</h3><ul class="hist">' + (ords.length ? ords.map(function (o) {
       var ent = /ENTREGADA/i.test(o.estatus || '');
@@ -3549,7 +3862,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     else h += '<ul class="bvdias">' + unos.map(function (a) {
       var pend = a.estado === 'vencido' || a.estado === 'proximo' || a.estado === 'pendiente', g = ultimaGestion(a);
       return '<li><span>' + esc(nombrePasoCl(a.tipo)) + (unos.length > 1 && ords.length > 1 ? ' <span class="hint">pedido ' + esc(a.n_orden) + '</span>' : '') + '</span><span>' + tagEstado(a) +
-        (pend ? (a.estado === 'pendiente' ? ' <span class="hint">' + esc(fDia(a.vence)) + '</span>' : '<div class="sg-acts" style="margin-top:6px">' + botonesUno(a, true) + '</div>')
+        (pend ? (a.estado === 'pendiente' || fuera ? ' <span class="hint">' + esc(fDia(a.vence)) + '</span>' : '<div class="sg-acts" style="margin-top:6px">' + botonesUno(a, true) + '</div>')
           : g && !g.tmp && (a.estado === 'hecho' || a.estado === 'omitido') ? ' <button type="button" class="btn-link" data-sg="clAnular" data-m="' + esc(g.id) + '">deshacer</button>' : '') + '</span></li>';
     }).join('') + '</ul>';
     h += '</section>';
@@ -3559,7 +3872,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       return '<li class="sg-item"><div class="sg-cab"><b>' + esc(nombreFiltro(a.tipo)) + '</b>' + tagEstado(a) + '</div>' +
         '<p class="sg-sub">' + esc(lineaCiclo(a) + ' · vence el ' + fDia(a.vence)) + '</p>' +
         (a.cambios ? '<p class="sg-sub">' + esc('Cambios anotados: ' + a.cambios) + '</p>' : '') +
-        '<div class="sg-acts">' + botonesCiclo(a) + '</div></li>';
+        '<div class="sg-acts">' + botonesCiclo(a, fuera) + '</div></li>';
     }).join('') + '</ul>';
     h += '</section>';
     h += '<section class="msec">' + (md.otros
@@ -3590,6 +3903,48 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       h += '</div>';
     });
     h += '<p class="hint marcas">Marcadores: ' + MARCAS_CL.map(function (m) { return '<code>{' + m[0] + '}</code> ' + esc(m[1]); }).join(' · ') + '.</p>';
+    return h + '</div>';
+  }
+
+  /* ---------- clientes en las secuencias: todos entran, salvo los que se quiten (no se borra a nadie) */
+  function clientesLista() { return Object.keys(CL.clientes).map(function (k) { return CL.clientes[k]; }); }
+  function resumenSecCl() {
+    var n = clientesLista().filter(function (c) { return marcaDe(c) === false; }).length;
+    return '<p class="sec-resumen"><span>' + esc(n ? plural(n, 'cliente no entra', 'clientes no entran') + ' a las secuencias.' : 'Todos los clientes entran a las secuencias.') + '</span>' +
+      '<button type="button" class="btn-link" data-sg="gestionCl" data-f="' + (n ? 'no' : 'todos') + '">' + (n ? 'Ver y cambiar' : 'Quitar a alguno') + '</button></p>';
+  }
+  function lineaCl(c) {
+    var bits = [], n = (c.ordenes || []).length;
+    if (c.ciudad) bits.push(String(c.ciudad).split(',')[0]);
+    bits.push(plural(n, 'compra', 'compras'));
+    var l = accionesDe(c.id).filter(function (a) { return a.estado === 'vencido' || a.estado === 'proximo'; })
+      .sort(function (a, b) { return String(a.vence).localeCompare(String(b.vence)); });
+    if (l[0]) bits.push((esCiclo(l[0]) ? nombreFiltro(l[0].tipo) : (pasoCl(l[0]) || { corto: l[0].tipo }).corto) + ': ' + diasTxt(l[0]));
+    if (!celularWA({ celular: c.celular })) bits.push('sin celular');
+    return bits.join(' · ');
+  }
+  function listaSecCl() {
+    var md = S.modal, q = plano(String(md.busca || '').trim()), qd = q.replace(/\D/g, '');
+    var l = clientesLista().filter(function (c) {
+      if (md.filtro === 'no' && marcaDe(c) !== false) return false;
+      return !q || plano(c.nombre).indexOf(q) >= 0 || (qd.length >= 3 && String(c.celular || '').replace(/\D/g, '').indexOf(qd) >= 0);
+    }).sort(function (a, b) { return titulo(a.nombre).localeCompare(titulo(b.nombre), 'es'); });
+    if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre o celular.' : md.filtro === 'no' ? 'Todos los clientes entran a las secuencias.' : 'Todavía no hay clientes.') + '</p>';
+    return '<ul class="sec-lista">' + l.map(function (c) {
+      return '<li class="sec-row"><span class="sec-main"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(c.id) + '">' + esc(titulo(c.nombre)) + '</button>' +
+        '<span class="sg-sub">' + esc(lineaCl(c)) + '</span></span>' + botonesSiNo('secCl', c.id, marcaDe(c) !== false, titulo(c.nombre)) + '</li>';
+    }).join('') + '</ul>';
+  }
+  function modalSecCl() {
+    var md = S.modal, todos = clientesLista(), no = todos.filter(function (c) { return marcaDe(c) === false; }).length;
+    var h = cabModal('Clientes en las secuencias', 'Todos entran, salvo los que quites') + '<div class="mbody">';
+    h += '<p class="hint">✗ No entra: deja de salir en «Para hoy» (bienvenida y cambio de filtros). No se borra: sigue en Pedidos con sus compras y sus filtros. Puedes volver a incluirlo cuando quieras.</p>';
+    h += '<div class="chips" role="group" aria-label="Mostrar">' + [['todos', 'Todos', todos.length], ['no', 'No entran', no]].map(function (f) {
+      return '<button type="button" class="chip' + (md.filtro === f[0] ? ' on' : '') + '" aria-pressed="' + (md.filtro === f[0]) + '" data-sg="secFiltro" data-f="' + f[0] + '">' + esc(f[1]) + ' · ' + f[2] + '</button>';
+    }).join('') + '</div>';
+    h += '<div><label class="sr-only" for="seccl-busca">Buscar cliente o celular</label>' +
+      '<input type="search" id="seccl-busca" class="busca" placeholder="Buscar cliente o celular" autocomplete="off" enterkeyhint="search" value="' + esc(md.busca || '') + '"></div>';
+    h += '<div id="seccl-lista">' + listaSecCl() + '</div>';
     return h + '</div>';
   }
 
@@ -3628,6 +3983,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var id = String(fila.id), acc = Array.isArray(fila.acciones) ? fila.acciones : [];
     var c = Object.assign({}, fila);
     delete c.acciones;
+    aplicarSecCamino('cliente', c);
     CL.clientes[id] = c;
     CL.acciones = CL.acciones.filter(function (a) { return String(a.cliente_id) !== id; }).concat(acc.filter(function (a) { return a.estado !== 'caducado'; }));
     aplicarPendientesCl();
@@ -3688,7 +4044,15 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return accionPorClave(clave);
   }
   Object.assign(ACC, {
-    fichaCl: function (el) { abrirModal({ tipo: 'fichaCl', id: el.getAttribute('data-id'), paso: null, otros: false }); },
+    fichaCl: function (el) { abrirModal({ tipo: 'fichaCl', id: el.getAttribute('data-id'), paso: null, otros: false, volver: desdeLista('secCl') }); },
+    secCl: function (el) {
+      var c = clientePorId(el.getAttribute('data-id')), v = el.getAttribute('data-v') === 'si';
+      if (!c || (marcaDe(c) !== false) === v) return;
+      var f = focoFila(el);
+      marcarSecuencia('cliente', [c.id], v, pila(c.nombre) + (v ? ' vuelve a las secuencias' : ' sale de las secuencias'));
+      moverFoco(f);
+    },
+    gestionCl: function (el) { abrirModal({ tipo: 'secCl', filtro: el.getAttribute('data-f') || 'todos', busca: '' }); },
     editorCl: function (el) {
       var k = el.getAttribute('data-k');
       abrirModal({ tipo: 'editorCl', abierto: null });
@@ -3731,7 +4095,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       CL.hoy = d.hoy || null;
       CL.oficina = d.oficina || {};
       CL.clientes = Object.create(null);
-      (Array.isArray(d.clientes) ? d.clientes : []).forEach(function (c) { if (c && c.id) CL.clientes[String(c.id)] = c; });
+      (Array.isArray(d.clientes) ? d.clientes : []).forEach(function (c) { if (c && c.id) { aplicarSecCamino('cliente', c); CL.clientes[String(c.id)] = c; } });
       CL.acciones = (Array.isArray(d.acciones) ? d.acciones : []).filter(function (a) { return a && a.estado !== 'caducado'; });
       CL.items = Array.isArray(d.adjuntos) ? d.adjuntos : [];
       S.items = S.items.filter(function (i) { return Number(i.dia) < 11 || Number(i.dia) > 20; }).concat(CL.items);
@@ -3787,7 +4151,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       d = d || {};
       S.items = (Array.isArray(d.adjuntos) ? d.adjuntos : []).filter(function (i) { return Number(i.dia) < 11 || Number(i.dia) > 20; }).concat(CL.items);
       S.asesores = Array.isArray(d.asesores) ? d.asesores : [];
-      S.asesores.forEach(aplicarPendientes);
+      S.asesores.forEach(function (p) { aplicarPendientes(p); aplicarSecCamino('asesor', p); });
       S.asesoresError = d.asesores_error ? String(d.asesores_error) : '';
       S.plantillas = Array.isArray(d.plantillas) ? d.plantillas : [];
       S.nivel0 = d.nivel0 || null;
