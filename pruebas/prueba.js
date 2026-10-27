@@ -56,7 +56,7 @@ const EMPIECE_YA = [
 // períodos de 14 días desde el jueves 25 de diciembre de 2025, como periodo_inicio()
 function periodos() {
   const i0 = Math.floor(dias('2025-12-25', HOY) / 14), out = [];
-  for (let i = i0 - 8; i <= i0 + 8; i++) { const desde = sumar('2025-12-25', i * 14); out.push({ desde, cierre: sumar(desde, 13) }); }
+  for (let i = i0 - 26; i <= i0 + 13; i++) { const desde = sumar('2025-12-25', i * 14); out.push({ desde, cierre: sumar(desde, 13) }); }
   return out;
 }
 // el código que está en la base de asesores (eq_personas), por DNI
@@ -503,6 +503,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     const u2 = await popup('#wa-2');
     ok(u2.startsWith('https://wa.me/51959000014?text=') && u2.includes('Día 3 de 30') && u2.includes('Video del extractor Nutrex Press') && !/Folleto/.test(u2), 'abre su chat con el día 2: como va tarde, dice su día real (3 de 30)', u2.slice(0, 160));
     ok(vivos('s14', 'bv2').length === 1 && /Día 3 de 30/.test(vivos('s14', 'bv2')[0].texto || ''), 'queda anotado como bv2, con su texto');
+    ok(u2.includes('En el próximo mensaje te comparto la lista de precios') && !u2.includes('Mañana te comparto'), 'como va tarde, no le promete «mañana»: el día 3 también ya toca');
     ok((await page.textContent('#bvst-2')).includes('Enviado el mié 21 oct'), 'la tarjeta pasa a enviado');
     const tomas = await page.$eval('#bv-hoy [data-id="s14"]', (b) => b.closest('.hoy-row').innerText.replace(/\s+/g, ' ')).catch(() => '');
     ok(/Día 3 · Precios y promociones/.test(tomas) && !/tocaba/.test(tomas), 'y le toca el día 3, que es hoy', tomas);
@@ -568,6 +569,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(/Tienes hasta el miércoles 25 de noviembre para lograrlo\./.test(m4) && /Cualquier duda, me la haces saber\./.test(m4) && !/¿Qué nivel quieres ganar\?/.test(m4) && !m4.includes('S/ 1'),
       'su plazo es el de Nivel Cero (su período y dos más) y ya no pregunta qué nivel quiere', m4);
     ok(!(await page.isVisible('#warn-4')), 'con el catálogo vigente, el día 4 no avisa nada');
+    ok((await page.textContent('#msg-2')).includes('Mañana te comparto la lista de precios') && /Mañana, en nuestro quinto y último mensaje, aprenderás/.test(await page.textContent('#msg-4')),
+      'si cada mensaje sale en su día, anuncia el de mañana');
     await page.selectOption('#asesor-sel', 'p2');
     ok((await page.inputValue('#celular')) === '911222333', 'quita el 51 del celular');
     ok((await page.isVisible('#warn-1')) && (await page.textContent('#warn-1')).includes('código de asesor'), 'sin código, el día 1 avisa antes de enviar');
@@ -576,6 +579,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(m1t.includes('Día 11 de 30') && m1t.includes('Ya empezaste tu camino en Rena Ware') && m1t.includes('hasta el martes 10 de noviembre (te quedan 20 días)'),
       'si sale tarde: su día real, «ya empezaste» y cuántos días le quedan', m1t.slice(0, 600));
     ok((await page.textContent('#msg-2')).includes('Día 11 de 30') && (await page.textContent('#msg-5')).includes('Día 11 de 30'), 'los demás días también dicen en qué día va');
+    ok((await page.textContent('#msg-3')).includes('En el próximo mensaje te cuento qué premios') && /En nuestro quinto y último mensaje aprenderás/.test(await page.textContent('#msg-4')) &&
+      !/Mañana te/.test(await page.textContent('#msg-2')), 'y no prometen «mañana»: los que siguen también ya tocan');
     await page.selectOption('#asesor-sel', 'n1');
     ok((await page.inputValue('#codigo')) === '1770021' && (await page.textContent('#msg-1')).includes('Tu código de asesor: 1770021'), 'el código sale solo de la base de asesores (por su DNI)');
     await page.click('#reset');
@@ -584,6 +589,10 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(100);
     ok(/no tiene un Empiece Ya vigente para su fecha de ingreso/.test(await page.textContent('#warn-4')) && (await page.textContent('#msg-4')).includes('Nivel III'),
       'si el catálogo no tiene un Empiece Ya vigente para su fecha, usa el último y lo avisa', await page.textContent('#warn-4'));
+    await page.fill('#fecha', sumar(HOY, -35));
+    await esperar(100);
+    ok(/Su plazo de 30 días venció el /.test(await page.textContent('#warn-1')) && /ya no le corresponde/.test(await page.textContent('#warn-5')),
+      'si ya pasó su plazo, cada día avisa que ya no le corresponde', await page.textContent('#warn-1'));
     await page.fill('#fecha', HOY);
     await esperar(100);
 
@@ -643,14 +652,16 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     console.log('Compartir con su texto');
     {
       // un celular con menú de compartir: el video va con su texto, y el texto además queda copiado
-      const ctxCel = await browser.newContext({ viewport: { width: 400, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'], timezoneId: 'America/Lima', reducedMotion: 'reduce' });
-      await conectar(ctxCel);
-      await ctxCel.addInitScript(() => {
+      const simularCompartir = () => {
         window.__compartido = [];
         Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
         Object.defineProperty(navigator, 'share', { configurable: true, value: (d) => { window.__compartido.push({ archivos: (d.files || []).map((f) => f.name), texto: d.text || null }); return Promise.resolve(); } });
         try { localStorage.setItem('wa-bv-token', 'tok-1'); } catch (e) {}
-      });
+      };
+      const ctxCel = await browser.newContext({ viewport: { width: 400, height: 900 }, userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-A146M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36',
+        permissions: ['clipboard-read', 'clipboard-write'], timezoneId: 'America/Lima', reducedMotion: 'reduce' });
+      await conectar(ctxCel);
+      await ctxCel.addInitScript(simularCompartir);
       db.adjuntos.find((x) => x.nombre === 'Video de bienvenida').descripcion = 'Mira este video con calma.';
       const cel = await ctxCel.newPage();
       await cel.clock.setFixedTime(AHORA);
@@ -664,7 +675,47 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
       ok(!!comp && comp.archivos[0] === 'Video de bienvenida.mp4' && comp.texto === 'Mira este video con calma.', 'Compartir manda el video con su texto debajo', JSON.stringify(comp));
       ok((await cel.evaluate(() => navigator.clipboard.readText())) === 'Mira este video con calma.' && /El texto quedó copiado/.test(await cel.textContent('#toast')), 'y deja el texto copiado, por si WhatsApp no lo pone');
       await ctxCel.close();
+      // en iPhone, si el archivo va con texto, el menú de compartir manda solo el texto: va el video solo y el texto queda copiado
+      const ctxIos = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        permissions: ['clipboard-read', 'clipboard-write'], timezoneId: 'America/Lima', reducedMotion: 'reduce' });
+      await conectar(ctxIos);
+      await ctxIos.addInitScript(simularCompartir);
+      const ios = await ctxIos.newPage();
+      await ios.clock.setFixedTime(AHORA);
+      ios.on('pageerror', (e) => errores.push(e.message));
+      await ios.goto(base + '?ios=1');
+      await ios.waitForSelector('#files-1 [data-act="compartir"]');
+      await ios.click('#files-1 [data-act="compartir"]');
+      await ios.waitForFunction(() => window.__compartido.length > 0, null, { timeout: 5000 }).catch(() => {});
+      const compIos = await ios.evaluate(() => window.__compartido[0] || null);
+      ok(!!compIos && compIos.archivos[0] === 'Video de bienvenida.mp4' && compIos.texto === null, 'en iPhone comparte el video solo (con texto, iPhone pierde el video)', JSON.stringify(compIos));
+      ok((await ios.evaluate(() => navigator.clipboard.readText())) === 'Mira este video con calma.' && /pégalo debajo del video antes de enviar/.test(await ios.textContent('#toast')),
+        'y el texto queda copiado para pegarlo debajo', await ios.textContent('#toast'));
+      await ctxIos.close();
       db.adjuntos.find((x) => x.nombre === 'Video de bienvenida').descripcion = '';
+    }
+
+    console.log('Empiece Ya con un nivel cargado en otra fecha');
+    {
+      const original = EMPIECE_YA.map((r) => Object.assign({}, r));
+      EMPIECE_YA[1].requisito = 'En tus primeras 4 semanas: 1,500 PPV + 3 nuevos afiliados (mín. 2 activos). Mínimo 750 PPV personales. Viaje personal e intransferible.';
+      EMPIECE_YA[3].desde = '2026-09-10';                 // el Nivel IV se cargó una semana después que los demás
+      const ctxEy = await browser.newContext({ viewport: { width: 400, height: 900 }, timezoneId: 'America/Lima', reducedMotion: 'reduce' });
+      await conectar(ctxEy);
+      await ctxEy.addInitScript(() => { try { localStorage.setItem('wa-bv-token', 'tok-1'); } catch (e) {} });
+      const ey = await ctxEy.newPage();
+      await ey.clock.setFixedTime(AHORA);
+      ey.on('pageerror', (e) => errores.push(e.message));
+      await ey.goto(base + '?ey=1');
+      await ey.waitForSelector('#asesor-sel option[value="p1"]', { state: 'attached' });
+      await ey.selectOption('#asesor-sel', 'p1');
+      const t4 = (await ey.textContent('#msg-4')).replace(/\s+/g, ' ');
+      ok(/Nivel I: 750 puntos/.test(t4) && /Nivel III: 3,500 puntos/.test(t4) && /Asegura tu Nivel I cuanto antes[^]*concursar por el Nivel IV/.test(t4) && !(await ey.isVisible('#warn-4')),
+        'si un nivel se cargó con otra fecha de inicio, igual salen todos', t4.slice(0, 700));
+      ok(/Nivel II: 1,500 puntos \+ 3 nuevos afiliados \(mín\. 2 activos\)\. Mínimo 750 puntos tuyos personales\s*🎁/.test(t4) && !/intransferible/.test(t4),
+        'el requisito no se corta en «mín.» ni pierde su segunda condición; las notas sin cifras no van', t4.slice(0, 700));
+      await ctxEy.close();
+      EMPIECE_YA.splice(0, EMPIECE_YA.length, ...original);
     }
 
     console.log('Texto');
@@ -891,11 +942,23 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(500);
     ok(!!(await page.$('#bv-hoy .pormarcar-row [data-id="n1"]')) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)) && secDe('asesor', 'n1').entra === null && db.sec.filter((s) => s.ref === 'n1').length === 2,
       'deshacer la devuelve a por marcar, sin borrar lo anotado');
+    await page.selectOption('#asesor-sel', 'n1');          // la está preparando cuando decide que no entra
     await page.click('#bv-hoy [data-sg="secAs"][data-id="n1"][data-v="no"]');
     await esperar(500);
     bvh = (await page.textContent('#bv-hoy')).replace(/\s+/g, ' ');
     ok(secDe('asesor', 'n1').entra === false && !(await page.$('#bv-hoy .pormarcar')) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)) && /Nadia Nueva Marcar · no entra/.test(bvh),
       '✗ no entra: no sale en «Para hoy»', bvh.slice(0, 300));
+    ok((await page.inputValue('#asesor-sel')) === '' && /Nadia Nueva Marcar no entra a la secuencia, por eso no sale en la lista/.test(await page.textContent('#asesor-hint')) &&
+      (await page.inputValue('#nombre')) === 'Nadia', 'si la que estaba elegida pasa a ✗, la lista queda «a mano» y lo dice', await page.textContent('#asesor-hint'));
+    await esperar(400);
+    await page.click('#bv-hoy [data-sg="secDeshacer"][data-id="n1"]');
+    await esperar(500);
+    ok((await page.inputValue('#asesor-sel')) === 'n1' && !/no entra a la secuencia/.test(await page.textContent('#asesor-hint')), 'al deshacer, vuelve a quedar elegida');
+    await esperar(400);
+    await page.click('#bv-hoy [data-sg="secAs"][data-id="n1"][data-v="no"]');
+    await esperar(500);
+    await page.click('#reset');
+    ok(secDe('asesor', 'n1').entra === false && (await page.inputValue('#asesor-sel')) === '' && (await page.inputValue('#nombre')) === '', 'y vuelve a quedar ✗');
     await page.click('#bv-hoy [data-sg="gestionAs"]');
     await esperar(200);
     let gm = (await page.textContent('.modal')).replace(/\s+/g, ' ');

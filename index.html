@@ -985,7 +985,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   <div class="vista" id="vista-cb" role="tabpanel" aria-labelledby="tab-cb" hidden></div>
   <div class="vista" id="vista-cs" role="tabpanel" aria-labelledby="tab-cs" hidden></div>
 
-  <p class="foot" id="foot-as">Basado en la guía de la Sesión de bienvenida, el folleto de Empiece Ya y la lista de promociones vigente. El horario, el plazo y las clases son los de Nivel Cero.</p>
+  <p class="foot" id="foot-as">Basado en la guía de la Sesión de bienvenida y la lista de promociones vigente. El Empiece Ya sale del catálogo de Premios; el horario, el plazo y las clases, de Nivel Cero.</p>
 </div>
 
 <div id="capa"></div>
@@ -1144,23 +1144,43 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
      fecha de ingreso; si no hay una vigente, de la última cargada antes (y la tarjeta lo avisa). */
   var ROMANOS = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
   function nivelNum(nv) { var m = /Nivel\s+([IVX]+)\b/.exec(nv || ''); return m ? (ROMANOS[m[1]] || 9) : 9; }
+  function vigentesEn(l, f) { return l.filter(function (r) { return r.desde <= f && (!r.hasta || f <= r.hasta); }); }
   function edicionEY(fechaISO) {
     var l = (S.empieceYa || []).filter(function (r) { return r && r.nivel && r.desde; });
     if (!l.length) return null;
-    var f = fechaISO || hoyISO();
-    var vig = l.filter(function (r) { return r.desde <= f && (!r.hasta || f <= r.hasta); });
-    var antes = l.filter(function (r) { return r.desde <= f; });
-    var base = vig.length ? vig : antes.length ? antes : l;
-    var desde = base.map(function (r) { return r.desde; }).sort()[vig.length || antes.length ? base.length - 1 : 0];
-    var niveles = base.filter(function (r) { return r.desde === desde; }).sort(function (a, b) { return nivelNum(a.nivel) - nivelNum(b.nivel); });
-    return { niveles: niveles, vigente: vig.length > 0, desde: desde };
+    var f = fechaISO || hoyISO(), base = vigentesEn(l, f), vigente = base.length > 0;
+    if (!vigente) {
+      // la que estuvo vigente por última vez antes de su fecha o, si su fecha es anterior a todo el catálogo, la primera
+      var antes = l.filter(function (r) { return r.desde <= f; });
+      base = vigentesEn(l, antes.length ? antes.map(function (r) { return r.hasta; }).sort().pop() : l.map(function (r) { return r.desde; }).sort()[0]);
+    }
+    // un nivel por fila, aunque alguno se haya cargado con otra fecha de inicio (si hay dos, el más reciente)
+    var porNivel = {};
+    base.forEach(function (r) { var k = nivelNum(r.nivel); if (!porNivel[k] || r.desde > porNivel[k].desde) porNivel[k] = r; });
+    var niveles = Object.keys(porNivel).map(function (k) { return porNivel[k]; }).sort(function (a, b) { return nivelNum(a.nivel) - nivelNum(b.nivel); });
+    return { niveles: niveles, vigente: vigente };
+  }
+  /* Frases del requisito: corta en «. » seguido de mayúscula, pero no tras abreviaturas («mín.», «aprox.») ni siglas («P.P.V.»). */
+  var ABREV_FIN = /(?:^|[^A-Za-zÁÉÍÓÚÑáéíóúñ])(?:m[íi]n|m[áa]x|aprox|ej|etc|p[áa]g|nro|sr|sra|dr|dra|av)$/i;
+  function frases(s) {
+    var out = [], ini = 0, re = /\.\s+(?=[A-ZÁÉÍÓÚÑ¡¿])/g, m;
+    while ((m = re.exec(s))) {
+      var antes = s.slice(ini, m.index);
+      if (ABREV_FIN.test(antes) || /(?:^|[^A-Za-z])[A-Z](?:\.[A-Z])+$/.test(antes)) continue;
+      out.push(antes);
+      ini = m.index + m[0].length;
+    }
+    out.push(s.slice(ini));
+    return out.map(function (x) { return x.replace(/\s*\.\s*$/, '').trim(); }).filter(Boolean);
   }
   function requisitoCorto(t) {
-    return String(t || '').replace(/^\s*En tus primeras? \d+ semanas?:\s*/i, '')
-      .replace(/m[ií]nimo\s+([\d.,]+)\s*PPV/gi, 'mínimo $1 puntos tuyos')
+    var fs = frases(String(t || '').replace(/\s+/g, ' ').trim().replace(/^En tus primeras? \d+ semanas?:\s*/i, ''));
+    var piden = fs.filter(function (x) { return /\d/.test(x); });   // lo que se pide lleva cifras; fuera notas como «Viaje personal e intransferible»
+    var s = (piden.length ? piden : fs.slice(0, 1)).join('. ')
+      .replace(/(m)[ií]nimo\s+([\d.,]+)\s*PPV/gi, function (x, m, n) { return m + 'ínimo ' + n + ' puntos tuyos'; })
       .replace(/([\d.,]+)\s*GPV/g, '$1 puntos entre tú y tu equipo')
-      .replace(/([\d.,]+)\s*PPV/g, '$1 puntos')
-      .split(/\.\s+/)[0].replace(/\s*\.\s*$/, '').trim();
+      .replace(/([\d.,]+)\s*PPV/g, '$1 puntos');
+    return (s.match(/\(/g) || []).length > (s.match(/\)/g) || []).length ? s + ')' : s;
   }
   /* Plazo del Empiece Ya, igual que en Nivel Cero: el período en que ingresó y dos más. */
   function finEY(fechaISO) {
@@ -1184,9 +1204,15 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   }
   /* Lo que la tarjeta avisa aparte de los datos que faltan. */
   function avisosDia(n, ctx) {
-    if (n !== 4) return [];
-    var ed = edicionEY(ctx.fecha);
-    return ed && !ed.vigente ? ['El catálogo de Premios no tiene un Empiece Ya vigente para su fecha de ingreso: el texto usa el último cargado. Revísalo en Premios.'] : [];
+    var out = [], envio = fechaEnvio(ctx, n), lim = fechaLimite(ctx.fecha, ctx.plazo);
+    var vencido = !!lim && envio.getTime() > lim.getTime();
+    if (vencido) out.push('Su plazo de ' + (ctx.plazo || 30) + ' días venció el ' + fmtLargo(lim) + ': este mensaje ya no le corresponde.');
+    if (n !== 4) return out;
+    var ed = edicionEY(ctx.fecha), fin = ctx.fecha ? parseISO(finEY(ctx.fecha)) : null;
+    if (fin && !vencido && envio.getTime() > fin.getTime()) out.push('Su plazo del Empiece Ya cerró el ' + fmtLargo(fin) + '.');
+    if (ed && !ed.vigente) out.push('El catálogo de Premios no tiene un Empiece Ya vigente para su fecha de ingreso: el texto usa la edición más cercana. Revísalo en Premios.');
+    if (ed && ed.niveles.length && nivelNum(ed.niveles[0].nivel) !== 1) out.push('El Empiece Ya del catálogo no tiene Nivel I: revisa los niveles en Premios.');
+    return out;
   }
   /* Si ya subiste un PDF en el día 5, el texto lo menciona. */
   function guiaCitas() {
@@ -1214,6 +1240,9 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
       PLAZO: String(ctx.plazo || 30),
       EMPIEZA: tarde ? 'Ya empezaste tu camino en Rena Ware.' : 'Hoy empieza tu camino en Rena Ware.',
       QUEDAN: tarde && quedan > 0 ? ' (te ' + (quedan === 1 ? 'queda 1 día' : 'quedan ' + quedan + ' días') + ')' : '',
+      // si va tarde, el siguiente mensaje también ya toca y puede salir hoy mismo: no se le promete «mañana»
+      LUEGO: tarde ? 'En el próximo mensaje' : 'Mañana',
+      QUINTO: tarde ? 'En nuestro quinto y último mensaje' : 'Mañana, en nuestro quinto y último mensaje,',
       EY_FECHA: ey.EY_FECHA || '',
       EY_NIVELES: ey.EY_NIVELES || '',
       EY_IMPULSO: ey.EY_IMPULSO || '',
@@ -1262,7 +1291,7 @@ Como parte del equipo, puedes participar en todas las reuniones que quieras, inv
 {HORARIO_LISTA}
 Por el grupo te avisaremos cuando haya eventos adicionales.
 
-🎁 *Te premiamos por capacitarte:* si asistes *5 veces* a la oficina en tus primeros 30 días, en cualquiera de estos horarios hasta el *{FECHA_LIMITE}*{QUEDAN}, te adelantamos tu *botella de acero Rena Ware*.
+🎁 *Te premiamos por capacitarte:* si asistes *5 veces* a la oficina en tus primeros {PLAZO} días, en cualquiera de estos horarios hasta el *{FECHA_LIMITE}*{QUEDAN}, te adelantamos tu *botella de acero Rena Ware*.
 
 👉 ¡Te esperamos {OPCIONES_O}!`
     },
@@ -1283,7 +1312,7 @@ Mientras tanto, te comparto el material digital:
 
 Revísalos con calma: te van a servir en tus primeras citas.
 
-Mañana te comparto la lista de precios y las promociones.
+{LUEGO} te comparto la lista de precios y las promociones.
 
 👉 Recuerda: nuestras próximas reuniones son {OPCIONES_Y}`
     },
@@ -1310,12 +1339,12 @@ Si tu cliente toma la promoción ahora, con solo dar la inicial del {INICIAL_PCT
 
 💡 Por cierto, si tú quieres alguna promoción, se hace una *autocompra*: al precio de cliente se le descuenta tu comisión, que va de *S/ {COM_MIN} a S/ {COM_MAX}* según el tamaño de la promoción.
 
-Mañana te cuento qué premios puedes ganar por comprar o vender Rena Ware. 🏆`
+{LUEGO} te cuento qué premios puedes ganar por comprar o vender Rena Ware. 🏆`
     },
     {
       n: 4,
       title: 'Empiece Ya',
-      goal: 'Que conozca los niveles y su fecha límite, y vaya por el Nivel 1.',
+      goal: 'Que conozca los niveles y su fecha límite, y vaya por el Nivel I.',
       body: `📅 *Día {DIA} de {PLAZO}*
 
 🏆 *Empiece Ya: tus premios por empezar con todo*
@@ -1333,7 +1362,7 @@ Aparte de tus comisiones de venta o el descuento de tu autocompra, ganas estos p
 
 Cualquier duda, me la haces saber.
 
-Mañana, en nuestro quinto y último mensaje, aprenderás a manejar y aprovechar las principales objeciones que te dirán las personas.`
+{QUINTO} aprenderás a manejar y aprovechar las principales objeciones que te dirán las personas.`
     },
     {
       n: 5,
@@ -1417,6 +1446,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   var TIPO_TXT = { video: 'Video', pdf: 'PDF', imagen: 'Imagen' };
   var ESTADO_TXT = { en_curso: '', logro: 'ya logró', vencio: 'plazo vencido', sin_seguimiento: 'sin seguimiento' };
   var PUEDE_COMPARTIR = !!(navigator.share && navigator.canShare);
+  /* En iPhone y iPad (y Safari en Mac), si el archivo va con texto, el menú de compartir manda solo el texto y el
+     archivo se pierde (bugs.webkit.org/show_bug.cgi?id=251500). Ahí va solo el archivo y el texto queda copiado. */
+  var UA = navigator.userAgent || '';
+  var TEXTO_PIERDE_ARCHIVO = /iP(hone|ad|od)/.test(UA) || (/Macintosh/.test(UA) && (navigator.maxTouchPoints > 1 || !/Chrome|Chromium|Edg|OPR|Firefox/.test(UA)));
 
   var ICON = {
     video: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 10.5 21 7.5v9l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
@@ -1699,13 +1732,15 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   var fecha = $('fecha');
   var asesorSel = $('asesor-sel');
   function guardarAsesor() {
-    lsSet(LS_ASESOR, JSON.stringify({ sel: asesorSel.value, nombre: nombre.value, codigo: codigo.value, celular: celular.value, fecha: fecha.value }));
+    lsSet(LS_ASESOR, JSON.stringify({ sel: selElegido, nombre: nombre.value, codigo: codigo.value, celular: celular.value, fecha: fecha.value }));
   }
   var guardadoAsesor = (function () {
     var g = null;
     try { g = JSON.parse(lsGet(LS_ASESOR) || 'null'); } catch (e) { g = null; }
     return g && typeof g === 'object' ? g : {};
   })();
+  // a quién eligió (o «a mano»): se mantiene aunque deje de estar en la lista, por si vuelve a entrar (deshacer)
+  var selElegido = typeof guardadoAsesor.sel === 'string' ? guardadoAsesor.sel : '';
   if (typeof guardadoAsesor.nombre === 'string') nombre.value = guardadoAsesor.nombre;
   if (typeof guardadoAsesor.codigo === 'string') codigo.value = guardadoAsesor.codigo;
   if (typeof guardadoAsesor.celular === 'string') celular.value = guardadoAsesor.celular;
@@ -1716,7 +1751,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return null;
   }
   function llenarAsesores() {
-    var actual = asesorSel.value || guardadoAsesor.sel || '';
+    var actual = selElegido;
     var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
     var orden = { en_curso: 0, logro: 1, sin_seguimiento: 2, vencio: 3 };
     // quien no entra a la secuencia (✗) no sale para elegir
@@ -1728,7 +1763,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       var etiqueta = titulo(a.nombre) + ' · desde ' + fCorta(a.inicio) + ' · ' + (a.validas || 0) + '/' + meta + ' clases' + extra;
       return '<option value="' + esc(a.id) + '">' + esc(etiqueta) + '</option>';
     }).join('');
-    asesorSel.value = actual && asesorPorId(actual) ? actual : '';
+    var enLista = !!actual && lista.some(function (a) { return String(a.id) === String(actual); });
+    asesorSel.value = enLista ? actual : '';
+    // si estaba elegido y ya no está en la lista (no entra o ya pasó sus 45 días), queda a mano y se dice
+    S.selFuera = !enLista && actual ? asesorPorId(actual) : null;
     pistaAsesor();
   }
   function pistaAsesor() {
@@ -1736,6 +1774,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var h = $('asesor-hint');
     if (S.asesoresError) {
       h.textContent = 'No se pudo leer la lista de Nivel Cero. Escribe los datos a mano o recarga la página.';
+    } else if (S.selFuera && !asesorSel.value) {
+      h.textContent = titulo(S.selFuera.nombre) + (marcaDe(S.selFuera) === false ? ' no entra a la secuencia' : ' ya no está entre los nuevos de los últimos 45 días') +
+        ', por eso no sale en la lista: lo que le envíes desde aquí no queda anotado.';
     } else if (!S.asesores.filter(esReciente).length) {
       h.textContent = S.estado === 'cargando' ? 'Cargando los nuevos de Nivel Cero…' : 'No hay afiliados de los últimos 45 días en Nivel Cero. Escribe los datos a mano.';
     } else if (a && !a.codigo) {
@@ -1746,6 +1787,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   asesorSel.addEventListener('change', function () {
     var a = asesorPorId(asesorSel.value);
+    selElegido = asesorSel.value;
+    S.selFuera = null;
     if (a) {
       nombre.value = pila(a.nombre);
       codigo.value = a.codigo || '';
@@ -1762,6 +1805,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   });
   $('reset').addEventListener('click', function () {
     asesorSel.value = '';
+    selElegido = '';
+    S.selFuera = null;
     nombre.value = '';
     codigo.value = '';
     celular.value = '';
@@ -1953,7 +1998,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<div class="field"><label class="flabel" for="fn-' + id + '">Nombre</label>' +
         '<input type="text" id="fn-' + id + '" data-field="nombre" data-id="' + id + '" value="' + esc(it.nombre || '') + '" maxlength="120" autocomplete="off"></div>' +
       '<div class="field"><label class="flabel" for="fd-' + id + '">Texto que va con el archivo <span class="opt">(opcional)</span></label>' +
-        '<textarea id="fd-' + id + '" rows="4" maxlength="1500" data-field="descripcion" data-id="' + id + '">' + esc(it.descripcion || '') + '</textarea>' +
+        '<textarea id="fd-' + id + '" rows="4" maxlength="1000" data-field="descripcion" data-id="' + id + '">' + esc(it.descripcion || '') + '</textarea>' +
         '<p class="hint">Al tocar «Compartir» va debajo del video o la imagen en WhatsApp, y además queda copiado por si hay que pegarlo.</p></div>' +
       '<div class="fedit-btns">' +
         boton('cambiar', it.id, ICON.up + '<span>' + (it.ruta ? 'Cambiar archivo' : 'Subir archivo') + '</span>', 'btn-sm') +
@@ -2113,10 +2158,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     a.click();
     setTimeout(function () { URL.revokeObjectURL(u); a.remove(); }, 5000);
   }
-  /* Con su texto, si lo tiene: WhatsApp lo pone debajo del video o la imagen. */
+  /* Con su texto, si lo tiene: WhatsApp lo pone debajo del video o la imagen (salvo en iPhone, ver arriba). */
   function compartirArchivo(file, texto) {
     if (PUEDE_COMPARTIR) {
-      var conTexto = texto ? { files: [file], text: texto } : null;
+      var conTexto = texto && !TEXTO_PIERDE_ARCHIVO ? { files: [file], text: texto } : null;
       if (conTexto && navigator.canShare(conTexto)) return navigator.share(conTexto);
       var datos = { files: [file] };
       if (navigator.canShare(datos)) return navigator.share(datos);
@@ -2128,7 +2173,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var n = Number(it.dia), texto = String(it.descripcion || '').trim();
     errorArchivos(n, '');
     // el texto queda copiado de una vez (con el toque), por si WhatsApp no lo pone solo
-    if (texto) copiarTexto(texto, function () { aviso('El texto quedó copiado: si no aparece debajo del ' + (tipoDeItem(it) === 'video' ? 'video' : 'archivo') + ', pégalo ahí'); }, function () {});
+    var cual = tipoDeItem(it) === 'video' ? 'video' : tipoDeItem(it) === 'imagen' ? 'imagen' : 'archivo';
+    if (texto) copiarTexto(texto, function () {
+      aviso(TEXTO_PIERDE_ARCHIVO ? 'El texto quedó copiado: en WhatsApp, pégalo debajo de' + (cual === 'imagen' ? ' la imagen' : 'l ' + cual) + ' antes de enviar'
+        : 'El texto quedó copiado: si no aparece debajo de' + (cual === 'imagen' ? ' la imagen' : 'l ' + cual) + ', pégalo ahí');
+    }, function () {});
     var listo = S.cache[it.id] ? Promise.resolve(S.cache[it.id]) : null;
     if (!listo) {
       S.ocupado[it.id] = 'Preparando… 0%';

@@ -89,12 +89,22 @@ Los mensajes a quienes compraron, con los datos que carga **Pedidos**
 - **Para hoy**: cada pestaña dice a quién le toca qué mensaje hoy, y la pestaña
   muestra cuántos son (más los asesores por marcar).
 - **Bienvenida**: «Preparar» carga sus datos (nombre, celular, fecha de inicio
-  y código, si ya es un código real de Rena Ware) y lleva a su día. Cada
-  tarjeta dice qué día enviarla, los archivos que van y el texto listo, con
-  *negritas* de WhatsApp. Al abrir el chat con el botón de WhatsApp queda
-  anotado; si se mandó de otra forma, «Ya lo envié». Se puede deshacer.
-- **Archivos por día**: subir, cambiar, describir, ordenar y quitar. En el
-  celular, «Compartir» abre el menú para mandarlo directo a WhatsApp.
+  y código) y lleva a su día. Cada tarjeta dice qué día enviarla, los archivos
+  que van y el texto listo, con *negritas* de WhatsApp. Al abrir el chat con el
+  botón de WhatsApp queda anotado; si se mandó de otra forma, «Ya lo envié».
+  Se puede deshacer. En «Nuevo asesor → Elegir de Nivel Cero» no salen los que
+  no entran a la secuencia; si el que estaba elegido pasa a ✗, queda «a mano»
+  (lo enviado ya no se anota) y lo dice, y si se deshace vuelve a quedar
+  elegido.
+- **Archivos por día**: subir, cambiar, describir, ordenar y quitar. Todos
+  (videos incluidos) tienen «Descargar». En el celular, «Compartir» abre el
+  menú para mandarlo directo a WhatsApp. El **texto que va con el archivo**
+  (por ejemplo, lo que se dice de cada producto en su video) sale debajo del
+  video al compartirlo en Android y además queda copiado, por si la app no lo
+  pone sola. En iPhone se comparte el video solo y el texto queda copiado para
+  pegarlo debajo: si ahí van juntos, el menú de compartir manda solo el texto y
+  el video se pierde ([WebKit 251500](https://bugs.webkit.org/show_bug.cgi?id=251500)).
+  En la computadora, «Copiar texto» al lado del archivo.
 - **Seguimiento**: el mensaje que toca, agrupado por tipo, con WhatsApp (abre
   el chat con el texto y lo anota), «Le avisé en persona» u «Omitir». En la
   ficha de cada asesor: sus clases, qué le toca o qué le tocará si no viene,
@@ -120,7 +130,25 @@ Los mensajes a quienes compraron, con los datos que carga **Pedidos**
 - **Bienvenida**: el día N va en inicio + N − 1. «Para hoy» propone el primer
   día que falta mandar, si ya llegó su fecha, mientras está en sus días 1 a 5.
   Si se envía tarde, el texto propone capacitaciones desde hoy, con 2 horas de
-  margen.
+  margen, y se ajusta a la fecha de envío: el día en que va («Día 7 de 30»: el
+  día que se afilia es el Día 1), «Ya empezaste tu camino…» en vez de «Hoy
+  empieza…», cuántos días le quedan para sus 5 clases y, en vez de «Mañana te
+  comparto…», «En el próximo mensaje…» (el que sigue también ya toca). Si ya
+  pasó su plazo, cada tarjeta avisa que ese mensaje ya no le corresponde.
+- **Empiece Ya** (día 4): niveles, requisitos y premios salen del catálogo de
+  Premios (`pr_catalogo`, categoría «Empiece Ya», niveles «Nivel I» a «Nivel
+  V»), los vigentes en su fecha de ingreso, un nivel por fila aunque alguno se
+  haya cargado con otra fecha de inicio. Si no hay vigentes, usa la edición
+  más cercana y la tarjeta lo avisa (también si falta el Nivel I). Por eso, al
+  cargar una edición nueva en Premios conviene dejar la anterior con sus
+  niveles y fechas. Del requisito se quita «En tus primeras N semanas:» y las
+  notas sin cifras («Viaje personal e intransferible»); PPV y GPV se dicen en
+  palabras. Si hay 4 niveles o más, el último va como «la opción de
+  concursar». La fecha límite es la de Nivel Cero: el cierre del segundo
+  período después del de su ingreso (`wa_bv_periodos` cubre un año atrás y
+  medio adelante). Termina con «Cualquier duda, me la haces saber.»
+- **Citas** (día 5): va el PDF «Guía para sacar citas»; cuando está subido, el
+  texto lo menciona.
 - **Seguimiento**, desde el día 6:
 
   | Mensaje | Cuándo |
@@ -141,8 +169,9 @@ Los mensajes a quienes compraron, con los datos que carga **Pedidos**
   horario, con el mismo margen de 2 horas.
 - **Trato**: el de su ficha o, si no se eligió, el de por defecto. Los 5 de
   bienvenida van de tú.
-- **Código**: solo se toma si `es_codigo_asesor_real()` lo reconoce. Si falta,
-  el día 1 avisa antes de enviar.
+- **Código**: el de Nivel Cero si `es_codigo_asesor_real()` lo reconoce; si no,
+  el de la base de asesores (`eq_personas`) con su mismo DNI, solo si ahí tiene
+  uno solo (`wa_bv_codigo_por_dni`). Si falta, el día 1 avisa antes de enviar.
 
 ## Cómo está hecho
 
@@ -160,14 +189,15 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
   vive en `index.html`), junto a los datos de Nivel Cero.
 - Funciones con sesión: `wa_bv_datos` (archivos, promoción, `n0_config`, los
   nuevos de los últimos 45 días y quien aún no recoge su botella, con sus
-  clases y mensajes, y los textos editados), `wa_bv_ajustes_guardar`,
+  clases y mensajes, los textos editados, el Empiece Ya del catálogo con
+  `wa_bv_empiece_ya` y los períodos de 14 días con `wa_bv_periodos`), `wa_bv_ajustes_guardar`,
   `wa_bv_adjunto_guardar`, `wa_bv_adjunto_borrar`, `wa_bv_ordenar`,
   `wa_bv_envio_registrar`, `wa_bv_envio_anular`, `wa_bv_trato_guardar`,
   `wa_bv_trato_defecto`, `wa_bv_plantilla_guardar`, `wa_secuencia_marcar`
   (marca ✓ / ✗ / sin marcar a una o varias personas; solo agrega una fila si
-  cambia). `wa_bv_asesor_json` arma cada asesor y `wa_secuencia_de` da la marca
-  vigente (`sec`: `{entra, en, antes_hoy}`) de cada asesor y cliente (internas,
-  sin permisos públicos).
+  cambia). `wa_bv_asesor_json` arma cada asesor (con su código por DNI si hace
+  falta) y `wa_secuencia_de` da la marca vigente (`sec`: `{entra, en,
+  antes_hoy}`) de cada asesor y cliente (internas, sin permisos públicos).
 - Envíos sin señal (o con la sesión cerrada): quedan en el celular y se anotan
   al volver; cada uno sale de la cola solo cuando el servidor lo confirma. Lo
   que aún no confirma se mantiene aunque la página recargue, y el servidor no
@@ -179,7 +209,7 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 246 aserciones y capturas en /tmp/bv-*.png
+node pruebas/prueba.js   # Chromium real con un Supabase falso; 272 aserciones y capturas en /tmp/bv-*.png
 ```
 
 ## Despliegue
