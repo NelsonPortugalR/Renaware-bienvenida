@@ -810,7 +810,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     <p class="lead" id="lead-cl" hidden>Los mensajes para cada cliente: al recibir su pedido, a la semana y al mes si compró ollas, antes de terminar sus cuotas, y cuando le toca cambiar el pre-filtro, el filtro principal o el filtro de aire.</p>
     <p class="prize" id="prize-as">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M10 2.5h4v2.8l1.6 2.6V20a2 2 0 0 1-2 2h-3.2a2 2 0 0 1-2-2V7.9L10 5.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 11.5h6.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-      <span id="premio-txt"><strong>Nivel 0:</strong> 5 capacitaciones en la oficina dentro de su plazo de 30 días = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.</span>
+      <span id="premio-txt"><strong>Nivel 0:</strong> 5 capacitaciones en la oficina dentro de su plazo de 30 días y aprobar su test = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.</span>
     </p>
   </header>
 
@@ -973,7 +973,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
       <li><strong>Envía cada día en su fecha.</strong> Así cuadran el “Día X de 30” y las capacitaciones que propone el texto. Si te atrasas, el texto se ajusta a la fecha de hoy.</li>
       <li><strong>Si responde, confírmale el día y la hora</strong> en ese momento.</li>
       <li><strong>Si no responde, llámalo por teléfono</strong>, no por WhatsApp.</li>
-      <li><strong>La asistencia se marca en Nivel Cero.</strong> Con 5 clases dentro de su plazo, gana la botella.</li>
+      <li><strong>La asistencia se marca en Nivel Cero.</strong> Con 5 clases dentro de su plazo se habilita su test (15 días); al aprobarlo, gana la botella.</li>
       <li><strong>Desde el día 6 sigue el seguimiento</strong>, en la pestaña de al lado: felicitaciones por cada clase y recordatorios según su plazo.</li>
     </ul>
   </section>
@@ -2230,11 +2230,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       tu: '¡Vas muy bien, {nombre}! Llevas 3 de 5: te faltan solo 2 clases para tu botella de acero. Tienes hasta el {limite}. Te esperamos {proxima}.',
       usted: '¡Va muy bien, {nombre}! Lleva 3 de 5: le faltan solo 2 clases para su botella de acero. Tiene hasta el {limite}. Le esperamos {proxima}.' },
     { k: 'falta1', g: 'asis', t: 'Le falta 1', cuando: 'Después de su cuarta clase.',
-      tu: '¡Felicitaciones, {nombre}! Estás a 1 clase de ganar tu botella de acero 🏆 Tienes hasta el {limite}. Te esperamos {proxima}.',
-      usted: '¡Felicitaciones, {nombre}! Está a 1 clase de ganar su botella de acero 🏆 Tiene hasta el {limite}. Le esperamos {proxima}.' },
-    { k: 'botella', g: 'asis', t: 'Ganó la botella', cuando: 'Al completar sus 5 clases, si aún no gana el Empiece Ya.',
-      tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases y tu botella de acero ya está asegurada. Ahora ve por tu Empiece Ya: si lo logras, ganas también el utensilio de 1,5 litros. ¡Tú puedes!',
-      usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases y su botella de acero ya está asegurada. Ahora vaya por su Empiece Ya: si lo logra, gana también el utensilio de 1,5 litros. ¡Usted puede!' },
+      tu: '¡Felicitaciones, {nombre}! Estás a 1 clase de completar tus 5 🏆 Con la quinta se habilita tu test para ganar tu botella de acero. Tienes hasta el {limite}. Te esperamos {proxima}.',
+      usted: '¡Felicitaciones, {nombre}! Está a 1 clase de completar sus 5 🏆 Con la quinta se habilita su test para ganar su botella de acero. Tiene hasta el {limite}. Le esperamos {proxima}.' },
+    { k: 'botella', g: 'asis', t: 'Completó sus clases: su test', cuando: 'Al completar sus 5 clases, si aún no gana el Empiece Ya: se le habilita su test.',
+      tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases. Ahora te toca tu test: apruébalo hasta el {limite_test} y ganas tu botella de acero. Es a libro abierto, desde tu celular: {link_test}',
+      usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases. Ahora le toca su test: apruébelo hasta el {limite_test} y gana su botella de acero. Es a libro abierto, desde su celular: {link_test}' },
     { k: 'botella_ey', g: 'asis', t: 'Ganó la botella y ya tiene su Empiece Ya', cuando: 'Al completar sus 5 clases, si ya ganó el Empiece Ya.',
       tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases y además ya ganaste tu Empiece Ya: tu botella de acero viene junto con tu premio. ¡Sigue así!',
       usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases y además ya ganó su Empiece Ya: su botella de acero viene junto con su premio. ¡Siga así!' },
@@ -2250,16 +2250,21 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     { k: 'cierre', g: 'falta', t: 'Cumplió sus 30 días', cuando: 'Al terminar sus 30 días sin completar las 5 clases (hasta 10 días después).',
       tu: 'Hola {nombre}, ya cumpliste tus 30 días del Nivel Cero, pero aún tienes la oportunidad de empezar con todo estos próximos 30 días con los nuevos concursos. ¡Te esperamos {proxima}!',
       usted: 'Hola {nombre}, ya cumplió sus 30 días del Nivel Cero, pero aún tiene la oportunidad de empezar con todo estos próximos 30 días con los nuevos concursos. ¡Le esperamos {proxima}!' },
-    { k: 'recoger', g: 'otro', t: 'Recoger la botella', cuando: 'Se manda a mano, desde su ficha, para avisarle que la recoja.',
+    { k: 'test_recordar', g: 'test', t: 'Le falta su test', cuando: 'Si le quedan 5 días o menos para aprobar su test y aún no lo aprueba.',
+      tu: 'Hola {nombre}, te quedan {dias_test} para aprobar tu test y ganar tu botella de acero (hasta el {limite_test}). Entra con tu celular aquí: {link_test}',
+      usted: 'Hola {nombre}, le quedan {dias_test} para aprobar su test y ganar su botella de acero (hasta el {limite_test}). Entre con su celular aquí: {link_test}' },
+    { k: 'recoger', g: 'test', t: 'Recoger la botella', cuando: 'Al aprobar su test (o a mano, desde su ficha) para avisarle que la recoja.',
       tu: 'Hola {nombre}, tu botella de acero ya te espera en la oficina 🏆 Pasa a recogerla cuando vengas.',
       usted: 'Hola {nombre}, su botella de acero ya le espera en la oficina 🏆 Pase a recogerla cuando venga.' }
   ];
   var PASO = Object.create(null);                        // sin prototipo: "constructor" no es un paso
   PASOS.forEach(function (x, i) { x.i = i; PASO[x.k] = x; });
-  var GRUPOS = [['asis', 'Por asistencia'], ['falta', 'Si no viene'], ['otro', 'A mano']];
+  var GRUPOS = [['asis', 'Por asistencia'], ['falta', 'Si no viene'], ['test', 'Su test y su botella'], ['otro', 'A mano']];
+  var LINK_TEST = 'https://renaware-plataforma.nelson1614.workers.dev/test/';   // el Test del Nivel 0: entra con su celular
   var MARCAS = [['nombre', 'su nombre'], ['limite', 'su fecha límite'], ['dias', 'los días que le quedan'],
                 ['avance', 'cuánto lleva y cuánto le falta'], ['proxima', 'la próxima clase'], ['horarios', 'los horarios de clase'],
-                ['clases', 'clases que lleva'], ['faltan', 'clases que le faltan']];
+                ['clases', 'clases que lleva'], ['faltan', 'clases que le faltan'],
+                ['limite_test', 'la fecha límite de su test'], ['dias_test', 'los días que le quedan para el test'], ['link_test', 'el enlace del test']];
   var MARCA = Object.create(null);
   MARCAS.forEach(function (m) { MARCA[m[0]] = 1; });
   function claveMarca(n) { return String(n).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
@@ -2336,7 +2341,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function llenar(t, p, tr) {
     tr = tr || tratoDe(p);
     var r = diasISO(hoyISO(), p.vence);
+    var tst = p.test || {}, ht = tst.hasta || sumarISO(p.logro_fecha || hoyISO(), 15), rt = diasISO(hoyISO(), ht);   // t es la plantilla
     var v = {
+      limite_test: fLargaISO(ht), dias_test: nDias(rt == null ? 0 : rt), link_test: LINK_TEST,
       nombre: pila(p.nombre), limite: fLargaISO(p.vence), dias: nDias(r == null ? 0 : r),
       avance: avanceTxt(p, tr), clases: String(p.validas || 0), faltan: String(Math.max(metaClases() - (p.validas || 0), 0)),
       proxima: proximaTxt(), horarios: horariosTxt()
@@ -2373,6 +2380,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (p.estado === 'logro') {
       var fl = p.logro_fecha || fv[m - 1];
       if (fl && diasISO(fl, h) <= 10) c.push({ k: p.ey ? 'botella_ey' : 'botella', f: fl });
+      // Test del Nivel 0: recordarle en sus últimos 5 días; al aprobar, que recoja su botella
+      var t = p.test || {};
+      if (t.estado === 'habilitado' && !p.ey && t.hasta && diasISO(h, t.hasta) <= 5) c.push({ k: 'test_recordar', f: sumarISO(t.hasta, -5) });
+      if (t.estado === 'aprobado' && !p.botella_entregada_en && !p.ey && t.aprobado_en && diasISO(t.aprobado_en, h) <= 10) c.push({ k: 'recoger', f: t.aprobado_en });
     }
     if (p.estado === 'en_curso') {
       var ka = v >= 1 ? pasoAvance(v) : null;
@@ -2439,8 +2450,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
                cls: d <= 5 && v < m ? 'urge' : '' };
     }
     if (p.estado === 'logro') {
+      var t = p.test || {};
       return { txt: 'Logró sus ' + m + ' clases el ' + fCorta(p.logro_fecha) + ' · ' +
-        (p.botella_entregada_en ? 'botella entregada' : p.ey ? 'su botella va con el Empiece Ya' : 'botella por recoger'), cls: 'ok' };
+        (p.botella_entregada_en ? 'botella entregada' : p.ey ? 'su botella va con el Empiece Ya'
+          : t.estado === 'habilitado' ? 'le falta su test (hasta el ' + fCorta(t.hasta) + ')'
+          : t.estado === 'vencido' ? 'no aprobó su test a tiempo'
+          : t.estado === 'aprobado' ? 'aprobó su test · botella por recoger' : 'botella por recoger'),
+        cls: t.estado === 'vencido' ? 'mal' : 'ok' };
     }
     if (p.estado === 'vencio') return { txt: 'Venció el ' + fCorta(p.vence) + ' con ' + v + ' de ' + m, cls: 'mal' };
     if (p.estado === 'sin_seguimiento') return { txt: 'Se inscribió antes del seguimiento del Nivel Cero', cls: '' };
@@ -4220,7 +4236,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
         S.horarioListo = true;
       }
       var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
-      $('premio-txt').innerHTML = '<strong>Nivel 0:</strong> ' + meta + ' capacitaciones en la oficina dentro de su plazo de ' + S.plazo + ' días = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.';
+      $('premio-txt').innerHTML = '<strong>Nivel 0:</strong> ' + meta + ' capacitaciones en la oficina dentro de su plazo de ' + S.plazo + ' días y aprobar su test = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.';
       aplicarAjustes(d.ajustes || {});
       S.ajustesCargados = true;
       S.estado = 'ok';

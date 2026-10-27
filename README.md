@@ -12,8 +12,20 @@ Todos los mensajes de WhatsApp del equipo, en dos grupos: **Asesores** y
   según las clases que lleva y los días que le quedan. Antes vivían en Nivel
   Cero; ahora Nivel Cero solo toma asistencia.
 
-5 clases dentro de su plazo de 30 días = botella de acero, el adelanto del
-Empiece Ya.
+5 clases dentro de su plazo de 30 días habilitan el **Test del Nivel 0**
+(15 días para aprobarlo con 90 o más); al aprobarlo gana la botella de acero,
+el adelanto del Empiece Ya. Los mensajes del test:
+
+- **Completó sus clases: su test** (antes «Ganó la botella»): al completar sus
+  5 clases, lo invita a rendir el test con su fecha límite y el enlace.
+- **Le falta su test**: si le quedan 5 días o menos y aún no lo aprueba.
+- **Recoger la botella**: se propone solo al aprobar el test (y se puede
+  mandar a mano desde su ficha, como antes).
+
+Marcadores nuevos: `{limite_test}`, `{dias_test}`, `{link_test}` (el enlace
+es `https://renaware-plataforma.nelson1614.workers.dev/test/`, donde entra con
+su celular). El estado del test llega en cada asesor como `test` (desde
+`n0_inscritos_json`); quien no lo aprobó a tiempo ya no sigue en la lista.
 
 ## Quién entra a la secuencia
 

@@ -137,6 +137,7 @@ function asesor(p) {
     estado, validas: val.length, trato: e.trato || null,
     logro_fecha: val.length >= meta ? val[meta - 1].fecha : null,
     botella_entregada_en: e.botella_entregada_en || null, ey: !!db.ey[p.id],
+    test: (db.test || {})[p.id] || null,     // estado del Test del Nivel 0 (null = sin test)
     asistencias: mias.map((c) => ({ f: c.fecha, v: c.fecha >= inicio && c.fecha <= vence })),
     mensajes: db.mensajes.filter((m) => m.ins === p.id && !m.anulado).map((m) => ({ id: m.id, paso: m.paso, modo: m.modo, en: m.en })),
     sec: secDe('asesor', p.id)
@@ -233,7 +234,7 @@ function rpc(fn, a) {
   const insDe = (id) => db.ins.find((x) => x.id === id);
   if (fn === 'wa_bv_datos') {
     const asesores = db.ins.map(asesor).filter((x) => x.estado !== 'excluido' &&
-      (x.inicio >= sumar(HOY, -45) || (x.estado === 'logro' && !x.botella_entregada_en && !x.ey)));
+      (x.inicio >= sumar(HOY, -45) || (x.estado === 'logro' && !x.botella_entregada_en && !x.ey && !['vencido', 'excluido'].includes((x.test || {}).estado))));
     return ok({
       hoy: HOY, ajustes: db.ajustes, adjuntos: db.adjuntos.filter((x) => !x.borrado).map(limpio),
       nivel0: { meta: db.cfg.clases_meta, plazo: db.cfg.dias_plazo, horarios: db.cfg.horarios, trato: db.cfg.trato },
@@ -702,7 +703,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('#vista-sg [data-sg="editor"]');
     await esperar(200);
     let ed = await page.textContent('.modal');
-    ok(/Por asistencia/.test(ed) && /Si no viene/.test(ed) && (await page.$$('.modal .paso')).length === 11 && !/Al inscribirse/.test(ed), 'lista los 11 mensajes, sin el de bienvenida de Nivel Cero', (await page.$$('.modal .paso')).length);
+    ok(/Por asistencia/.test(ed) && /Si no viene/.test(ed) && (await page.$$('.modal .paso')).length === 12 && /Su test y su botella/.test(ed) && !/Al inscribirse/.test(ed), 'lista los 12 mensajes (con los del test), sin el de bienvenida de Nivel Cero', (await page.$$('.modal .paso')).length);
     await page.click('.modal [data-sg="abrirPaso"][data-k="clase1"]');
     await esperar(150);
     ok((await page.inputValue('#mTexto')).indexOf('¡Felicitaciones por su primera clase') === 0, 'abre con el trato por defecto (usted)');
@@ -951,6 +952,24 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ficha = await page.textContent('.modal');
     ok(/Fanny Quispe Chaucca/.test(ficha) && !/undefined|Elegiste/.test(ficha), 'un paso que no existe no se elige', ficha.slice(0, 200));
     await page.keyboard.press('Escape');
+
+    console.log('Test del Nivel 0');
+    db.test = { s8: { estado: 'habilitado', hasta: '2026-10-24', dias: 3, intentos: 1, mejor: 80 } };
+    await page.goto(base + '?t=1');
+    await page.click('#tab-sg'); await esperar(400);
+    ok(/^Le falta su test/.test(await grupoDe('s8')), 'a quien le quedan 5 días o menos para su test se le recuerda', await grupoDe('s8'));
+    const prevT = await page.$eval('#vista-sg .sg-nom[data-id="s8"]', (b) => b.closest('.sg-item').querySelector('.sg-prev').textContent).catch(() => '');
+    ok(prevT === 'Hola Fanny, te quedan 3 días para aprobar tu test y ganar tu botella de acero (hasta el sábado 24 de octubre). Entra con tu celular aquí: https://renaware-plataforma.nelson1614.workers.dev/test/',
+      'el recordatorio lleva sus días, su fecha límite y el enlace del test', prevT);
+    db.test = { s8: { estado: 'vencido', hasta: '2026-10-18', mejor: 85 } };
+    await page.goto(base + '?t=2');
+    await page.click('#tab-sg'); await esperar(400);
+    ok(!(await page.$('#vista-sg .sg-nom[data-id="s8"]')), 'si no aprobó a tiempo ya no se le escribe');
+    db.test = { s10: { estado: 'aprobado', nota: 94, aprobado_en: '2026-10-20', hasta: '2026-10-24' } };
+    await page.goto(base + '?t=3');
+    await page.click('#tab-sg'); await esperar(400);
+    ok(/^Recoger la botella/.test(await grupoDe('s10')), 'al aprobar su test le toca el aviso para recoger la botella', await grupoDe('s10'));
+    db.test = {};
     await page.goto(base + '?desde=n0b#a=s6');
     await page.waitForFunction(() => document.getElementById('asesor-sel').value === 's6');
     ok(await page.isVisible('#vista-bv') && (await page.inputValue('#nombre')) === 'Susana', 'si va en sus días 1 a 5, abre su bienvenida');
