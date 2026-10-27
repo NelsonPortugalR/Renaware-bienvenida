@@ -2764,9 +2764,19 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return 'Desde el ' + fDia(p.inicio) + (d != null && d >= 0 ? ' · día ' + (d + 1) : '') + ' · ' + (p.validas || 0) + ' de ' + metaClases() + ' clases' +
       (ESTADO_TXT[p.estado] ? ' · ' + ESTADO_TXT[p.estado] : '') + (celularWA(p) ? '' : ' · sin celular');
   }
+  /* Quién lo afilió (el dato de Nivel Cero), para reconocerlo: va en chico, debajo de su nombre. */
+  function afiliadorDe(p) {
+    var a = p && p.afiliador ? String(p.afiliador).replace(/\s+S\.?\s*A\.?\s*C\.?\s*$/i, '').trim() : '';
+    return a ? titulo(a) : '';
+  }
+  function lineaAfiliador(p, etiqueta, cls) {
+    var a = afiliadorDe(p);
+    return a ? '<' + etiqueta + ' class="' + cls + '">Afiliado por ' + esc(a) + '</' + etiqueta + '>' : '';
+  }
+  function buscaAsesor(p, q) { return !q || plano(p.nombre + ' ' + (p.afiliador || '')).indexOf(q) >= 0; }   // por nombre o por quién lo afilió
   function filaPorMarcar(p) {
     return '<li class="pormarcar-row"><div><p class="hoy-nom"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button></p>' +
-      '<p class="hoy-sub">' + esc(lineaMarcar(p)) + '</p></div>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) + '</li>';
+      lineaAfiliador(p, 'p', 'hoy-sub') + '<p class="hoy-sub">' + esc(lineaMarcar(p)) + '</p></div>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) + '</li>';
   }
   function cajaPorMarcar(v) {
     var l = porMarcarDe(v), total = S.asesores.filter(porMarcar).length;
@@ -2802,6 +2812,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var p = y.p, n = y.x.n, f = sumarISO(p.inicio, n - 1);
     var tarde = y.x.atraso === 1 ? 'tocaba ayer' : y.x.atraso > 1 ? 'tocaba el ' + fDia(f) : '';
     return '<li class="hoy-row"><div><p class="hoy-nom"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button></p>' +
+      lineaAfiliador(p, 'p', 'hoy-sub') +
       '<p class="hoy-sub">' + esc(nombrePaso('bv' + n)) + (tarde ? ' · <span class="tarde">' + esc(tarde) + '</span>' : '') + (celularWA(p) ? '' : ' · sin celular') + '</p></div>' +
       '<button type="button" class="btn-sm primary" data-sg="preparar" data-id="' + esc(p.id) + '" data-n="' + n + '">Preparar</button></li>';
   }
@@ -2894,6 +2905,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var p = y.p, k = y.x.k, e = lineaEstado(p);
     return '<li class="sg-item">' +
       '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button>' + puntos(Math.min(p.validas || 0, metaClases())) + '</div>' +
+      lineaAfiliador(p, 'p', 'sg-sub') +
       '<p class="sg-sub' + (e.cls === 'urge' ? ' urge' : '') + '">' + esc(e.txt + (celularWA(p) ? '' : ' · sin celular')) + '</p>' +
       '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoPaso(k, p)) + '</span></p>' +
       '<div class="sg-acts">' + botonesPaso(p, k, true) + '</div></li>';
@@ -2906,14 +2918,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       : p.estado === 'en_curso' ? '<span class="sg-next al-dia">' + esc(px ? 'Al día · si no viene, el ' + fDia(px.f) + ': ' + nombrePaso(px.k) : 'Al día') + '</span>'
       : '';
     return '<li><button type="button" class="sg-row" data-sg="ficha" data-id="' + esc(p.id) + '">' +
-      '<span class="sg-row-main"><span class="sg-row-nom">' + esc(titulo(p.nombre)) + '</span>' +
+      '<span class="sg-row-main"><span class="sg-row-nom">' + esc(titulo(p.nombre)) + '</span>' + lineaAfiliador(p, 'span', 'sg-sub') +
       '<span class="sg-sub' + (e.cls === 'urge' ? ' urge' : '') + '">' + esc(e.txt) + '</span>' + sig + '</span>' +
       puntos(Math.min(p.validas || 0, metaClases())) + '</button></li>';
   }
   function listaSeg() {
     var q = plano(S.buscaSeg.trim());
     var l = S.asesores.filter(enSeguimiento);
-    if (q) l = l.filter(function (p) { return plano(p.nombre).indexOf(q) >= 0; });   // al buscar salen todos, también los que no entran
+    if (q) l = l.filter(function (p) { return buscaAsesor(p, q); });   // al buscar salen todos, también los que no entran
     else l = l.filter(function (p) { return marcaDe(p) !== false; });
     var ord = { en_curso: 0, logro: 1, vencio: 2 };
     l.sort(function (a, b) {
@@ -2924,7 +2936,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       else x = String(b.vence).localeCompare(String(a.vence));
       return x || titulo(a.nombre).localeCompare(titulo(b.nombre), 'es');
     });
-    if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre.' : 'Todavía nadie llega a su día 6.') + '</p>';
+    if (!l.length) return '<p class="hint">' + (q ? 'Nadie con ese nombre ni afiliado por alguien así.' : 'Todavía nadie llega a su día 6.') + '</p>';
     return '<ul class="sg-lista">' + l.map(filaSeg).join('') + '</ul>';
   }
   function renderSeg() {
@@ -2960,8 +2972,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var segs = S.asesores.filter(enSeguimiento), n = segs.filter(function (p) { return marcaDe(p) !== false; }).length, fuera = segs.length - n;
     var enBv = S.asesores.filter(enBienvenida).length;
     h += '<section aria-labelledby="sg-lista-h"><h2 class="section-h" id="sg-lista-h">Del día 6 en adelante <span class="cuenta gris">' + n + '</span></h2>' +
-      '<label class="sr-only" for="sg-busca">Buscar por nombre</label>' +
-      '<input type="search" id="sg-busca" class="busca" placeholder="Buscar por nombre" autocomplete="off" enterkeyhint="search" value="' + esc(S.buscaSeg) + '">' +
+      '<label class="sr-only" for="sg-busca">Buscar por nombre o afiliador</label>' +
+      '<input type="search" id="sg-busca" class="busca" placeholder="Buscar por nombre o afiliador" autocomplete="off" enterkeyhint="search" value="' + esc(S.buscaSeg) + '">' +
       '<div id="sg-lista">' + listaSeg() + '</div>' +
       (fuera ? '<p class="sec-resumen" style="margin-top:10px"><span>' + esc(plural(fuera, 'asesor no entra', 'asesores no entran') + ' a la secuencia: no salen en la lista.') + '</span>' +
         '<button type="button" class="btn-link" data-sg="gestionAs" data-f="no">Ver</button></p>' : '') +
@@ -3130,6 +3142,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (e.txt) h += '<p class="estado ' + e.cls + '">' + esc(e.txt) + '</p>';
     h += '<dl class="datos">' +
       '<dt>Celular</dt><dd>' + (p.celular ? esc(p.celular) + (cel ? ' · <a class="btn-link" href="' + esc(linkWA(p, '')) + '" target="_blank" rel="noopener">Abrir chat</a>' : ' <span class="hint">· no parece un celular</span>') : '—') + '</dd>' +
+      '<dt>Afilió</dt><dd>' + esc(afiliadorDe(p) || '—') + '</dd>' +
       '<dt>Clases</dt><dd>' + puntos(Math.min(p.validas || 0, m)) + ' <b>' + (p.validas || 0) + ' de ' + m + '</b>' + listaClases(p) + '</dd>' +
       '<dt>Trato</dt><dd><span class="chips">' + chipsTrato('tratoPersona', tratoDe(p)) + '</span>' + (p.trato ? '' : ' <span class="hint">el de por defecto</span>') + '</dd>' +
       '<dt>Secuencia</dt><dd>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) +
@@ -3186,18 +3199,18 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       if (f === 'marcar' && !porMarcar(p)) return false;
       if (f === 'si' && mk !== true) return false;
       if (f === 'no' && mk !== false) return false;
-      return !q || plano(p.nombre).indexOf(q) >= 0;
+      return buscaAsesor(p, q);
     }).sort(function (a, b) { return String(b.inicio).localeCompare(String(a.inicio)) || titulo(a.nombre).localeCompare(titulo(b.nombre), 'es'); });
   }
   function listaSecAs() {
     var md = S.modal, l = filtrarSecAs(md.filtro, md.busca);
     if (!l.length) {
-      return '<p class="hint">' + (String(md.busca || '').trim() ? 'Nadie con ese nombre.' : md.filtro === 'marcar' ? 'No hay nadie por marcar.'
+      return '<p class="hint">' + (String(md.busca || '').trim() ? 'Nadie con ese nombre ni afiliado por alguien así.' : md.filtro === 'marcar' ? 'No hay nadie por marcar.'
         : md.filtro === 'no' ? 'Todos entran a la secuencia.' : md.filtro === 'si' ? 'Todavía nadie entra a la secuencia.' : 'Todavía no hay asesores nuevos.') + '</p>';
     }
     return '<ul class="sec-lista">' + l.map(function (p) {
       return '<li class="sec-row"><span class="sec-main"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button>' +
-        '<span class="sg-sub">' + esc(lineaMarcar(p)) + '</span></span>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) + '</li>';
+        lineaAfiliador(p, 'span', 'sg-sub') + '<span class="sg-sub">' + esc(lineaMarcar(p)) + '</span></span>' + botonesSiNo('secAs', p.id, marcaDe(p), titulo(p.nombre)) + '</li>';
     }).join('') + '</ul>';
   }
   /* Todos los por marcar de una vez, con confirmación y deshacer. */
@@ -3224,8 +3237,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     h += '<div class="chips" role="group" aria-label="Mostrar">' + FILTROS_AS.map(function (f) {
       return '<button type="button" class="chip' + (md.filtro === f[0] ? ' on' : '') + '" aria-pressed="' + (md.filtro === f[0]) + '" data-sg="secFiltro" data-f="' + f[0] + '">' + esc(f[1]) + ' · ' + cuenta[f[0]] + '</button>';
     }).join('') + '</div>';
-    h += '<div><label class="sr-only" for="secas-busca">Buscar por nombre</label>' +
-      '<input type="search" id="secas-busca" class="busca" placeholder="Buscar por nombre" autocomplete="off" enterkeyhint="search" value="' + esc(md.busca || '') + '">' +
+    h += '<div><label class="sr-only" for="secas-busca">Buscar por nombre o afiliador</label>' +
+      '<input type="search" id="secas-busca" class="busca" placeholder="Buscar por nombre o afiliador" autocomplete="off" enterkeyhint="search" value="' + esc(md.busca || '') + '">' +
       '<div id="secas-todos">' + cajaTodosAs() + '</div></div>';
     h += '<div id="secas-lista">' + listaSecAs() + '</div>';
     return h + '</div>';

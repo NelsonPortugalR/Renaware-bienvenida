@@ -40,6 +40,8 @@ const SEMILLAS = [
 let uid = 100;
 const nuevoId = () => '00000000-0000-4000-8000-' + String(++uid).padStart(12, '0');
 
+// quién afilió a cada uno (registros.asesor); a los demás no se les conoce
+const AFILIADOR = { n1: 'JULIA BEATRIZ MARON LIMACHI', n3: 'Portugal Research International SAC', n4: 'Vilma Durán Cruz', s2: 'Henry Gallegos Ccahuana' };
 const db = {
   ajustes: {
     direccion: 'Av. Cayma 628, Of. 502', referencia: 'a media cuadra de la Av. Ejército', gourmetPrecio: 9629, promoNumero: '5',
@@ -71,7 +73,7 @@ const db = {
     ['n2', 'NORMA NO ENTRA', '959000022', '2026-10-10', null],              // día 12, ✗ → le tocaría «Va una semana», pero no entra
     ['n3', 'PEDRO MARCAR SEGUIMIENTO', '959000023', '2026-10-12', null],    // día 10, sin marcar → por marcar en Seguimiento
     ['n4', 'QUIQUE MARCAR TAMBIEN', '959000024', '2026-10-14', null]        // día 8, sin marcar
-  ].map(([id, nombre, celular, fecha_inscripcion, codigo]) => ({ id, nombre, celular, fecha_inscripcion, codigo })),
+  ].map(([id, nombre, celular, fecha_inscripcion, codigo]) => ({ id, nombre, celular, fecha_inscripcion, codigo, afiliador: AFILIADOR[id] || null })),
   estado: { s11: { excluido: true } },
   ey: { s9: true },
   clases: [],
@@ -132,7 +134,7 @@ function asesor(p) {
   else if (!primera || vence < primera) estado = 'sin_seguimiento';
   else estado = 'vencio';
   return {
-    id: p.id, nombre: p.nombre, celular: p.celular, inicio, vence,
+    id: p.id, nombre: p.nombre, afiliador: p.afiliador || null, celular: p.celular, inicio, vence,
     codigo: /^\d{5,7}$/.test(p.codigo || '') ? p.codigo : null,
     estado, validas: val.length, trato: e.trato || null,
     logro_fecha: val.length >= meta ? val[meta - 1].fecha : null,
@@ -794,15 +796,15 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(150);
     const filasHoyBv = () => page.$$eval('#bv-hoy .hoy-row', (l) => l.map((x) => x.innerText.replace(/\s+/g, ' ')));
     let bvh = (await page.textContent('#bv-hoy')).replace(/\s+/g, ' ');
-    ok(/¿Entran a la secuencia\? 1/.test(bvh) && /Nadia Nueva Marcar\s*Desde el mar 20 oct · día 2 · 0 de 5 clases/.test(bvh) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)),
-      'la nueva sale arriba para marcarla y todavía no se le propone nada', bvh.slice(0, 400));
+    ok(/¿Entran a la secuencia\? 1/.test(bvh) && /Nadia Nueva Marcar\s*Afiliado por Julia Beatriz Maron Limachi\s*Desde el mar 20 oct · día 2 · 0 de 5 clases/.test(bvh) && !(await filasHoyBv()).some((t) => /Nadia/.test(t)),
+      'la nueva sale arriba para marcarla, con quién la afilió, y todavía no se le propone nada', bvh.slice(0, 400));
     await page.screenshot({ path: '/tmp/bv-secuencia.png' });
     await page.click('#bv-hoy [data-sg="secAs"][data-id="n1"][data-v="si"]');
     await esperar(500);
     ok(hubo((l) => l.fn === 'wa_secuencia_marcar' && l.args.p_tipo === 'asesor' && l.args.p_refs.length === 1 && l.args.p_refs[0] === 'n1' && l.args.p_entra === true) && secDe('asesor', 'n1').entra === true,
       '✓ con un toque, anotado en wa_secuencia');
     bvh = (await page.textContent('#bv-hoy')).replace(/\s+/g, ' ');
-    ok(!(await page.$('#bv-hoy .pormarcar')) && (await filasHoyBv()).some((t) => /Nadia Nueva Marcar Día 1 · Bienvenida, código y horario · tocaba ayer/.test(t)), 'pasa a «Para hoy» con su día 1', (await filasHoyBv()).join(' | '));
+    ok(!(await page.$('#bv-hoy .pormarcar')) && (await filasHoyBv()).some((t) => /Nadia Nueva Marcar Afiliado por Julia Beatriz Maron Limachi Día 1 · Bienvenida, código y horario · tocaba ayer/.test(t)), 'pasa a «Para hoy» con su día 1', (await filasHoyBv()).join(' | '));
     ok(/Marcados hoy 1/.test(bvh) && /Nadia Nueva Marcar · entra a la secuencia/.test(bvh) && /Secuencia: 16 entran · 1 no entra · 2 por marcar/.test(bvh), 'queda en lo marcado hoy y en el resumen', bvh.slice(-400));
     ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'bv-hoy-h'), 'el foco no se pierde: pasa al título de «Para hoy»');
     await page.click('#bv-hoy [data-sg="secDeshacer"][data-id="n1"]');
@@ -849,6 +851,9 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     gm = (await page.textContent('.modal')).replace(/\s+/g, ' ');
     ok(/¿Quién entra a la secuencia\?/.test(gm) && !/entraron a la secuencia/.test(gm) && /Por marcar · 2/.test(gm), 'y al volver, la lista no dice que entraron', gm.slice(0, 400));
     errorSec = null; retrasoSec = 0;
+    await page.fill('#secas-busca', 'vilma');
+    await esperar(150);
+    ok((await page.$$('#secas-lista .sec-row')).length === 1 && /Quique Marcar Tambien\s*Afiliado por Vilma Durán Cruz/.test(await page.textContent('#secas-lista')), 'busca también por quién lo afilió');
     await page.fill('#secas-busca', 'norma');
     await esperar(150);
     ok((await page.$$('#secas-lista .sec-row')).length === 1 && (await page.evaluate(() => document.activeElement.id)) === 'secas-busca', 'busca en la lista sin perder el foco');
@@ -878,6 +883,13 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(150);
     let sgh = (await page.textContent('#vista-sg')).replace(/\s+/g, ' ');
     ok(/^Va una semana/.test(await grupoDe('n2')) && /¿Entran a la secuencia\? 2/.test(sgh) && !!(await page.$('#vista-sg .pormarcar-row [data-id="n3"]')), 'al entrar le toca su mensaje; en seguimiento también salen los por marcar', sgh.slice(0, 400));
+    const pedro = (await page.textContent('#vista-sg .pormarcar-row:has([data-id="n3"])')).replace(/\s+/g, ' ');
+    ok(/Afiliado por Portugal Research International\s*Desde/.test(pedro) && !/Sac\b/.test(pedro), 'la empresa sale sin el SAC', pedro);
+    await page.fill('#sg-busca', 'henry');
+    await esperar(150);
+    ok((await page.$$('#sg-lista .sg-row')).length === 1 && /Sofia Dos Quince\s*Afiliado por Henry Gallegos Ccahuana/.test(await page.textContent('#sg-lista')), 'la lista también busca por quién lo afilió');
+    await page.fill('#sg-busca', '');
+    await esperar(100);
     await page.click('#vista-sg .sg-items .sg-nom[data-id="s1"]');
     await esperar(200);
     await page.click('.modal [data-sg="secAs"][data-v="no"]');
@@ -991,6 +1003,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.waitForSelector('.modal');
     ficha = (await page.textContent('.modal')).replace(/\s+/g, ' ');
     ok(await page.isVisible('#vista-sg') && /Quique Marcar Tambien/.test(ficha) && /Por marcar: hasta que marques arriba que entra/.test(ficha), 'si falta marcarlo, el enlace abre su ficha para decidir', ficha.slice(0, 300));
+    ok(/Afilió\s*Vilma Durán Cruz/.test(ficha), 'su ficha dice quién lo afilió', ficha.slice(0, 300));
     await page.keyboard.press('Escape');
     await page.goto(base + '?desde=n0d#a=n1');
     await page.waitForSelector('.modal');

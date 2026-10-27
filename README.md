@@ -35,7 +35,9 @@ salir en «Para hoy».
 
 - **Asesores**: hay que decidir. Cada asesor nuevo sale arriba de «Para hoy»
   (en Bienvenida o en Seguimiento, según su día) con ✓ / ✗ de un toque, y la
-  pestaña lo cuenta. Mientras está **por marcar** no se le propone ningún
+  pestaña lo cuenta. Debajo de cada nombre, en chico, dice quién lo afilió
+  (el dato de Nivel Cero; también en «Para hoy», en la lista y en su ficha), y
+  los buscadores encuentran también por afiliador. Mientras está **por marcar** no se le propone ningún
   mensaje. Lo cambiado hoy se puede deshacer (vuelve a como estaba antes de
   hoy: por marcar, o ✓ / ✗ si ya lo tenía); «Ver y cambiar» abre la lista de
   todos (por marcar, entran, no entran), con buscador, ✓ / ✗ en cada fila y
@@ -175,7 +177,7 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 238 aserciones y capturas en /tmp/bv-*.png
+node pruebas/prueba.js   # Chromium real con un Supabase falso; 246 aserciones y capturas en /tmp/bv-*.png
 ```
 
 ## Despliegue
