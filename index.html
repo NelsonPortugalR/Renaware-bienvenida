@@ -2233,8 +2233,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       tu: '¡Felicitaciones, {nombre}! Estás a 1 clase de completar tus 5 🏆 Con la quinta se habilita tu test para ganar tu botella de acero. Tienes hasta el {limite}. Te esperamos {proxima}.',
       usted: '¡Felicitaciones, {nombre}! Está a 1 clase de completar sus 5 🏆 Con la quinta se habilita su test para ganar su botella de acero. Tiene hasta el {limite}. Le esperamos {proxima}.' },
     { k: 'botella', g: 'asis', t: 'Completó sus clases: su test', cuando: 'Al completar sus 5 clases, si aún no gana el Empiece Ya: se le habilita su test.',
-      tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases. Ahora te toca tu test: apruébalo hasta el {limite_test} y ganas tu botella de acero. Es a libro abierto, desde tu celular: {link_test}',
-      usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases. Ahora le toca su test: apruébelo hasta el {limite_test} y gana su botella de acero. Es a libro abierto, desde su celular: {link_test}' },
+      tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases. Ahora te toca tu test: termínalo hasta el {limite_test} y ganas tu botella de acero. Es a libro abierto, desde tu celular. Entra con tu DNI aquí: {link_test}',
+      usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases. Ahora le toca su test: termínelo hasta el {limite_test} y gana su botella de acero. Es a libro abierto, desde su celular. Entre con su DNI aquí: {link_test}' },
     { k: 'botella_ey', g: 'asis', t: 'Ganó la botella y ya tiene su Empiece Ya', cuando: 'Al completar sus 5 clases, si ya ganó el Empiece Ya.',
       tu: '¡Felicitaciones, {nombre}! 🎉 Completaste tus 5 clases y además ya ganaste tu Empiece Ya: tu botella de acero viene junto con tu premio. ¡Sigue así!',
       usted: '¡Felicitaciones, {nombre}! 🎉 Completó sus 5 clases y además ya ganó su Empiece Ya: su botella de acero viene junto con su premio. ¡Siga así!' },
@@ -2250,17 +2250,17 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     { k: 'cierre', g: 'falta', t: 'Cumplió sus 30 días', cuando: 'Al terminar sus 30 días sin completar las 5 clases (hasta 10 días después).',
       tu: 'Hola {nombre}, ya cumpliste tus 30 días del Nivel Cero, pero aún tienes la oportunidad de empezar con todo estos próximos 30 días con los nuevos concursos. ¡Te esperamos {proxima}!',
       usted: 'Hola {nombre}, ya cumplió sus 30 días del Nivel Cero, pero aún tiene la oportunidad de empezar con todo estos próximos 30 días con los nuevos concursos. ¡Le esperamos {proxima}!' },
-    { k: 'test_recordar', g: 'test', t: 'Le falta su test', cuando: 'Si le quedan 5 días o menos para aprobar su test y aún no lo aprueba.',
-      tu: 'Hola {nombre}, te quedan {dias_test} para aprobar tu test y ganar tu botella de acero (hasta el {limite_test}). Entra con tu celular aquí: {link_test}',
-      usted: 'Hola {nombre}, le quedan {dias_test} para aprobar su test y ganar su botella de acero (hasta el {limite_test}). Entre con su celular aquí: {link_test}' },
-    { k: 'recoger', g: 'test', t: 'Recoger la botella', cuando: 'Al aprobar su test (o a mano, desde su ficha) para avisarle que la recoja.',
+    { k: 'test_recordar', g: 'test', t: 'Le falta su test', cuando: 'Si le quedan 5 días o menos para terminar su test y aún no lo termina.',
+      tu: 'Hola {nombre}, te quedan {dias_test} para hacer tu test y ganar tu botella de acero (hasta el {limite_test}). Entra con tu DNI aquí: {link_test}',
+      usted: 'Hola {nombre}, le quedan {dias_test} para hacer su test y ganar su botella de acero (hasta el {limite_test}). Entre con su DNI aquí: {link_test}' },
+    { k: 'recoger', g: 'test', t: 'Recoger la botella', cuando: 'Al terminar su test (o a mano, desde su ficha) para avisarle que la recoja.',
       tu: 'Hola {nombre}, tu botella de acero ya te espera en la oficina 🏆 Pasa a recogerla cuando vengas.',
       usted: 'Hola {nombre}, su botella de acero ya le espera en la oficina 🏆 Pase a recogerla cuando venga.' }
   ];
   var PASO = Object.create(null);                        // sin prototipo: "constructor" no es un paso
   PASOS.forEach(function (x, i) { x.i = i; PASO[x.k] = x; });
   var GRUPOS = [['asis', 'Por asistencia'], ['falta', 'Si no viene'], ['test', 'Su test y su botella'], ['otro', 'A mano']];
-  var LINK_TEST = 'https://renaware-plataforma.nelson1614.workers.dev/test/';   // el Test del Nivel 0: entra con su celular
+  var LINK_TEST = 'https://renaware-plataforma.nelson1614.workers.dev/test/';   // el Test del Nivel 0: entra con su DNI
   var MARCAS = [['nombre', 'su nombre'], ['limite', 'su fecha límite'], ['dias', 'los días que le quedan'],
                 ['avance', 'cuánto lleva y cuánto le falta'], ['proxima', 'la próxima clase'], ['horarios', 'los horarios de clase'],
                 ['clases', 'clases que lleva'], ['faltan', 'clases que le faltan'],

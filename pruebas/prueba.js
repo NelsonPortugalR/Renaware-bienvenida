@@ -971,7 +971,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('#tab-sg'); await esperar(400);
     ok(/^Le falta su test/.test(await grupoDe('s8')), 'a quien le quedan 5 días o menos para su test se le recuerda', await grupoDe('s8'));
     const prevT = await page.$eval('#vista-sg .sg-nom[data-id="s8"]', (b) => b.closest('.sg-item').querySelector('.sg-prev').textContent).catch(() => '');
-    ok(prevT === 'Hola Fanny, te quedan 3 días para aprobar tu test y ganar tu botella de acero (hasta el sábado 24 de octubre). Entra con tu celular aquí: https://renaware-plataforma.nelson1614.workers.dev/test/',
+    ok(prevT === 'Hola Fanny, te quedan 3 días para hacer tu test y ganar tu botella de acero (hasta el sábado 24 de octubre). Entra con tu DNI aquí: https://renaware-plataforma.nelson1614.workers.dev/test/',
       'el recordatorio lleva sus días, su fecha límite y el enlace del test', prevT);
     db.test = { s8: { estado: 'vencido', hasta: '2026-10-18', mejor: 85 } };
     await page.goto(base + '?t=2');
