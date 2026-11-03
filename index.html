@@ -3705,7 +3705,11 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     { k: 'cl_aire', tipo: 'aire', dia: 17, g: 'ccic', t: 'Cambio del filtro de aire', corto: 'Filtro de aire', meses: 18,
       cuando: 'Cada 18 meses desde que recibió el purificador o compró su último filtro.',
       tu: 'Hola {nombre}, te saludamos de Rena Ware 🌀 Tu purificador de aire cumple 18 meses desde el {ultimo} y le toca cambiar el filtro para que siga limpiando el aire de tu casa. ¿Coordinamos el cambio? {oficina}.',
-      usted: 'Hola {nombre}, le saludamos de Rena Ware 🌀 Su purificador de aire cumple 18 meses desde el {ultimo} y le toca cambiar el filtro para que siga limpiando el aire de su casa. ¿Coordinamos el cambio? {oficina}.' }
+      usted: 'Hola {nombre}, le saludamos de Rena Ware 🌀 Su purificador de aire cumple 18 meses desde el {ultimo} y le toca cambiar el filtro para que siga limpiando el aire de su casa. ¿Coordinamos el cambio? {oficina}.' },
+    { k: 'cl_botella', tipo: 'botella', dia: 18, g: 'ccic', t: 'Renovar la botella filtrante', corto: 'Botella filtrante', meses: 36,
+      cuando: 'Cada 36 meses (3 años) desde que recibió su botella filtrante (sola o de regalo en un combo) o compró la última.',
+      tu: 'Hola {nombre}, te saludamos de Rena Ware 💧 Tu botella filtrante cumple 3 años desde el {ultimo} y ya le toca renovarla para que siga filtrando bien el agua que tomas fuera de casa. ¿Te separo una nueva? Te la llevamos o puedes pasar por la oficina: {oficina}.',
+      usted: 'Hola {nombre}, le saludamos de Rena Ware 💧 Su botella filtrante cumple 3 años desde el {ultimo} y ya le toca renovarla para que siga filtrando bien el agua que toma fuera de casa. ¿Le separo una nueva? Se la llevamos o puede pasar por la oficina: {oficina}.' }
   ];
   var PASO_CL = Object.create(null);
   PASOS_CL.forEach(function (x, i) { x.i = i; x.cl = true; PASO_CL[x.k] = x; });
@@ -3755,7 +3759,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function productosDe(a) {
     var c = clientePorId(a.cliente_id), o = ordenDe(c, a.n_orden);
     if (o) return productoCorto(o.productos);
-    if (esCiclo(a)) return nombreBonito(a.sistema || (a.tipo === 'aire' ? 'Purificador de aire' : 'Aqua Nano'));
+    if (esCiclo(a)) return nombreBonito(a.sistema || (a.tipo === 'aire' ? 'Purificador de aire' : a.tipo === 'botella' ? 'Botella filtrante' : 'Aqua Nano'));
     return 'pedido Rena Ware';
   }
   function oficinaTxt() {
@@ -3838,7 +3842,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function lineaCiclo(a) {
     var x = pasoCl(a);
     var desde = a.ultimo_cambio ? 'último cambio el ' + fDia(a.ultimo_cambio) : a.src === 'repuesto' ? 'repuesto comprado el ' + fDia(a.base) : 'desde la entrega del ' + fDia(a.base);
-    return nombreBonito(a.sistema || (a.tipo === 'aire' ? 'Purificador de aire' : 'Aqua Nano (solo repuestos)')) + ' · ' + desde + ' · cada ' + (x ? x.meses : a.intervalo) + ' meses';
+    return nombreBonito(a.sistema || (a.tipo === 'aire' ? 'Purificador de aire' : a.tipo === 'botella' ? 'Botella filtrante' : 'Aqua Nano (solo repuestos)')) + ' · ' + desde + ' · cada ' + (x ? x.meses : a.intervalo) + ' meses';
   }
   function tagEstado(a) {
     var cls = a.estado === 'vencido' ? 'mal' : a.estado === 'hecho' || a.estado === 'al_dia' ? 'ok' : a.estado === 'proximo' ? 'warn' : 'gris';
@@ -3928,8 +3932,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     l.sort(function (a, b) { return String(b.vence).localeCompare(String(a.vence)); });
     if (l[0]) return l[0];
     return { tipo: x.tipo, clase: x.meses ? 'ciclo' : 'uno', cliente: 'María Pérez', cliente_id: null, celular: null, vendedor: 'Rosmery', n_orden: 0,
-             flags: { ollas: true, sartenes: true, filtro: x.tipo !== 'aire', cocina: false, presion: false, aire: x.tipo === 'aire' },
-             entrega: hoyISO(), base: sumarISO(hoyISO(), -(x.meses ? x.meses * 30 : 0)), vence: hoyISO(), cuotas: 12, sistema: x.tipo === 'aire' ? 'PURIFICADOR DE AIRE AEROQUATTRO+ UV' : 'AQUA NANO CTU-500' };
+             flags: { ollas: true, sartenes: true, filtro: x.tipo !== 'aire' && x.tipo !== 'botella', cocina: false, presion: false, aire: x.tipo === 'aire' },
+             entrega: hoyISO(), base: sumarISO(hoyISO(), -(x.meses ? x.meses * 30 : 0)), vence: hoyISO(), cuotas: 12, sistema: x.tipo === 'aire' ? 'PURIFICADOR DE AIRE AEROQUATTRO+ UV' : x.tipo === 'botella' ? 'NUEVA BOTELLA FILTRANTE RENA WARE' : 'AQUA NANO CTU-500' };
   }
 
   /* ---------- vistas */
