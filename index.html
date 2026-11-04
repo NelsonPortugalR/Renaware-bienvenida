@@ -4100,7 +4100,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function waItemCl(a) {
     var c = clientePorId(a.cliente_id), tr = tratoCl(c), x = pasoCl(a), t = plantilla(x.k)[tr];
     var m = waMarcar(t, RE_MARCA, claveMarca, valoresCl(a, tr), limpiarTextoCl);
-    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t,
+    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t, atraso: Math.max(0, -(Number(a.dias) || 0)),
                     nombre: titulo((c && c.nombre) || a.cliente), celular: celCl(a), trato: tr, texto: llenarCl(t, a, tr), vacios: waVacios(x.dia),
                     partes: waPartes(x.k + '.' + tr, waCategoria(x.k), m.s, m.datos, waArchivos(x.dia)) });
   }
@@ -4754,6 +4754,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (r.espera) t.push(plural(r.espera, 'espera', 'esperan'));
     if (r.quedan) t.push(r.quedan + ' para la siguiente');
     if (r.no_salen) t.push(r.no_salen + ' no ' + (r.no_salen === 1 ? 'sale' : 'salen') + ' solo' + (r.no_salen === 1 ? '' : 's'));
+    if (r.atrasados) t.push(r.atrasados + (r.atrasados === 1 ? ' muy atrasado queda' : ' muy atrasados quedan') + ' para la página');
     if (r.fallos) t.push(plural(r.fallos, 'falló', 'fallaron'));
     return 'Última revisión: ' + auCuando(k.fin) + ' · ' + plural(r.total || 0, 'mensaje para hoy', 'mensajes para hoy') + (t.length ? ': ' + t.join(', ') : '') + '.';
   }
@@ -4898,6 +4899,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       chk('au-rcl', c.reenviar_clientes, 'Si un cliente responde, pasarle su mensaje a su asesor') +
       chk('au-ras', c.reenviar_asesores, 'Si un asesor responde, pasarme su mensaje') +
       chk('au-sol', c.responder_solo, 'Contestarle solo «ya le pasé su mensaje a…» a quien escribe') +
+      '<label class="field"><span class="flabel">Mensajes de clientes atrasados <span class="opt">(salen solos si tienen hasta estos días de atraso; los demás quedan en Clientes para que decidas)</span></span>' +
+      '<input type="number" id="au-atraso" inputmode="numeric" min="0" max="365" step="1" value="' + esc(c.max_atraso == null ? 7 : c.max_atraso) + '"></label>' +
       '<div class="sg-acts"><button type="submit" class="btn-sm primary"' + (ocup === 'guardar' ? ' disabled' : '') + '>' + (ocup === 'guardar' ? 'Guardando…' : 'Guardar') + '</button></div>' +
       '<p class="status" id="au-status" role="status"></p></form>');
     var linea = function (ok, t) { return '<li><span>' + (ok ? '✅ ' : '⬜ ') + t + '</span></li>'; };
@@ -5007,7 +5010,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     ev.preventDefault();
     var sel = document.querySelector('input[name="au-estado"]:checked'), st = $('au-status');
     var datos = { estado: sel ? sel.value : auCfg().estado, hora_desde: $('au-desde').value || '08:00', hora_hasta: $('au-hasta').value || '20:00',
-                  nelson_celular: celLocal($('au-cel').value), reenviar_clientes: $('au-rcl').checked, reenviar_asesores: $('au-ras').checked, responder_solo: $('au-sol').checked };
+                  nelson_celular: celLocal($('au-cel').value), reenviar_clientes: $('au-rcl').checked, reenviar_asesores: $('au-ras').checked, responder_solo: $('au-sol').checked,
+                  max_atraso: $('au-atraso').value === '' ? 7 : Number($('au-atraso').value) };
+    if (!(datos.max_atraso >= 0 && datos.max_atraso <= 365 && datos.max_atraso % 1 === 0)) { st.textContent = 'Los días de atraso van de 0 a 365.'; st.className = 'status is-err'; $('au-atraso').focus(); return; }
     if (datos.nelson_celular && !/^9\d{8}$/.test(datos.nelson_celular)) { st.textContent = 'El celular debe tener 9 dígitos y empezar con 9.'; st.className = 'status is-err'; $('au-cel').focus(); return; }
     if (datos.hora_desde >= datos.hora_hasta) { st.textContent = 'La hora de inicio debe ser antes que la de fin.'; st.className = 'status is-err'; $('au-desde').focus(); return; }
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();

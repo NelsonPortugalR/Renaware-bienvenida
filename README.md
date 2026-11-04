@@ -246,6 +246,8 @@ la API oficial de WhatsApp, con Kapso como proveedor. En la página, grupo
     (`n0_mensajes` o `crm_seguimiento`), así «Para hoy» lo da por hecho. Si
     luego falla, se anula lo anotado.
   - Lo que ya llegó no se repite (se miran 8 días).
+  - Un mensaje de cliente con más días de atraso que los de Ajustes (7 si no se
+    cambia) no sale solo y queda en la página, para decidir si aún sirve.
   - Si falla:
     - un error pasajero se reintenta en la corrida siguiente (hasta 4 veces al
       día);

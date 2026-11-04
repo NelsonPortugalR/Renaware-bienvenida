@@ -608,6 +608,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
       ok(nombresArchivo.size <= 3 && conArchivos.every((i) => i.partes.every((p) => !p.encabezado || (p.params.length === 1 && !/\n/.test(p.params[0])))),
         'todos los archivos usan solo 3 plantillas fijas, con su texto en una línea', Array.from(nombresArchivo).join(' '));
       ok(items.every((i) => i.partes.every((p) => p.cuerpo.length <= 1024 && p.texto.length <= 1024 && /^eqa_[a-z0-9_]+$/.test(p.nombre))), 'todas las partes caben en 1,024 y tienen nombre de plantilla válido');
+      ok(items.filter((i) => i.tipo === 'cliente').every((i) => Number.isInteger(i.atraso) && i.atraso >= 0) && items.some((i) => i.tipo === 'cliente' && i.atraso > 0),
+        'cada mensaje de cliente dice cuántos días va atrasado', JSON.stringify(items.filter((i) => i.tipo === 'cliente').map((i) => i.atraso)));
       const ana = items.find((i) => i.tipo === 'cliente' && /Ana/.test(i.nombre));
       ok(ana && ana.problemas.some((p) => /celular/.test(p)), 'quien no tiene celular queda avisado, no se manda', JSON.stringify(ana && ana.problemas));
     }
@@ -1602,10 +1604,11 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(/9 dígitos/.test(await page.textContent('#au-status')) && !llamadas.some((l) => l.fn === 'wa_auto_config_guardar'), 'un celular mal escrito no se guarda');
     await page.fill('#au-cel', '987 654 321');
     await page.uncheck('#au-sol');
+    await page.fill('#au-atraso', '15');
     await page.click('#au-form button[type="submit"]');
     await page.waitForFunction(() => /Guardado/.test(document.querySelector('#toast').textContent));
     const g = llamadas.filter((l) => l.fn === 'wa_auto_config_guardar').pop();
-    ok(g && g.args.p_datos.estado === 'prueba' && g.args.p_datos.nelson_celular === '987654321' && g.args.p_datos.responder_solo === false && g.args.p_datos.hora_desde === '08:00',
+    ok(g && g.args.p_datos.estado === 'prueba' && g.args.p_datos.nelson_celular === '987654321' && g.args.p_datos.responder_solo === false && g.args.p_datos.hora_desde === '08:00' && g.args.p_datos.max_atraso === 15,
       'Ajustes guarda el modo, el celular y lo de responder', JSON.stringify(g && g.args.p_datos));
     au.kapso = true;
     await page.click('#tab-ah');

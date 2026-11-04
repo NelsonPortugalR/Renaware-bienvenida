@@ -290,11 +290,19 @@ async function corrida(corridaId: string, modo: string) {
   const ins = await rpc('wa_auto_insumos');
   const cfg: Dict = ins.config || {};
   const res: Dict = { modo, hoy: ins.hoy, hora: ins.hora, total: 0, enviados: 0, prueba: 0, espera: 0, no_salen: 0, fallos: 0, ya_hechos: 0, quedan: 0,
-                      errores: 0, avisos: [] as string[], plantillas_nuevas: 0, plantillas_enviadas: 0, fuera_de_horario: false,
+                      errores: 0, atrasados: 0, avisos: [] as string[], plantillas_nuevas: 0, plantillas_enviadas: 0, fuera_de_horario: false,
                       kapso: !!llave(), conectado: !!(llave() && cfg.phone_number_id) };
   const R = crearReglas({ bv: ins.bv, cl: ins.cl });
   const items: Dict[] = R.porEnviarHoy();
   res.total = items.length;
+  // un mensaje de cliente muy atrasado no sale solo: queda en la página, para decidir si aún sirve
+  const maxAtraso = Number.isFinite(Number(cfg.max_atraso)) ? Number(cfg.max_atraso) : 7;
+  for (const it of items) {
+    if (it.tipo === 'cliente' && Number(it.atraso) > maxAtraso && !it.problemas.length) {
+      it.atrasado = true;
+      it.problemas = ['Tiene ' + it.atraso + ' días de atraso: no sale solo (en Ajustes, hasta ' + maxAtraso + '). Si aún sirve, mándalo desde Clientes.'];
+    }
+  }
 
   // plantillas que faltan: las de los mensajes de hoy y las de los avisos de respuesta
   const porNombre = new Map<string, Dict>(((ins.plantillas || []) as Dict[]).map((p) => [p.nombre, p]));
@@ -338,7 +346,7 @@ async function corrida(corridaId: string, modo: string) {
   const procesar = async (it: Dict) => {
     const persona = it.tipo + ':' + it.ref;
     if (it.problemas.length) {                          // no sale solo: queda a la vista en la página
-      res.no_salen++;
+      if (it.atrasado) res.atrasados++; else res.no_salen++;
       const h = hoyDe(it, 1);
       if (!h || !ENTREGADO.includes(h.estado)) await guardarFila(it, it.partes[0] || null, 1, { estado: 'omitido', motivo: it.problemas.join(' ') });
       return;

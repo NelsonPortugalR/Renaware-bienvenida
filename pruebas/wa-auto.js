@@ -375,6 +375,19 @@ globalThis.__reglas = () => ({
      ext.some((m) => m.to === '15551234567' && m.type === 'text') && ext.some((m) => m.to === '51999999999' && m.template.components[1].parameters[0].text === '15551234567'),
     'un número de otro país no se confunde con uno del Perú: se le responde a su número completo', JSON.stringify(ext.map((m) => m.to)));
 
+  console.log('Atrasados');
+  hoyLista = () => [{ tipo: 'cliente', ref: 'cli-vieja', paso: 'semana1', accion: '500::semana1', n_orden: 500, titulo: 'Una semana', nombre: 'Vieja', celular: '966666666',
+    texto: 'Hola.', atraso: 30, problemas: [], avisos: [], partes: [parte('eqa_cl_semana1_usted_z', 'Hola {{1}}.', ['Vieja'])] }];
+  const n7 = K.mensajes.length;
+  r = await correr('encendido');
+  const vieja = env().find((e) => e.ref === 'cli-vieja');
+  ok(K.mensajes.length === n7 && vieja.estado === 'omitido' && /30 días de atraso/.test(vieja.motivo) && !plant('eqa_cl_semana1_usted_z'),
+    'un mensaje de cliente con más de 7 días de atraso no sale solo (ni pide plantilla)', JSON.stringify(vieja));
+  cfg.max_atraso = 45;
+  r = await correr('encendido');
+  ok(vieja.estado === 'espera' && !!plant('eqa_cl_semana1_usted_z'), 'si en Ajustes se permite más atraso, sigue su camino', vieja.estado);
+  hoyLista = itemsDeHoy;
+
   console.log('Desde la página');
   const rr = db.wa_auto_respuestas.find((x) => x.wamid === 'in6');
   const n5 = K.mensajes.length;
