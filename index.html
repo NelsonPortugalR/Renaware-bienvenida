@@ -528,6 +528,28 @@ details[open] .chev { transform: rotate(180deg); }
 .vista-tab[aria-selected="true"] { background: var(--brand); color: var(--on-brand); }
 .vista-tab[aria-selected="true"] .vt-s { color: var(--on-brand); opacity: 0.85; }
 .vista-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+@media (min-width: 560px) { #vistas-au { grid-template-columns: repeat(4, 1fr); } }
+/* En un celular angosto los tres grupos van en tres columnas iguales; si la cuenta no cabe al lado, baja. */
+@media (max-width: 420px) {
+  .grupos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; border-radius: 18px; }
+  .grupo-tab { justify-content: center; flex-wrap: wrap; gap: 2px 4px; padding: 7px 4px; font-size: 13.5px; border-radius: 14px; text-align: center; min-width: 0; }
+}
+/* Automático */
+.au-nom { font-size: 16px; overflow-wrap: anywhere; min-width: 0; }
+.au-cod { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+.au-det summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--brand); width: max-content; max-width: 100%; }
+.au-det summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+.au-det[open] summary { margin-bottom: 8px; }
+.au-partes { display: grid; gap: 6px; }
+.au-msg, .au-in { margin: 0; padding: 8px 10px; font-family: var(--font-chat); font-size: 14.5px; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
+.au-msg { border-radius: 10px 3px 10px 10px; background: var(--bubble); color: var(--bubble-ink); }
+.au-in { border-radius: 3px 10px 10px 10px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.au-arch { display: block; margin-bottom: 4px; font-weight: 700; }
+.au-radio { display: grid; gap: 10px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.au-radio legend { padding: 0; margin-bottom: 8px; }
+.au-op { align-items: flex-start; }
+.au-op input { margin-top: 2px; }
+.au-op .sg-sub { font-weight: 400; }
 .cuenta {
   display: inline-grid;
   place-items: center;
@@ -808,6 +830,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     </div>
     <h1>Bienvenida por WhatsApp</h1>
     <p class="lead" id="lead-as">Los mensajes para cada nuevo asesor: cinco de bienvenida, uno por día con sus archivos, y luego el seguimiento del Nivel 0 según las clases que lleva.</p>
+    <p class="lead" id="lead-au" hidden>Los mismos mensajes de Asesores y Clientes, enviados solos desde el número del equipo. Si alguien responde, su mensaje le llega a su asesor (o a ti).</p>
     <p class="lead" id="lead-cl" hidden>Los mensajes para cada cliente: al recibir su pedido, a la semana y al mes si compró ollas, antes de terminar sus cuotas, y cuando le toca cambiar el pre-filtro, el filtro principal o el filtro de aire.</p>
     <p class="prize" id="prize-as">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M10 2.5h4v2.8l1.6 2.6V20a2 2 0 0 1-2 2h-3.2a2 2 0 0 1-2-2V7.9L10 5.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 11.5h6.8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -832,6 +855,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   <div class="grupos" role="tablist" aria-label="A quién se escribe">
     <button type="button" role="tab" class="grupo-tab" id="grupo-as" aria-controls="vistas-as" aria-selected="true">Asesores <span class="cuenta" id="cuenta-as" hidden></span></button>
     <button type="button" role="tab" class="grupo-tab" id="grupo-cl" aria-controls="vistas-cl" aria-selected="false" tabindex="-1">Clientes <span class="cuenta" id="cuenta-cl" hidden></span></button>
+    <button type="button" role="tab" class="grupo-tab" id="grupo-au" aria-controls="vistas-au" aria-selected="false" tabindex="-1">Automático <span class="cuenta" id="cuenta-au" hidden></span></button>
   </div>
 
   <div class="vistas" id="vistas-as" role="tablist" aria-label="Mensajes a asesores">
@@ -852,6 +876,24 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     <button type="button" role="tab" class="vista-tab" id="tab-cs" aria-controls="vista-cs" aria-selected="false" tabindex="-1">
       <span class="vt-t">Seguimiento <span class="cuenta" id="cuenta-cs" hidden></span></span>
       <span class="vt-s">Cambio de filtros</span>
+    </button>
+  </div>
+  <div class="vistas" id="vistas-au" role="tablist" aria-label="Envío automático" hidden>
+    <button type="button" role="tab" class="vista-tab" id="tab-ah" aria-controls="vista-ah" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Hoy</span>
+      <span class="vt-s">Lo que sale solo</span>
+    </button>
+    <button type="button" role="tab" class="vista-tab" id="tab-ar" aria-controls="vista-ar" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Respuestas <span class="cuenta" id="cuenta-ar" hidden></span></span>
+      <span class="vt-s">Quién escribió</span>
+    </button>
+    <button type="button" role="tab" class="vista-tab" id="tab-ap" aria-controls="vista-ap" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Plantillas</span>
+      <span class="vt-s">Aprobación de Meta</span>
+    </button>
+    <button type="button" role="tab" class="vista-tab" id="tab-aj" aria-controls="vista-aj" aria-selected="false" tabindex="-1">
+      <span class="vt-t">Ajustes</span>
+      <span class="vt-s">Número y horario</span>
     </button>
   </div>
 
@@ -984,6 +1026,10 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   <div class="vista" id="vista-sg" role="tabpanel" aria-labelledby="tab-sg" hidden></div>
   <div class="vista" id="vista-cb" role="tabpanel" aria-labelledby="tab-cb" hidden></div>
   <div class="vista" id="vista-cs" role="tabpanel" aria-labelledby="tab-cs" hidden></div>
+  <div class="vista" id="vista-ah" role="tabpanel" aria-labelledby="tab-ah" hidden></div>
+  <div class="vista" id="vista-ar" role="tabpanel" aria-labelledby="tab-ar" hidden></div>
+  <div class="vista" id="vista-ap" role="tabpanel" aria-labelledby="tab-ap" hidden></div>
+  <div class="vista" id="vista-aj" role="tabpanel" aria-labelledby="tab-aj" hidden></div>
 
   <p class="foot" id="foot-as">Basado en la guía de la Sesión de bienvenida y la lista de promociones vigente. El Empiece Ya sale del catálogo de Premios; el horario, el plazo y las clases, de Nivel Cero.</p>
 </div>
@@ -1041,9 +1087,12 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
   var LS_TOKEN = 'wa-bv-token';
   var LS_ASESOR = 'wa-bv-asesor';
   var MAX_BYTES = 25 * 1024 * 1024;
+  /* servidor:desde */
   var HORARIO_BASE = [{ dia: 2, hora: '09:30' }, { dia: 3, hora: '16:00' }, { dia: 5, hora: '16:30' }];
+  /* servidor:hasta */
 
   /* DATA-START */
+  /* servidor:desde */
   var DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   var DIAS_CAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -1314,7 +1363,7 @@ Revísalos con calma: te van a servir en tus primeras citas.
 
 {LUEGO} te comparto la lista de precios y las promociones.
 
-👉 Recuerda: nuestras próximas reuniones son {OPCIONES_Y}`
+👉 Recuerda: nuestras próximas reuniones son {OPCIONES_Y}. ¡Te esperamos!`
     },
     {
       n: 3,
@@ -1399,11 +1448,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
   ];
 
+  var RE_MARCA_BV = /\{([A-Z_]+)\}/g;
+  function limpiarBv(s) { return s.replace(/\n{3,}/g, '\n\n'); }   // lo que no aplica no deja renglones vacíos de más
   function messageFor(day, ctx) {
     var v = valores(ctx, day.n);
-    return day.body.replace(/\{([A-Z_]+)\}/g, function (m, k) {
+    return limpiarBv(day.body.replace(RE_MARCA_BV, function (m, k) {
       return Object.prototype.hasOwnProperty.call(v, k) ? v[k] : m;
-    }).replace(/\n{3,}/g, '\n\n');                     // lo que no aplica no deja renglones vacíos de más
+    }));
   }
   function cuandoEnviar(ctx, n) {
     var plan = plannedDate(ctx, n);
@@ -1414,8 +1465,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (dif > 1) return { hoy: false, txt: 'Envíalo el ' + fmtLargo(plan) + '.' };
     return { hoy: false, txt: 'Tocaba el ' + fmtLargo(plan) + '. Si aún no lo enviaste, envíalo hoy: el texto ya está ajustado a hoy.' };
   }
+  /* servidor:hasta */
   /* DATA-END */
 
+  /* servidor:desde */
   var CAMPOS_AJ = ['direccion', 'referencia', 'gourmetPrecio', 'promoNumero', 'promoPrecio', 'promoProductos', 'inicialPct', 'regalos', 'comisionMin', 'comisionMax'];
   var AJ_NUM = { gourmetPrecio: 1, promoPrecio: 1, inicialPct: 1, comisionMin: 1, comisionMax: 1 };
   var FALTA = {
@@ -1442,6 +1495,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     'image/heic': ['imagen', 'heic'], 'image/heif': ['imagen', 'heif'],
     'application/pdf': ['pdf', 'pdf']
   };
+  /* servidor:hasta */
   var POR_EXT = { mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', '3gp': 'video/3gpp', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', heic: 'image/heic', heif: 'image/heif', pdf: 'application/pdf' };
   var TIPO_TXT = { video: 'Video', pdf: 'PDF', imagen: 'Imagen' };
   var ESTADO_TXT = { en_curso: '', logro: 'ya logró', vencio: 'plazo vencido', sin_seguimiento: 'sin seguimiento' };
@@ -1474,6 +1528,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { if (v == null) window.localStorage.removeItem(k); else window.localStorage.setItem(k, v); } catch (e) {} }
+  /* servidor:desde */
   var MINUS = { de: 1, del: 1, la: 1, las: 1, los: 1, y: 1, e: 1 };
   function titulo(n) {
     return String(n || '').toLowerCase().replace(/\s+/g, ' ').trim().split(' ').map(function (p, i) {
@@ -1520,6 +1575,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
     return out;
   }
+  /* servidor:hasta */
   function fmtMB(bytes) {
     if (bytes < 1048576) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
     return (bytes / 1048576).toFixed(1).replace('.', ',') + ' MB';
@@ -1626,6 +1682,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     colas: {},
     plantillas: [],
     empieceYa: [],                                       // niveles del Empiece Ya por edición (catálogo de Premios)
+    ajustesData: null,                                   // la promoción y la oficina tal como están guardadas
     periodos: [],                                        // períodos de 14 días, para el plazo del Empiece Ya
     asesoresError: false,
     vista: 'bv',
@@ -1699,12 +1756,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
     return out;
   }
+  /* servidor:desde */
   function horarioDeNivel0(n0) {
     var hs = n0 && Array.isArray(n0.horarios) ? n0.horarios : null;
     if (!hs || !hs.length) return HORARIO_BASE;
     var ok = hs.filter(function (h) { return h && h.dia != null && /^\d{1,2}:\d{2}/.test(String(h.hora || '')); });
     return ok.length ? ok : HORARIO_BASE;
   }
+  /* servidor:hasta */
   function renderResumenHorario() {
     var k = function (s) { return (s.dow === 0 ? 7 : s.dow) * 1440 + s.h * 60 + s.m; };
     var hs = leerHorario().sort(function (a, b) { return k(a) - k(b); });
@@ -1909,7 +1968,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var datos = leerAjustes();
     estadoAjustes('Guardando…');
     enCola('ajustes', function () { return rpc('wa_bv_ajustes_guardar', { p_token: S.token, p_data: datos }); })
-      .then(function () { estadoAjustes('Guardado.'); })
+      .then(function () { S.ajustesData = datos; estadoAjustes('Guardado.'); })
       .catch(function (e) { if (S.token) estadoAjustes(bonito(e.message) + ' Vuelve a cambiar el dato.', true); });
   }
   CAMPOS_AJ.forEach(function (k) {
@@ -1924,11 +1983,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
 
   /* ---------------------------------------------------------- archivos por día */
   function puedeGestionar() { return S.estado === 'ok' && !!S.token; }
+  /* servidor:desde */
   function itemsDe(n) {
     return S.items.filter(function (i) { return Number(i.dia) === n; }).sort(function (a, b) {
       return ((num(a.orden) || 0) - (num(b.orden) || 0)) || String(a.id).localeCompare(String(b.id));
     });
   }
+  /* servidor:hasta */
   function itemPorId(id) {
     for (var i = 0; i < S.items.length; i++) if (S.items[i].id === id) return S.items[i];
     return null;
@@ -1948,11 +2009,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     }
     S.items.push(fila);
   }
+  /* servidor:desde */
   function tipoDeItem(it) {
     if (it.tipo === 'video' || it.tipo === 'pdf' || it.tipo === 'imagen') return it.tipo;
     var t = TIPOS[it.content_type];
     return t ? t[0] : 'pdf';
   }
+  /* servidor:hasta */
   function boton(act, id, label, cls, deshabilitado, extra) {
     return '<button type="button" class="' + cls + '" data-act="' + act + '" data-id="' + esc(id) + '"' + (deshabilitado ? ' disabled' : '') + (extra || '') + '>' + label + '</button>';
   }
@@ -2143,12 +2206,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     });
   }
 
+  /* servidor:desde */
   function nombreParaGuardar(it) {
     var t = TIPOS[it.content_type];
     var ext = t ? t[1] : (String(it.ruta || '').split('.').pop() || 'bin');
     var base = String(it.nombre || 'archivo').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'archivo';
     return base + '.' + ext;
   }
+  /* servidor:hasta */
   function descargarLocal(file) {
     var u = URL.createObjectURL(file);
     var a = document.createElement('a');
@@ -2355,6 +2420,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
      Lo enviado queda en n0_mensajes y los textos editados en n0_plantillas,
      junto a sus datos de Nivel Cero, siempre por las funciones wa_bv_*.
      ===================================================================== */
+  /* servidor:desde */
   var LS_VISTA = 'wa-bv-vista';
   var LS_ENVIOS = 'wa-bv-envios';
   var DIA_SEG = 6;
@@ -2479,22 +2545,28 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var s = proximas({ ahora: new Date(), horario: leerHorario(), fecha: null }, 1, 1)[0];
     return s ? fraseSesion(s) : (horariosTxt() || 'en la oficina');
   }
-  function llenar(t, p, tr) {
-    tr = tr || tratoDe(p);
+  function valoresSeg(p, tr) {
     var r = diasISO(hoyISO(), p.vence);
-    var tst = p.test || {}, ht = tst.hasta || sumarISO(p.logro_fecha || hoyISO(), 15), rt = diasISO(hoyISO(), ht);   // t es la plantilla
-    var v = {
+    var tst = p.test || {}, ht = tst.hasta || sumarISO(p.logro_fecha || hoyISO(), 15), rt = diasISO(hoyISO(), ht);
+    return {
       limite_test: fLargaISO(ht), dias_test: nDias(rt == null ? 0 : rt), link_test: LINK_TEST,
       nombre: pila(p.nombre), limite: fLargaISO(p.vence), dias: nDias(r == null ? 0 : r),
       avance: avanceTxt(p, tr), clases: String(p.validas || 0), faltan: String(Math.max(metaClases() - (p.validas || 0), 0)),
       proxima: proximaTxt(), horarios: horariosTxt()
     };
-    return String(t || '').replace(/\{([^{}\n]{1,20})\}/g, function (a, n) {
+  }
+  var RE_MARCA = /\{([^{}\n]{1,20})\}/g;
+  function limpiarSeg(s) {
+    return s.replace(/([^.])\.\.(?!\.)/g, '$1.')       // "4:00 p. m." + "." → un solo punto
+      .replace(/[ \t]{2,}/g, ' ').replace(/ +\n/g, '\n').trim();
+  }
+  function llenar(t, p, tr) {                          // t es la plantilla
+    tr = tr || tratoDe(p);
+    var v = valoresSeg(p, tr);
+    return limpiarSeg(String(t || '').replace(RE_MARCA, function (a, n) {
       var c = claveMarca(n);
       return Object.prototype.hasOwnProperty.call(v, c) ? v[c] : a;
-    })
-      .replace(/([^.])\.\.(?!\.)/g, '$1.')            // "4:00 p. m." + "." → un solo punto
-      .replace(/[ \t]{2,}/g, ' ').replace(/ +\n/g, '\n').trim();
+    }));
   }
   function textoPaso(k, p, tr) { tr = tr || tratoDe(p); return llenar(plantilla(k)[tr], p, tr); }
   function textoEnvio(k, p) {
@@ -2604,6 +2676,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return { txt: '', cls: '' };
   }
 
+  /* servidor:hasta */
   function errorLista() { return 'No se pudo leer la lista de Nivel Cero (' + S.asesoresError + '). Recarga la página.'; }
 
   /* ---------- avisos */
@@ -2803,8 +2876,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function despuesDeMarcar(tipo) { if (tipo === 'asesor' && document.activeElement !== asesorSel) llenarAsesores(); }
 
   /* ---------- pestañas */
-  var VISTAS = ['bv', 'sg', 'cb', 'cs'];
-  function grupoDe(v) { return v === 'cb' || v === 'cs' ? 'cl' : 'as'; }
+  var PESTANAS = { as: ['bv', 'sg'], cl: ['cb', 'cs'], au: ['ah', 'ar', 'ap', 'aj'] };
+  var VISTAS = PESTANAS.as.concat(PESTANAS.cl, PESTANAS.au);
+  function grupoDe(v) { return PESTANAS.cl.indexOf(v) >= 0 ? 'cl' : PESTANAS.au.indexOf(v) >= 0 ? 'au' : 'as'; }
   function cambiarVista(v) {
     S.vista = VISTAS.indexOf(v) >= 0 ? v : 'bv';
     var g = grupoDe(S.vista);
@@ -2816,22 +2890,23 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       b.setAttribute('aria-selected', String(S.vista === x));
       b.tabIndex = S.vista === x ? 0 : -1;
     });
-    $('vistas-as').hidden = g !== 'as';
-    $('vistas-cl').hidden = g !== 'cl';
-    [['grupo-as', 'as'], ['grupo-cl', 'cl']].forEach(function (t) {
-      var b = $(t[0]);
-      b.setAttribute('aria-selected', String(g === t[1]));
-      b.tabIndex = g === t[1] ? 0 : -1;
+    Object.keys(PESTANAS).forEach(function (k) {
+      $('vistas-' + k).hidden = g !== k;
+      var b = $('grupo-' + k);
+      b.setAttribute('aria-selected', String(g === k));
+      b.tabIndex = g === k ? 0 : -1;
     });
     ['lead-as', 'prize-as', 'horario-panel', 'foot-as'].forEach(function (id) { var e = $(id); if (e) e.hidden = g !== 'as'; });
     $('lead-cl').hidden = g !== 'cl';
+    $('lead-au').hidden = g !== 'au';
     if (S.vista === 'sg') renderSeg();
     if (g === 'cl') renderCl();
+    if (g === 'au') { if (AU.estado === 'nada' || AU.estado === 'error') cargarAu(); else renderAu(); }
   }
-  function pintarCuenta(id, n) {
+  function pintarCuenta(id, n, sr) {
     var c = $(id);
     c.hidden = !n;
-    c.innerHTML = n ? n + '<span class="sr-only"> para hoy</span>' : '';
+    c.innerHTML = n ? n + '<span class="sr-only">' + (sr || ' para hoy') + '</span>' : '';
   }
   function renderTabs() {
     var ok = S.estado === 'ok', okCl = CL.estado === 'ok';
@@ -2844,6 +2919,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     pintarCuenta('cuenta-cs', cs);
     pintarCuenta('cuenta-as', bv + sg);
     pintarCuenta('cuenta-cl', cb + cs);
+    var ar = AU && AU.estado === 'ok' ? auRespuestas().filter(function (g) { return g.porAtender; }).length : 0;
+    pintarCuenta('cuenta-ar', ar, ' por atender');
+    pintarCuenta('cuenta-au', ar, ' por atender');
   }
   /* Lo que tenía el foco en la página, para volver a él si se vuelve a pintar: el mismo control, dentro
      de la misma caja (la más cercana con id) y en el mismo orden, por si la persona sale dos veces. */
@@ -2870,26 +2948,29 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     renderBvEstados();
     if (S.vista === 'sg') renderSeg();
     if (grupoDe(S.vista) === 'cl') renderCl();
+    if (grupoDe(S.vista) === 'au' && !auEscribiendo()) renderAu();
     if (S.modal) refrescarModal();
     else volverAlFoco(foco);
   }
   VISTAS.forEach(function (v) { $('tab-' + v).addEventListener('click', function () { cambiarVista(v); }); });
-  $('grupo-as').addEventListener('click', function () { cambiarVista(lsGet(LS_VISTA + '-as') === 'sg' ? 'sg' : 'bv'); });
-  $('grupo-cl').addEventListener('click', function () { cambiarVista(lsGet(LS_VISTA + '-cl') === 'cs' ? 'cs' : 'cb'); });
+  Object.keys(PESTANAS).forEach(function (k) {
+    $('grupo-' + k).addEventListener('click', function () { var v = lsGet(LS_VISTA + '-' + k); cambiarVista(PESTANAS[k].indexOf(v) >= 0 ? v : PESTANAS[k][0]); });
+  });
+  function vecino(l, x, ev) { return l[(l.indexOf(x) + (ev.key === 'ArrowRight' ? 1 : l.length - 1)) % l.length]; }
   Array.prototype.forEach.call(document.querySelectorAll('.vistas'), function (caja) {
     caja.addEventListener('keydown', function (ev) {
       if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
       ev.preventDefault();
-      var par = grupoDe(S.vista) === 'cl' ? ['cb', 'cs'] : ['bv', 'sg'];
-      cambiarVista(S.vista === par[0] ? par[1] : par[0]);
+      cambiarVista(vecino(PESTANAS[grupoDe(S.vista)], S.vista, ev));
       $('tab-' + S.vista).focus();
     });
   });
   document.querySelector('.grupos').addEventListener('keydown', function (ev) {
     if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
     ev.preventDefault();
-    $(grupoDe(S.vista) === 'cl' ? 'grupo-as' : 'grupo-cl').click();
-    $(grupoDe(S.vista) === 'cl' ? 'grupo-cl' : 'grupo-as').focus();
+    var g = vecino(Object.keys(PESTANAS), grupoDe(S.vista), ev);
+    $('grupo-' + g).click();
+    $('grupo-' + g).focus();
   });
 
   /* ---------- quién entra a la secuencia: los por marcar arriba de «Para hoy», con ✓ / ✗ de un toque */
@@ -3657,6 +3738,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
      18 m). Lo que se anota va a crm_seguimiento por wa_cl_*; Pedidos lee lo
      mismo, así que las fechas de allá y los mensajes de acá son una sola cosa.
      ===================================================================== */
+  /* servidor:desde */
   var CL = { estado: 'cargando', error: null, acciones: [], clientes: Object.create(null), oficina: {}, hoy: null, items: [], busca: '', fechaPara: null };
   /* Textos originales. Lo editado se guarda en n0_plantillas con la misma clave (vacío = vuelve a este). */
   var PASOS_CL = [
@@ -3775,18 +3857,24 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     });
     return l.join('\n');
   }
-  function llenarCl(t, a, tr, sinRecs) {
+  function valoresCl(a, tr, sinRecs) {
     var c = clientePorId(a.cliente_id);
-    tr = tr || tratoCl(c);
-    var v = {
+    return {
       nombre: pila((c && c.nombre) || a.cliente), productos: productosDe(a), fecha: fLargaISO(a.entrega || a.base) || 'hace poco',
       asesor: pila(a.vendedor) || 'tu equipo Rena Ware', ultimo: fLargaISO(a.ultimo_cambio || a.base) || '', vence: fLargaISO(a.vence) || '',
       cuotas: String(a.cuotas || ''), oficina: oficinaTxt(), recomendaciones: sinRecs ? '' : recomendaciones(a, tr)
     };
-    return String(t || '').replace(/\{([^{}\n]{1,20})\}/g, function (m, n) {
+  }
+  function limpiarTextoCl(s) {
+    return s.replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').replace(/ +\n/g, '\n').replace(/:\n\n/g, ':\n').trim();
+  }
+  function llenarCl(t, a, tr, sinRecs) {
+    tr = tr || tratoCl(clientePorId(a.cliente_id));
+    var v = valoresCl(a, tr, sinRecs);
+    return limpiarTextoCl(String(t || '').replace(RE_MARCA, function (m, n) {
       var k = claveMarca(n);
       return Object.prototype.hasOwnProperty.call(v, k) ? v[k] : m;
-    }).replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').replace(/ +\n/g, '\n').replace(/:\n\n/g, ':\n').trim();
+    }));
   }
   function textoCl(a, tr) {
     var x = pasoCl(a);
@@ -3825,6 +3913,211 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return l;
   }
 
+  /* =====================================================================
+     WhatsApp automático (número del equipo, por Kapso). Cada mensaje sale
+     como plantilla aprobada por Meta: cuerpo de hasta 1,024 caracteres y
+     variables de una sola línea; cada archivo, aparte. Lo propio de cada persona
+     va como variable; lo demás (dirección, horario, promoción, niveles del
+     Empiece Ya…) queda fijo en la plantilla: si cambia, sale otra versión y
+     se manda a aprobar. Lo usan esta página (vista previa) y la función
+     wa-auto de Supabase, que lo copia de aquí con servidor/construir.js.
+     ===================================================================== */
+  var WA_MAX = 1024;
+  /* Lo propio de cada persona, con su largo máximo esperado: el texto se parte con esos largos, igual para todos,
+     y cada parte cabe en 1,024 aunque los datos sean los más largos (si alguien los pasa, se avisa antes de enviar). */
+  var WA_PERSONAL = {
+    COMA_NOMBRE: 16, CODIGO: 7, DIA: 2, EMPIEZA: 37, QUEDAN: 22, LUEGO: 21, QUINTO: 44, FECHA_LIMITE: 26,
+    OPCIONES_O: 80, OPCIONES_Y: 80, EY_FECHA: 26,
+    nombre: 14, limite: 26, dias: 8, avance: 40, proxima: 40, clases: 2, faltan: 2, limite_test: 26, dias_test: 8,
+    productos: 60, fecha: 26, asesor: 14, ultimo: 26, vence: 26, cuotas: 2
+  };
+  /* Ejemplos para que Meta revise la plantilla (no son datos de nadie). */
+  var WA_EJEMPLO = {
+    COMA_NOMBRE: ', Ana', CODIGO: '1234567', DIA: '1', EMPIEZA: 'Hoy empieza tu camino en Rena Ware.', QUEDAN: ' (te quedan 20 días)',
+    LUEGO: 'Mañana', QUINTO: 'Mañana, en nuestro quinto y último mensaje,', FECHA_LIMITE: 'jueves 4 de diciembre',
+    OPCIONES_O: '*hoy a las 4:00 p. m.* o *el viernes 6 a las 4:30 p. m.*', OPCIONES_Y: '*hoy a las 4:00 p. m.* y *el viernes 6 a las 4:30 p. m.*',
+    EY_FECHA: 'miércoles 25 de noviembre', nombre: 'Ana', limite: 'jueves 4 de diciembre', dias: '15 días', avance: 'Lleva 3 de 5: le faltan 2.',
+    proxima: 'el viernes 6 a las 4:30 p. m.', clases: '3', faltan: '2', limite_test: 'jueves 20 de noviembre', dias_test: '5 días',
+    productos: 'Juego Gourmet 17 Piezas', fecha: 'lunes 3 de noviembre', asesor: 'María', ultimo: 'lunes 3 de noviembre', vence: 'jueves 4 de diciembre', cuotas: '12'
+  };
+  /* Lo que promociona va como marketing; los avisos de su cuenta, sus clases o su compra, como utilidad. Meta decide al aprobar. */
+  var WA_CATEGORIA = { bv2: 'MARKETING', bv3: 'MARKETING', bv4: 'MARKETING', bv5: 'MARKETING', cl_mes1: 'MARKETING', cl_fincuotas: 'MARKETING' };
+  function waCategoria(k) { return WA_CATEGORIA[k] || 'UTILITY'; }
+  var WA_MB = 1048576;
+  function waAjustes() {
+    var d = S.ajustesData || {}, o = {};
+    CAMPOS_AJ.forEach(function (k) { var v = d[k]; o[k] = AJ_NUM[k] ? num(v) : String(v == null ? '' : v).replace(/\r/g, '').trim(); });
+    return o;
+  }
+  function waHorario() {
+    return horarioDeNivel0(S.nivel0).map(function (h) {
+      var m = /^(\d{1,2}):(\d{2})/.exec(String(h.hora || ''));
+      return m ? { dow: Number(h.dia), h: Number(m[1]), m: Number(m[2]) } : null;
+    }).filter(Boolean);
+  }
+  /* Lo mismo que «Preparar» carga en la bienvenida, desde lo guardado (no desde lo que se esté escribiendo). */
+  function waCtx(p) {
+    return { nombre: pila(p.nombre), codigo: p.codigo || '', fecha: String(p.inicio || '').slice(0, 10), plazo: S.plazo,
+             ajustes: waAjustes(), horario: waHorario(), ahora: new Date() };
+  }
+  function waArchivos(dia) { return itemsDe(dia).filter(function (i) { return !!i.ruta; }); }
+  function waVacios(dia) { return itemsDe(dia).filter(function (i) { return !i.ruta; }); }
+  /* Arriba de cada parte va un archivo: video (mp4 hasta 16 MB), imagen (jpg o png hasta 5 MB) o documento (hasta 100 MB). */
+  function waEncabezado(it) {
+    if (!it) return null;
+    var t = tipoDeItem(it), b = Number(it.bytes) || 0, mime = String(it.content_type || '');
+    var tipo = t === 'video' && b <= 16 * WA_MB && /^video\/(mp4|3gpp)$/.test(mime) ? 'VIDEO'
+      : t === 'imagen' && b <= 5 * WA_MB && /^image\/(jpeg|png)$/.test(mime) ? 'IMAGE' : 'DOCUMENT';
+    return { tipo: tipo, id: it.id, ruta: it.ruta, nombre: it.nombre || '', archivo: nombreParaGuardar(it), bytes: b, mime: mime,
+             como_documento: tipo === 'DOCUMENT' && t !== 'pdf', pesado: b > 100 * WA_MB };
+  }
+  function waHuella(s) {                                 // cyrb53: corta y la misma aquí y en el servidor
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0, ch; i < s.length; i++) { ch = s.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  var WA_A = '\u0001', WA_B = '\u0002', RE_WA = /\u0001(\d+)\u0002/g;
+  var RE_WA_JUNTOS = /\u0001(\d+)\u0002([^\u0001\u0002A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ]*)\u0001(\d+)\u0002/;
+  /* El texto con lo propio de la persona marcado, reemplazado y limpiado igual que al armar el mensaje. */
+  function waMarcar(t, re, clave, v, limpiar) {
+    var datos = [];
+    var s = String(t || '').replace(re, function (m, n) {
+      var k = clave(n);
+      if (!Object.prototype.hasOwnProperty.call(v, k)) return m;
+      var x = String(v[k] == null ? '' : v[k]), y = x.trim();
+      if (!Object.prototype.hasOwnProperty.call(WA_PERSONAL, k) || !y || /[\n\t]/.test(y)) return x;   // fijo en la plantilla
+      datos.push({ k: k, v: y });
+      return x.slice(0, x.indexOf(y)) + WA_A + (datos.length - 1) + WA_B + x.slice(x.indexOf(y) + y.length);
+    });
+    s = limpiar(s);
+    // dos datos seguidos (solo con espacios o signos entre ellos) van como uno: Meta no acepta variables juntas
+    for (var m = RE_WA_JUNTOS.exec(s); m; m = RE_WA_JUNTOS.exec(s)) {
+      var a = datos[Number(m[1])], b = datos[Number(m[3])];
+      datos.push({ k: a.k + '+' + b.k, v: a.v + m[2] + b.v, partes: [a, m[2], b] });
+      s = s.slice(0, m.index) + WA_A + (datos.length - 1) + WA_B + s.slice(m.index + m[0].length);
+    }
+    return { s: s, datos: datos };
+  }
+  /* Si el dato termina en punto y el texto sigue con punto, queda uno solo (como «4:30 p. m.» + «.»). */
+  function waValor(d, sigue) { return sigue === '.' && /[^.]\.$/.test(d.v) ? d.v.slice(0, -1) : d.v; }
+  function waEjemplo(d) { return d.partes ? waEjemplo(d.partes[0]) + d.partes[1] + waEjemplo(d.partes[2]) : (WA_EJEMPLO[d.k] || 'texto'); }
+  function waMaxDato(d) { return d.partes ? waMaxDato(d.partes[0]) + d.partes[1].length + waMaxDato(d.partes[2]) : Math.max(WA_PERSONAL[d.k] || 40, d.v.length); }
+  function waLargo(s, datos) {
+    var n = 0;
+    s.replace(RE_WA, function (m, i) { n += waMaxDato(datos[Number(i)]) - m.length; return m; });
+    return s.length + n;
+  }
+  /* Se parte en párrafos: cada parte, con los datos más largos posibles, cabe holgada en 1,024. */
+  function waPartir(s, datos) {
+    var out = [], actual = '';
+    s.split('\n\n').forEach(function (p) {
+      var cand = actual ? actual + '\n\n' + p : p;
+      if (!actual || waLargo(cand, datos) <= WA_MAX) { actual = cand; return; }
+      out.push(actual);
+      actual = p;
+    });
+    if (actual) out.push(actual);
+    return out;
+  }
+  function waNumerar(s, datos) {
+    var params = [], ejemplos = [], claves = [];
+    var cuerpo = s.replace(RE_WA, function (m, i, pos) {
+      var d = datos[Number(i)], sigue = s.charAt(pos + m.length);
+      params.push(waValor(d, sigue));
+      ejemplos.push(waValor({ v: waEjemplo(d) }, sigue));
+      claves.push(d.k);
+      return '{{' + params.length + '}}';
+    });
+    return { cuerpo: cuerpo, params: params, ejemplos: ejemplos, claves: claves };
+  }
+  function waLlenarCuerpo(c, params) { return c.replace(/\{\{(\d+)\}\}/g, function (m, i) { return params[Number(i) - 1]; }); }
+  /* Los archivos van en tres plantillas fijas, una por tipo: el archivo arriba y su texto («Texto que va con el
+     archivo», o su nombre) como dato. Así cambiar un archivo o su texto no pide otra aprobación a Meta. */
+  var WA_ARCHIVO = {
+    VIDEO: { nombre: 'eqa_archivo_video_v1', cuerpo: '🎥 *Video del Equipo Arequipa de Rena Ware*\n\n{{1}}\n\n_Para verlo aquí mismo, guardarlo y compartirlo._' },
+    IMAGE: { nombre: 'eqa_archivo_imagen_v1', cuerpo: '🖼️ *Imagen del Equipo Arequipa de Rena Ware*\n\n{{1}}\n\n_Para verla aquí mismo, guardarla y compartirla._' },
+    DOCUMENT: { nombre: 'eqa_archivo_documento_v1', cuerpo: '📄 *Archivo del Equipo Arequipa de Rena Ware*\n\n{{1}}\n\n_Para abrirlo aquí mismo, guardarlo y compartirlo._' }
+  };
+  var WA_ARCHIVO_EJEMPLO = 'Esta es la lista de precios general para los clientes.';
+  /* El texto del archivo va en una sola línea (Meta no acepta saltos de línea en un dato). */
+  function waLeyenda(it) {
+    var s = String(it.descripcion || '').replace(/\s*\n+\s*/g, ' · ').replace(/[ \t]{2,}/g, ' ').trim();
+    s = s || String(it.nombre || '').replace(/\s+/g, ' ').trim() || 'Material del día';
+    return s.length > 880 ? s.slice(0, 879).replace(/\s+\S*$/, '') + '…' : s;
+  }
+  /* Las partes de un mensaje: primero el texto, partido en párrafos si no cabe en una; después cada archivo, en orden. */
+  function waPartes(base, cat, s, datos, archivos) {
+    var trozos = s ? waPartir(s, datos) : [], out = [];
+    trozos.forEach(function (t, i) {
+      var x = waNumerar(t, datos), clave = base + (trozos.length > 1 ? '.' + (i + 1) : '');
+      var huella = waHuella(JSON.stringify([cat, '', x.cuerpo]));
+      out.push({ clave: clave, categoria: cat, encabezado: null, cuerpo: x.cuerpo, params: x.params, ejemplos: x.ejemplos, claves: x.claves,
+                 de_texto: true, huella: huella, nombre: ('eqa_' + clave + '_' + huella).toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                 texto: waLlenarCuerpo(x.cuerpo, x.params) });
+    });
+    archivos.forEach(function (it) {
+      var enc = waEncabezado(it), g = WA_ARCHIVO[enc.tipo], ley = waLeyenda(it);
+      out.push({ clave: 'archivo_' + enc.tipo.toLowerCase(), categoria: 'UTILITY', encabezado: enc, cuerpo: g.cuerpo, params: [ley],
+                 ejemplos: [WA_ARCHIVO_EJEMPLO], claves: ['archivo'], de_texto: false, huella: 'v1', nombre: g.nombre,
+                 texto: waLlenarCuerpo(g.cuerpo, [ley]) });
+    });
+    return out;
+  }
+  /* Lo que no se puede mandar solo: faltan datos, no tiene celular, o una parte no cumple las reglas de Meta. */
+  function waItem(it) {
+    var prob = [], falta = faltantes(it.texto);
+    if (!String(it.texto || '').trim() || !it.partes.length) prob.push('El mensaje está vacío.');
+    if (falta.length) prob.push('Falta ' + unirY(falta) + '.');
+    if (/\{[^{}\n]{1,20}\}/.test(it.texto)) prob.push('El texto tiene un marcador que no se reconoce.');
+    if (!it.celular) prob.push('No tiene un celular válido.');
+    var junto = it.partes.filter(function (p) { return p.de_texto; }).map(function (p) { return p.texto; }).join('\n\n');
+    if (junto !== it.texto) prob.push('El texto automático no sale igual que en la página.');
+    it.partes.forEach(function (p, i) {
+      var cual = it.partes.length > 1 ? 'La parte ' + (i + 1) : 'El mensaje';
+      if (/^\s*\{\{\d+\}\}/.test(p.cuerpo) || /\{\{\d+\}\}\s*$/.test(p.cuerpo)) prob.push(cual + ' empieza o termina con un dato (Meta no lo acepta).');
+      if (p.texto.length > WA_MAX) prob.push(cual + ' pasa de 1,024 caracteres.');
+      if (p.encabezado && p.encabezado.pesado) prob.push(cual + ' lleva un archivo de más de 100 MB.');
+    });
+    it.problemas = prob;
+    it.avisos = it.vacios && it.vacios.length ? ['Va sin ' + unirY(it.vacios.map(function (x) { return '«' + (x.nombre || 'archivo') + '»'; })) + ': ese espacio no tiene archivo.'] : [];
+    return it;
+  }
+  function waItemBv(p, n) {
+    var ctx = waCtx(p), dia = DAYS[n - 1];
+    var m = waMarcar(dia.body, RE_MARCA_BV, function (k) { return k; }, valores(ctx, n), limpiarBv);
+    return waItem({ tipo: 'asesor', ref: p.id, paso: 'bv' + n, titulo: 'Día ' + n + ' · ' + dia.title, nombre: titulo(p.nombre),
+                    celular: celularWA(p), trato: 'tu', texto: messageFor(dia, ctx), vacios: waVacios(n),
+                    partes: waPartes('bv' + n, waCategoria('bv' + n), m.s, m.datos, waArchivos(n)) });
+  }
+  function waItemSeg(p, k) {
+    var tr = tratoDe(p), t = plantilla(k)[tr];
+    var m = waMarcar(t, RE_MARCA, claveMarca, valoresSeg(p, tr), limpiarSeg);
+    return waItem({ tipo: 'asesor', ref: p.id, paso: k, titulo: nombrePaso(k), nombre: titulo(p.nombre), celular: celularWA(p), trato: tr,
+                    texto: llenar(t, p, tr), partes: waPartes(k + '.' + tr, waCategoria(k), m.s, m.datos, []) });
+  }
+  function waItemCl(a) {
+    var c = clientePorId(a.cliente_id), tr = tratoCl(c), x = pasoCl(a), t = plantilla(x.k)[tr];
+    var m = waMarcar(t, RE_MARCA, claveMarca, valoresCl(a, tr), limpiarTextoCl);
+    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t,
+                    nombre: titulo((c && c.nombre) || a.cliente), celular: celCl(a), trato: tr, texto: llenarCl(t, a, tr), vacios: waVacios(x.dia),
+                    partes: waPartes(x.k + '.' + tr, waCategoria(x.k), m.s, m.datos, waArchivos(x.dia)) });
+  }
+  /* Lo mismo que «Para hoy»: bienvenida y seguimiento de asesores, y los mensajes de clientes que tocan hoy. */
+  function waPorEnviarHoy() {
+    var l = [];
+    S.asesores.forEach(function (p) {
+      var b = bvPendiente(p);
+      if (b) l.push(waItemBv(p, b.n));
+      var x = pasoQueToca(p);
+      if (x) l.push(waItemSeg(p, x.k));
+    });
+    clBvHoy().concat(clCicloHoy()).forEach(function (a) { if (pasoCl(a)) l.push(waItemCl(a)); });
+    return l;
+  }
+
+  /* servidor:hasta */
   /* ---------- textos de estado */
   function diasTxt(a) {
     var d = Number(a.dias);
@@ -4362,6 +4655,369 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     CL.fechaPara = null;
   }
 
+  /* ---------------------------------------------------------- Automático: lo que sale solo, respuestas, plantillas y ajustes */
+  var AU = { estado: 'nada', d: null, fn: null, error: '', ocupado: '', filtro: 'atender', gen: 0 };
+  function limpiarAu() { AU.estado = 'nada'; AU.d = null; AU.fn = null; AU.error = ''; AU.ocupado = ''; AU.gen++; }
+  /* La función wa-auto de Supabase (envía, conecta con Kapso, prueba): con la misma sesión de admin. */
+  function fnAuto(accion, extra) {
+    return fetch(SB_URL + '/functions/v1/wa-auto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
+      body: JSON.stringify(Object.assign({}, extra || {}, { accion: accion, token: S.token }))
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var j = null;
+        try { j = t ? JSON.parse(t) : null; } catch (e) {}
+        if (!r.ok) {
+          var msg = (j && (j.error || j.message)) || ('Error ' + r.status);
+          if (/Sesion invalida/i.test(msg)) cerrarSesion('Tu sesión se cerró. Vuelve a entrar.');
+          throw new Error(msg);
+        }
+        return j || {};
+      });
+    });
+  }
+  function cargarAu(callado) {
+    if (!S.token) return Promise.resolve();
+    var gen = ++AU.gen;
+    if (AU.estado !== 'ok') AU.estado = 'cargando';
+    if (!callado && grupoDe(S.vista) === 'au') renderAu();
+    var est = fnAuto('estado').catch(function (e) { return { error: bonito(e.message) }; });
+    return Promise.all([rpc('wa_auto_datos', { p_token: S.token }), est]).then(function (x) {
+      if (gen !== AU.gen) return;
+      AU.d = x[0] || {};
+      AU.fn = x[1] || {};
+      AU.estado = 'ok';
+      AU.error = '';
+      renderTabs();
+      if (grupoDe(S.vista) === 'au' && !auEscribiendo()) renderAu();
+    }).catch(function (e) {
+      if (!S.token || gen !== AU.gen) return;
+      if (AU.estado !== 'ok') { AU.estado = 'error'; AU.error = bonito(e.message); }
+      if (grupoDe(S.vista) === 'au') renderAu();
+    });
+  }
+  /* Mientras se escribe en Ajustes no se vuelve a pintar (se perdería lo escrito). */
+  function auEscribiendo() { var a = document.activeElement; return !!(a && a.closest && a.closest('#vista-aj') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
+  function auCfg() { return (AU.d && AU.d.config) || {}; }
+  function auConectado() { return !!(AU.fn && AU.fn.kapso && auCfg().phone_number_id); }
+  function auHora(iso) { var d = new Date(iso); return isNaN(d) ? '' : fmtHora(d.getHours(), d.getMinutes()); }
+  function auCuando(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var dia = isoDe(d);
+    return (dia === hoyISO() ? 'hoy' : dia === sumarISO(hoyISO(), -1) ? 'ayer' : fCorta(dia)) + ', ' + auHora(iso);
+  }
+  function auUltimaCorrida() {
+    var l = (AU.d && AU.d.corridas) || [];
+    for (var i = 0; i < l.length; i++) if (l[i].fin && l[i].resumen) return l[i];
+    return null;
+  }
+  var AU_EST = {
+    prueba: ['Saldría', 'gris'], espera: ['Espera', 'warn'], omitido: ['No sale solo', 'mal'], fallo: ['No salió', 'mal'], pendiente: ['Saliendo', 'gris'],
+    enviado: ['Enviado ✓', 'ok'], entregado: ['Entregado ✓✓', 'ok'], leido: ['Leído ✓✓', 'ok']
+  };
+  function auTag(est) { var x = AU_EST[est] || [est, 'gris']; return '<span class="tag ' + x[1] + '">' + esc(x[0]) + '</span>'; }
+  function auEstadoDe(ps) {
+    var e = ps.map(function (p) { return p.estado; }), hay = function (x) { return e.indexOf(x) >= 0; };
+    if (hay('fallo')) return 'fallo';
+    if (hay('omitido')) return 'omitido';
+    if (hay('espera')) return 'espera';
+    if (hay('prueba')) return 'prueba';
+    if (hay('pendiente')) return 'pendiente';
+    if (e.every(function (x) { return x === 'leido'; })) return 'leido';
+    if (e.every(function (x) { return x === 'leido' || x === 'entregado'; })) return 'entregado';
+    return 'enviado';
+  }
+  /* Lo de hoy, un renglón por mensaje (con sus partes). Lo que la última revisión ya no propuso (se mandó desde la página
+     o cambió) no se muestra como pendiente. */
+  function auHoy() {
+    var d = AU.d || {}, ult = auUltimaCorrida(), m = {}, l = [];
+    (d.envios || []).forEach(function (e) {
+      if (e.fecha !== d.hoy || (e.tipo !== 'asesor' && e.tipo !== 'cliente')) return;
+      var k = e.tipo + '|' + e.ref + '|' + e.paso;
+      if (!m[k]) { m[k] = { tipo: e.tipo, ref: e.ref, paso: e.paso, accion: e.accion, titulo: e.titulo, nombre: e.nombre, partes: [] }; l.push(m[k]); }
+      m[k].partes.push(e);
+    });
+    return l.filter(function (it) {
+      it.partes.sort(function (a, b) { return a.parte - b.parte; });
+      it.estado = auEstadoDe(it.partes);
+      it.motivo = (it.partes.filter(function (p) { return p.motivo && p.estado === it.estado; })[0] || {}).motivo || '';
+      var vivo = ['prueba', 'espera', 'omitido'].indexOf(it.estado) < 0 || !ult || it.partes.some(function (p) { return p.corrida_id === ult.id; });
+      return vivo;
+    });
+  }
+  function auResumen(k) {
+    var r = k.resumen || {}, t = [];
+    if (r.enviados) t.push(plural(r.enviados, 'enviado', 'enviados'));
+    if (r.prueba) t.push(plural(r.prueba, 'saldría', 'saldrían'));
+    if (r.espera) t.push(plural(r.espera, 'espera', 'esperan'));
+    if (r.quedan) t.push(r.quedan + ' para la siguiente');
+    if (r.no_salen) t.push(r.no_salen + ' no ' + (r.no_salen === 1 ? 'sale' : 'salen') + ' solo' + (r.no_salen === 1 ? '' : 's'));
+    if (r.fallos) t.push(plural(r.fallos, 'falló', 'fallaron'));
+    return 'Última revisión: ' + auCuando(k.fin) + ' · ' + plural(r.total || 0, 'mensaje para hoy', 'mensajes para hoy') + (t.length ? ': ' + t.join(', ') : '') + '.';
+  }
+  function auCaja() {
+    var c = auCfg(), f = AU.fn || {}, h = [], desde = String(c.hora_desde || '08:00').slice(0, 5), hasta = String(c.hora_hasta || '20:00').slice(0, 5);
+    if (c.estado === 'encendido' && auConectado()) h.push('<p class="estado ok"><strong>Encendido.</strong> Cada hora, de ' + desde + ' a ' + hasta + ', sale solo lo de hoy desde el número del equipo.</p>');
+    else if (c.estado === 'encendido') h.push('<p class="estado urge"><strong>Encendido, pero falta conectar el número del equipo</strong> (en Ajustes). Mientras tanto no sale nada.</p>');
+    else if (c.estado === 'prueba') h.push('<p class="estado mal"><strong>En prueba.</strong> Cada hora arma lo de hoy, pero no envía nada: aquí ves cómo saldría.</p>');
+    else h.push('<p class="estado mal"><strong>Apagado.</strong> No sale nada solo. «Revisar ahora» arma lo de hoy para que veas cómo saldría.</p>');
+    if (f.error) h.push('<p class="estado urge">No se pudo consultar el envío automático: ' + esc(f.error) + '</p>');
+    if (f.al_dia === false) h.push('<p class="estado urge">La página cambió y el envío automático aún usa la versión anterior: hay que actualizarlo (servidor/construir.js y desplegar wa-auto).</p>');
+    var esp = ((AU.d && AU.d.plantillas) || []).filter(function (p) { return p.estado === 'enviada'; }).length;
+    if (esp && auConectado()) h.push('<p class="hint">' + plural(esp, 'plantilla espera', 'plantillas esperan') + ' la aprobación de Meta (suele tardar minutos).</p>');
+    return h.join('');
+  }
+  function auPartesHtml(ps) {
+    return '<div class="au-partes">' + ps.map(function (p) {
+      var e = p.encabezado, arch = e ? '<span class="au-arch">' + (e.tipo === 'VIDEO' ? '🎥 ' : e.tipo === 'IMAGE' ? '🖼️ ' : '📄 ') + esc(e.archivo || e.nombre || 'archivo') + '</span>' : '';
+      return '<p class="au-msg">' + arch + esc(p.texto || '') + '</p>';
+    }).join('') + '</div>';
+  }
+  function renderAuHoy() {
+    var c = auCfg(), h = [auCaja()], ult = auUltimaCorrida(), ocup = AU.ocupado;
+    if (ult) h.push('<p class="hint" id="au-ultima">' + esc(auResumen(ult)) + (ult.error ? ' <strong>' + esc(ult.error) + '</strong>' : '') + '</p>');
+    h.push('<div class="sg-acts"><button type="button" class="btn-sm" data-au="revisar"' + (ocup ? ' disabled' : '') + '>' + (ocup === 'revisar' ? 'Revisando…' : 'Revisar ahora') + '</button>' +
+      (c.estado === 'encendido' && auConectado() ? '<button type="button" class="btn-sm wa-ok" data-au="enviar"' + (ocup ? ' disabled' : '') + '>' + (ocup === 'enviar' ? 'Enviando…' : 'Enviar ahora') + '</button>' : '') +
+      '<button type="button" class="btn-link" data-au="recargar">Actualizar</button></div>');
+    var items = auHoy(), probar = auConectado() && c.nelson_celular;
+    var grupos = [['omitido', 'No salen solos', 'Mándalos desde Asesores o Clientes, o corrige lo que falta.'], ['fallo', 'No salieron', ''], ['espera', 'Esperan', ''],
+      ['pendiente', 'Saliendo', ''], ['prueba', 'Saldrían', 'Modo prueba: no se envió nada.'], ['enviado', 'Enviados hoy', '']];
+    if (!items.length) h.push('<p class="hint">' + (ult ? 'Hoy no hay nada por enviar.' : 'Aún no se revisa lo de hoy. «Revisar ahora» lo arma sin enviar nada.') + '</p>');
+    grupos.forEach(function (g) {
+      var l = items.filter(function (it) { return g[0] === 'enviado' ? ['enviado', 'entregado', 'leido'].indexOf(it.estado) >= 0 : it.estado === g[0]; });
+      if (!l.length) return;
+      h.push('<h3 class="sg-grupo">' + esc(g[1]) + ' <span class="cuenta gris">' + l.length + '</span></h3>' + (g[2] ? '<p class="hint">' + esc(g[2]) + '</p>' : ''));
+      h.push('<ul class="sg-items">' + l.map(function (it) {
+        var i = items.indexOf(it), n = it.partes.length, partes = n > 1 ? ' · ' + n + ' partes' : '';
+        return '<li class="sg-item"><div class="sg-cab"><strong class="au-nom">' + esc(it.nombre || '') + '</strong>' + auTag(it.estado) + '</div>' +
+          '<p class="sg-sub">' + (it.tipo === 'cliente' ? 'Cliente' : 'Asesor') + ' · ' + esc(it.titulo || it.paso) + partes + '</p>' +
+          (it.motivo ? '<p class="sg-sub' + (it.estado === 'fallo' || it.estado === 'omitido' ? ' urge' : '') + '">' + esc(it.motivo) + '</p>' : '') +
+          '<details class="au-det"><summary>Ver el mensaje</summary>' + auPartesHtml(it.partes) + '</details>' +
+          (probar && it.estado !== 'omitido' ? '<div class="sg-acts"><button type="button" class="btn-link" data-au="probar" data-i="' + i + '">Probármelo en mi celular</button></div>' : '') + '</li>';
+      }).join('') + '</ul>');
+    });
+    $('vista-ah').innerHTML = h.join('');
+  }
+  /* Las respuestas: lo que alguien mandó seguido va en una tarjeta. */
+  function auRespuestas() {
+    var l = [], g = null;
+    ((AU.d && AU.d.respuestas) || []).forEach(function (r) {
+      var t = new Date(r.recibido_en).getTime();
+      if (g && g.celular === r.celular && Math.abs(g.t - t) <= 3 * 60 * 1000 && (g.filas[0].reenvio_id || '') === (r.reenvio_id || '')) { g.filas.push(r); g.t = t; return; }
+      g = { celular: r.celular, t: t, filas: [r] };
+      l.push(g);
+    });
+    l.forEach(function (x) {
+      x.filas.reverse();                                  // del más antiguo al más nuevo
+      x.r = x.filas[x.filas.length - 1];
+      x.porAtender = x.filas.some(function (f) { return f.estado === 'nueva' || f.estado === 'sin_reenvio'; });
+    });
+    return l;
+  }
+  function renderAuResp() {
+    var todos = auRespuestas(), filtro = AU.filtro, l = filtro === 'todas' ? todos : todos.filter(function (x) { return x.porAtender; });
+    var n = todos.filter(function (x) { return x.porAtender; }).length, h = [];
+    h.push('<p class="hint">Si un cliente responde, su mensaje le llega a su asesor con un botón para abrir su chat; lo de los asesores (y de quien no está registrado) te llega a ti. Aquí queda todo.</p>');
+    h.push('<div class="sg-acts" role="group" aria-label="Qué respuestas ver">' +
+      '<button type="button" class="btn-sm' + (filtro !== 'todas' ? ' primary' : '') + '" data-au="filtro" data-f="atender" aria-pressed="' + (filtro !== 'todas') + '">Por atender (' + n + ')</button>' +
+      '<button type="button" class="btn-sm' + (filtro === 'todas' ? ' primary' : '') + '" data-au="filtro" data-f="todas" aria-pressed="' + (filtro === 'todas') + '">Todas (' + todos.length + ')</button>' +
+      '<button type="button" class="btn-link" data-au="recargar">Actualizar</button></div>');
+    if (!l.length) h.push('<p class="hint">' + (filtro === 'todas' ? 'Aún nadie respondió.' : 'Nada por atender.') + '</p>');
+    var TIPO = { cliente: 'Cliente', asesor: 'Asesor', nelson: 'Tú', desconocido: 'No registrado' };
+    h.push('<ul class="sg-items">' + l.map(function (x) {
+      var r = x.r, i = todos.indexOf(x), num = String(r.celular || ''), intl = (num.length === 9 ? '51' : '') + num;
+      var quien = titulo(r.de_nombre || r.contacto || '') || '+' + intl, est = r.estado;
+      var pasada = est === 'reenviada' ? 'Se le pasó a ' + (r.para === 'asesor' ? esc(r.para_nombre || 'su asesor') + ' (su asesor)' : 'ti') + '.'
+        : est === 'atendida' ? 'Atendida' + (r.nota ? ': ' + esc(r.nota) : '.') : esc(r.motivo || 'Por atender.');
+      return '<li class="sg-item"><div class="sg-cab"><strong class="au-nom">' + esc(quien) + '</strong><span class="tag gris">' + esc(TIPO[r.de_tipo] || 'Nuevo') + '</span></div>' +
+        '<p class="sg-sub">' + esc(auCuando(r.recibido_en)) + (r.sobre ? ' · respondió a «' + esc(r.sobre) + '»' : '') + '</p>' +
+        x.filas.map(function (f) { return '<p class="au-in">' + esc(f.texto || '') + '</p>'; }).join('') +
+        (x.filas.some(function (f) { return f.baja; }) ? '<p class="sg-sub urge">Pidió no recibir más mensajes: ya salió de la secuencia.</p>' : '') +
+        '<p class="sg-sub' + (est === 'sin_reenvio' ? ' urge' : '') + '">' + pasada + '</p>' +
+        '<div class="sg-acts"><a class="btn-sm wa-ok" href="https://wa.me/' + esc(intl) + '" target="_blank" rel="noopener">Abrir su chat</a>' +
+        (x.porAtender ? '<button type="button" class="btn-sm" data-au="atendida" data-i="' + i + '">Ya la atendí</button>' : est === 'atendida' ? '<button type="button" class="btn-link" data-au="reabrir" data-i="' + i + '">Volver a por atender</button>' : '') +
+        (est === 'sin_reenvio' && auConectado() ? '<button type="button" class="btn-link" data-au="reenviar" data-i="' + i + '">Pasarla otra vez</button>' : '') + '</div></li>';
+    }).join('') + '</ul>');
+    $('vista-ar').innerHTML = h.join('');
+  }
+  /* Nombre entendible de una plantilla, desde su clave. */
+  function auNombrePl(cl) {
+    var m = /^bv(\d)(?:\.(\d+))?$/.exec(cl || '');
+    if (m) return 'Bienvenida · ' + nombrePaso('bv' + m[1]) + (m[2] ? ' (parte ' + m[2] + ')' : '');
+    var fijo = { archivo_video: 'Archivos: videos', archivo_image: 'Archivos: imágenes', archivo_document: 'Archivos: documentos y videos pesados',
+                 aviso_cliente: 'Aviso al asesor: le escribió su cliente', aviso_asesor: 'Aviso a ti: te escribió un asesor', aviso_otro: 'Aviso a ti: escribió alguien más' };
+    if (fijo[cl]) return fijo[cl];
+    m = /^(.+?)\.(tu|usted)(?:\.(\d+))?$/.exec(cl || '');
+    if (!m) return cl;
+    var t = null;
+    Object.keys(CL_POR_TIPO).forEach(function (k) { if (CL_POR_TIPO[k].k === m[1]) t = 'Cliente · ' + CL_POR_TIPO[k].t; });
+    return (t || 'Seguimiento · ' + nombrePaso(m[1])) + ' (' + (m[2] === 'tu' ? 'tú' : 'usted') + ')' + (m[3] ? ' · parte ' + m[3] : '');
+  }
+  var AU_PL = { borrador: ['Por mandar a Meta', 'gris'], enviada: ['En revisión', 'warn'], aprobada: ['Aprobada', 'ok'], rechazada: ['Rechazada', 'mal'],
+                error: ['Con problema', 'mal'], pausada: ['Pausada', 'warn'], desactivada: ['Desactivada', 'mal'] };
+  function renderAuPl() {
+    var todas = (AU.d && AU.d.plantillas) || [], ult = {}, viejas = 0, h = [];
+    todas.forEach(function (p) { if (!ult[p.clave] || String(p.creado_en) > String(ult[p.clave].creado_en)) ult[p.clave] = p; });
+    var l = Object.keys(ult).map(function (k) { return ult[k]; });
+    viejas = todas.length - l.length;
+    var cuenta = function (e) { return l.filter(function (p) { return p.estado === e; }).length; };
+    h.push('<p class="hint">Cada mensaje que sale solo es una plantilla que Meta aprueba antes (suele tardar minutos). Si cambias un texto, sale una versión nueva y se manda a aprobar sola; los archivos usan 3 plantillas fijas.</p>');
+    h.push('<p class="sec-resumen">' + [cuenta('aprobada') + ' aprobadas', cuenta('enviada') + ' en revisión', cuenta('borrador') + ' por mandar',
+      (cuenta('rechazada') + cuenta('error') + cuenta('desactivada')) + ' con problema'].join(' · ') + (viejas ? ' · ' + plural(viejas, 'versión anterior', 'versiones anteriores') : '') + '</p>');
+    if (!auConectado()) h.push('<p class="hint">Se mandan a Meta cuando el número del equipo esté conectado (Ajustes).</p>');
+    var orden = ['rechazada', 'error', 'desactivada', 'pausada', 'enviada', 'borrador', 'aprobada'];
+    l.sort(function (a, b) { return orden.indexOf(a.estado) - orden.indexOf(b.estado) || auNombrePl(a.clave).localeCompare(auNombrePl(b.clave)); });
+    if (!l.length) h.push('<p class="hint">Aún no hay plantillas: se crean solas en la primera revisión.</p>');
+    h.push('<ul class="sg-items">' + l.map(function (p) {
+      var x = AU_PL[p.estado] || [p.estado, 'gris'], cat = p.categoria_meta || p.categoria;
+      var malo = p.estado === 'rechazada' || p.estado === 'error';
+      return '<li class="sg-item"><div class="sg-cab"><strong class="au-nom">' + esc(auNombrePl(p.clave)) + '</strong><span class="tag ' + x[1] + '">' + esc(x[0]) + '</span></div>' +
+        '<p class="sg-sub au-cod">' + esc(p.nombre) + (cat ? ' · ' + esc(cat === 'MARKETING' ? 'marketing' : cat === 'UTILITY' ? 'utilidad' : cat.toLowerCase()) : '') + (p.encabezado ? ' · con ' + esc({ VIDEO: 'video', IMAGE: 'imagen', DOCUMENT: 'documento' }[p.encabezado] || 'archivo') : '') + '</p>' +
+        (p.motivo ? '<p class="sg-sub' + (malo ? ' urge' : '') + '">' + esc(p.motivo) + '</p>' : '') +
+        '<details class="au-det"><summary>Ver el texto</summary><p class="au-msg">' + esc(p.cuerpo || '') + '</p></details>' +
+        (malo ? '<div class="sg-acts">' + (p.encabezado ? '<button type="button" class="btn-link" data-au="copiar" data-n="' + esc(p.nombre) + '">Copiar el texto</button>' : '') +
+          '<button type="button" class="btn-link" data-au="reintentar" data-id="' + esc(p.id) + '">Volver a mandar a Meta</button></div>' : '') + '</li>';
+    }).join('') + '</ul>');
+    $('vista-ap').innerHTML = h.join('');
+  }
+  function renderAuAj() {
+    var c = auCfg(), f = AU.fn || {}, ocup = AU.ocupado, h = [];
+    var radio = function (v, t, s) {
+      return '<label class="chk au-op"><input type="radio" name="au-estado" value="' + v + '"' + (c.estado === v ? ' checked' : '') + '><span><strong>' + t + '</strong><span class="sg-sub">' + s + '</span></span></label>';
+    };
+    var chk = function (id, on, t) { return '<label class="chk"><input type="checkbox" id="' + id + '"' + (on !== false ? ' checked' : '') + '><span>' + t + '</span></label>'; };
+    h.push('<form class="panel" id="au-form" novalidate><h2 class="panel-h">Envío automático</h2>' +
+      '<fieldset class="au-radio"><legend class="flabel">¿Qué hace cada hora?</legend>' +
+      radio('apagado', 'Apagado', 'No sale nada solo.') + radio('prueba', 'Prueba', 'Arma lo de hoy y lo muestra en «Hoy», sin enviar.') +
+      radio('encendido', 'Encendido', 'Envía lo de hoy desde el número del equipo.') + '</fieldset>' +
+      '<div class="grid2"><label class="field"><span class="flabel">Desde</span><input type="time" id="au-desde" value="' + esc(String(c.hora_desde || '08:00').slice(0, 5)) + '"></label>' +
+      '<label class="field"><span class="flabel">Hasta</span><input type="time" id="au-hasta" value="' + esc(String(c.hora_hasta || '20:00').slice(0, 5)) + '"></label></div>' +
+      '<label class="field"><span class="flabel">Tu celular <span class="opt">(para pasarte respuestas y mandarte pruebas)</span></span><input type="tel" id="au-cel" inputmode="numeric" maxlength="15" placeholder="9XXXXXXXX" value="' + esc(c.nelson_celular || '') + '"></label>' +
+      chk('au-rcl', c.reenviar_clientes, 'Si un cliente responde, pasarle su mensaje a su asesor') +
+      chk('au-ras', c.reenviar_asesores, 'Si un asesor responde, pasarme su mensaje') +
+      chk('au-sol', c.responder_solo, 'Contestarle solo «ya le pasé su mensaje a…» a quien escribe') +
+      '<div class="sg-acts"><button type="submit" class="btn-sm primary"' + (ocup === 'guardar' ? ' disabled' : '') + '>' + (ocup === 'guardar' ? 'Guardando…' : 'Guardar') + '</button></div>' +
+      '<p class="status" id="au-status" role="status"></p></form>');
+    var linea = function (ok, t) { return '<li><span>' + (ok ? '✅ ' : '⬜ ') + t + '</span></li>'; };
+    h.push('<section class="panel" aria-labelledby="au-con-h"><h2 class="panel-h" id="au-con-h">Número del equipo (Kapso)</h2><ul class="hist">' +
+      linea(!!f.kapso, f.kapso ? 'La clave de Kapso está guardada en Supabase.' : 'Falta la clave de Kapso: en Supabase › Edge Functions › Secrets, guárdala como <code>KAPSO_API_KEY</code>.') +
+      linea(!!c.phone_number_id, c.phone_number_id ? 'Número conectado (id ' + esc(c.phone_number_id) + ').' : 'Falta conectar el número: conéctalo en Kapso y luego toca «Conectar».') +
+      linea(!!c.webhook_listo, c.webhook_listo ? 'Kapso avisa aquí los estados y las respuestas.' : 'Falta que Kapso avise las respuestas (se arregla al conectar).') +
+      linea(!!c.nelson_celular, c.nelson_celular ? 'Las respuestas de asesores te llegan al ' + esc(c.nelson_celular) + '.' : 'Falta tu celular (arriba).') +
+      '</ul><div class="sg-acts"><button type="button" class="btn-sm' + (c.phone_number_id ? '' : ' primary') + '" data-au="conectar"' + (!f.kapso || ocup ? ' disabled' : '') + '>' +
+      (ocup === 'conectar' ? 'Conectando…' : c.phone_number_id ? 'Volver a conectar' : 'Conectar') + '</button></div></section>');
+    $('vista-aj').innerHTML = h.join('');
+  }
+  function renderAu() {
+    if (AU.estado !== 'ok') {
+      var m = AU.estado === 'error' ? '<p class="estado urge">No se pudo cargar: ' + esc(AU.error) + '</p><div class="sg-acts"><button type="button" class="btn-sm" data-au="recargar">Reintentar</button></div>'
+        : '<p class="hint">Cargando…</p>';
+      PESTANAS.au.forEach(function (v) { $('vista-' + v).innerHTML = S.vista === v ? m : ''; });
+      return;
+    }
+    if (S.vista === 'ah') renderAuHoy();
+    if (S.vista === 'ar') renderAuResp();
+    if (S.vista === 'ap') renderAuPl();
+    if (S.vista === 'aj') renderAuAj();
+  }
+  function auOcupado(que, p) {
+    AU.ocupado = que;
+    renderAu();
+    return p.then(function (x) { AU.ocupado = ''; return x; }, function (e) { AU.ocupado = ''; renderAu(); aviso(bonito(e.message), true); throw e; });
+  }
+  function auRevisarLuego(ms) { ms.forEach(function (t) { setTimeout(function () { if (S.token) cargarAu(true); }, t); }); }
+  function auMarcar(x, estado) {
+    var l = x.filas.slice();
+    var sigue = function () {
+      var f = l.shift();
+      if (!f) return Promise.resolve();
+      return rpc('wa_auto_respuesta_marcar', { p_token: S.token, p_id: f.id, p_estado: estado, p_nota: null }).then(function (r) { if (r) Object.assign(f, r); return sigue(); });
+    };
+    return sigue().then(function () { renderTabs(); renderAu(); }, function (e) { aviso('No se guardó: ' + bonito(e.message), true); });
+  }
+  PESTANAS.au.forEach(function (v) {
+    $('vista-' + v).addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-au]');
+      if (!b || b.disabled) return;
+      var que = b.getAttribute('data-au'), i = Number(b.getAttribute('data-i'));
+      if (que === 'recargar') { cargarAu(); return; }
+      if (que === 'filtro') { AU.filtro = b.getAttribute('data-f'); renderAu(); return; }
+      if (que === 'revisar') {
+        auOcupado('revisar', fnAuto('correr', { modo: 'prueba' })).then(function (r) {
+          aviso('Listo: ' + plural(r.total || 0, 'mensaje para hoy', 'mensajes para hoy') + '.');
+          return cargarAu(true);
+        }).catch(function () {});
+        return;
+      }
+      if (que === 'enviar') {
+        auOcupado('enviar', fnAuto('correr', { modo: 'encendido' })).then(function () {
+          aviso('Enviando lo de hoy: se actualiza en un momento.');
+          renderAu();
+          auRevisarLuego([5000, 15000, 40000, 90000]);
+        }).catch(function () {});
+        return;
+      }
+      if (que === 'probar') {
+        var it = auHoy()[i];
+        if (!it) return;
+        b.disabled = true;
+        fnAuto('probar', { tipo: it.tipo, ref: it.ref, paso: it.tipo === 'cliente' ? null : it.paso, clave: it.accion || null }).then(function (r) {
+          b.disabled = false;
+          if (r.ok) aviso('Te lo mandé a tu celular (' + plural(r.enviados, 'parte', 'partes') + ').');
+          else aviso(r.motivo || 'No se pudo probar.', true);
+        }, function (e) { b.disabled = false; aviso(bonito(e.message), true); });
+        return;
+      }
+      var x = auRespuestas()[i];
+      if (que === 'atendida' && x) { auMarcar(x, 'atendida'); return; }
+      if (que === 'reabrir' && x) { auMarcar(x, 'nueva'); return; }
+      if (que === 'reenviar' && x) {
+        b.disabled = true;
+        fnAuto('reenviar', { id: x.r.id }).then(function (r) {
+          aviso(r && r.estado === 'reenviada' ? 'Listo: se la pasé.' : (r && r.motivo) || 'No se pudo pasar.', !(r && r.estado === 'reenviada'));
+          return cargarAu(true);
+        }, function (e) { b.disabled = false; aviso(bonito(e.message), true); });
+        return;
+      }
+      if (que === 'reintentar') {
+        b.disabled = true;
+        fnAuto('plantilla_reintentar', { id: b.getAttribute('data-id') }).then(function () {
+          aviso('Se manda a Meta en la próxima revisión.');
+          return cargarAu(true);
+        }, function (e) { b.disabled = false; aviso(bonito(e.message), true); });
+        return;
+      }
+      if (que === 'copiar') {
+        var p = ((AU.d && AU.d.plantillas) || []).filter(function (y) { return y.nombre === b.getAttribute('data-n'); })[0];
+        if (p) copiarTexto(p.cuerpo, function () { aviso('Texto copiado.'); }, function () { aviso('No se pudo copiar.', true); });
+        return;
+      }
+      if (que === 'conectar') {
+        auOcupado('conectar', fnAuto('conectar')).then(function (r) {
+          aviso('Conectado' + (r.numero ? ': ' + r.numero : '') + '.');
+          return cargarAu(true);
+        }).catch(function () {});
+      }
+    });
+  });
+  $('vista-aj').addEventListener('submit', function (ev) {
+    if (ev.target.id !== 'au-form') return;
+    ev.preventDefault();
+    var sel = document.querySelector('input[name="au-estado"]:checked'), st = $('au-status');
+    var datos = { estado: sel ? sel.value : auCfg().estado, hora_desde: $('au-desde').value || '08:00', hora_hasta: $('au-hasta').value || '20:00',
+                  nelson_celular: celLocal($('au-cel').value), reenviar_clientes: $('au-rcl').checked, reenviar_asesores: $('au-ras').checked, responder_solo: $('au-sol').checked };
+    if (datos.nelson_celular && !/^9\d{8}$/.test(datos.nelson_celular)) { st.textContent = 'El celular debe tener 9 dígitos y empezar con 9.'; st.className = 'status is-err'; $('au-cel').focus(); return; }
+    if (datos.hora_desde >= datos.hora_hasta) { st.textContent = 'La hora de inicio debe ser antes que la de fin.'; st.className = 'status is-err'; $('au-desde').focus(); return; }
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    auOcupado('guardar', rpc('wa_auto_config_guardar', { p_token: S.token, p_datos: datos })).then(function (c) {
+      AU.d.config = c;
+      renderAu();
+      aviso('Guardado.');
+    }).catch(function () {});
+  });
+
   /* ---------------------------------------------------------- sesión y carga */
   function mostrarLogin(msg) {
     $('vista-app').hidden = true;
@@ -4379,6 +5035,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (!S.token) return Promise.resolve();
     var pintando = false, gen = S.escrituras;
     cargarCl();
+    cargarAu(true);
     return rpc('wa_bv_datos', { p_token: S.token }).then(function (d) {
       if (S.escrituras !== gen && S.estado === 'ok') return cargar();   // llegó vieja: se anotó algo mientras tanto
       pintando = true;
@@ -4401,6 +5058,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
       $('premio-txt').innerHTML = '<strong>Nivel 0:</strong> ' + meta + ' capacitaciones en la oficina dentro de su plazo de ' + S.plazo + ' días y aprobar su test = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.';
       aplicarAjustes(d.ajustes || {});
+      S.ajustesData = d.ajustes || {};
       S.ajustesCargados = true;
       S.estado = 'ok';
       S.errorCarga = null;
@@ -4462,6 +5120,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     S.plantillas = [];
     S.modal = null;
     limpiarCl();
+    limpiarAu();
     renderModal();
     renderTabs();
     mostrarLogin(msg);

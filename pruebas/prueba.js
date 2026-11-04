@@ -247,6 +247,24 @@ function clienteConAcciones(c) { return Object.assign(clienteJson(c), { acciones
 
 let traspasos = 0;
 const llamadas = [];
+const au = {                                         // envío automático: lo que devolvería wa_auto_datos
+  kapso: false, llamadas: [], envios: [], corridas: [],
+  config: { id: 'vigente', estado: 'apagado', hora_desde: '08:00:00', hora_hasta: '20:00:00', nelson_celular: null, reenviar_clientes: true, reenviar_asesores: true,
+            responder_solo: true, phone_number_id: null, waba_id: null, kapso_listo: false, webhook_listo: false },
+  plantillas: [
+    { id: 'p1', clave: 'bv2', nombre: 'eqa_bv2_abc', estado: 'rechazada', motivo: 'Meta la rechazó (INVALID_FORMAT).', categoria: 'MARKETING', categoria_meta: null, encabezado: null, cuerpo: '📅 *Día {{1}} de 30*', creado_en: '2026-10-20T10:00:00Z' },
+    { id: 'p0', clave: 'bv2', nombre: 'eqa_bv2_old', estado: 'aprobada', categoria: 'MARKETING', encabezado: null, cuerpo: 'versión vieja', creado_en: '2026-10-01T10:00:00Z' },
+    { id: 'p2', clave: 'archivo_video', nombre: 'eqa_archivo_video_v1', estado: 'aprobada', categoria: 'UTILITY', categoria_meta: 'MARKETING', encabezado: 'VIDEO', cuerpo: '🎥 *Video*\n\n{{1}}', creado_en: '2026-10-20T10:00:00Z' },
+    { id: 'p3', clave: 'cl_mes1.usted', nombre: 'eqa_cl_mes1_usted_x', estado: 'enviada', categoria: 'MARKETING', encabezado: null, cuerpo: 'Hola{{1}}', creado_en: '2026-10-20T10:00:00Z' }
+  ],
+  respuestas: [
+    { id: 'r1', celular: '987000111', contacto: 'Rosa', de_tipo: 'cliente', de_nombre: 'ROSA FLORES', sobre: 'Al recibir su pedido', texto: '¿Cómo uso la sartén?', recibido_en: '2026-10-21T09:00:20-05:00',
+      estado: 'sin_reenvio', motivo: 'El aviso aún no está aprobado en Meta: respóndele desde aquí.', para: 'asesor', baja: false },
+    { id: 'r2', celular: '987000111', contacto: 'Rosa', de_tipo: 'cliente', de_nombre: 'ROSA FLORES', sobre: 'Al recibir su pedido', texto: '📷 [foto]', recibido_en: '2026-10-21T09:00:00-05:00',
+      estado: 'sin_reenvio', motivo: 'El aviso aún no está aprobado en Meta: respóndele desde aquí.', para: 'asesor', baja: false },
+    { id: 'r3', celular: '987000222', contacto: 'Ana', de_tipo: 'asesor', de_nombre: 'ANA QUISPE', texto: 'Gracias', recibido_en: '2026-10-20T15:00:00-05:00', estado: 'reenviada', reenvio_id: 'x', para: 'nelson', baja: false }
+  ]
+};
 const limpio = (f) => { const c = Object.assign({}, f); delete c.borrado; return c; };
 
 function rpc(fn, a) {
@@ -365,7 +383,42 @@ function rpc(fn, a) {
     a.p_ids.forEach((id, i) => { const f = db.adjuntos.find((x) => x.id === id); if (f) f.orden = i + 1; });
     return ok({ ok: true });
   }
+  if (fn === 'wa_auto_datos') return ok({ hoy: HOY, config: Object.assign({}, au.config), plantillas: au.plantillas.map((x) => Object.assign({}, x)),
+    envios: au.envios.map((x) => Object.assign({}, x)), respuestas: au.respuestas.map((x) => Object.assign({}, x)), corridas: au.corridas.map((x) => Object.assign({}, x)) });
+  if (fn === 'wa_auto_config_guardar') {
+    const d = a.p_datos || {};
+    if (d.nelson_celular && !/^9\d{8}$/.test(d.nelson_celular)) return err('El celular debe tener 9 digitos y empezar con 9');
+    Object.assign(au.config, d);
+    return ok(Object.assign({}, au.config));
+  }
+  if (fn === 'wa_auto_respuesta_marcar') {
+    const r = au.respuestas.find((x) => x.id === a.p_id);
+    if (!r) return err('La respuesta no existe');
+    r.estado = a.p_estado === 'nueva' ? (r.reenvio_id ? 'reenviada' : 'nueva') : 'atendida';
+    return ok(Object.assign({}, r));
+  }
   return { status: 404, body: { message: 'No existe ' + fn } };
+}
+/* La función wa-auto falsa: lo justo para la página (lo de adentro se prueba en pruebas/wa-auto.js). */
+function fnAuto(b) {
+  if (b.token !== 'tok-1') return { status: 401, body: { error: 'Sesion invalida' } };
+  au.llamadas.push(b);
+  if (b.accion === 'estado') return { status: 200, body: { huella: 'x', al_dia: true, kapso: au.kapso, webhook: !!au.config.webhook_listo } };
+  if (b.accion === 'correr') {
+    const k = { id: 'k' + (au.corridas.length + 1), fin: AHORA.toISOString(), resumen: { total: 3, prueba: 2, no_salen: 1 } };
+    au.corridas.unshift(k);
+    const fila = (ref, paso, titulo, nombre, estado, extra) => Object.assign({ id: 'e' + (au.envios.length + 1), fecha: HOY, corrida_id: k.id, tipo: 'asesor', ref, paso, titulo, nombre,
+      parte: 1, partes: 1, estado, motivo: null, texto: 'Hola ' + nombre + ', este es tu mensaje.', encabezado: null }, extra || {});
+    au.envios = [fila('s14', 'bv2', 'Día 2 · Kit y material digital', 'Tomas Atrasado', 'prueba'),
+      fila('s14', 'bv2', 'Día 2 · Kit y material digital', 'Tomas Atrasado', 'prueba', { parte: 2, partes: 2, texto: '🎥 Video del Equipo Arequipa', encabezado: { tipo: 'VIDEO', archivo: 'Video del Kit.mp4' } }),
+      fila('cli-1', '900::mes1', 'Al mes de su compra', 'Ana Maria Quispe', 'omitido', { tipo: 'cliente', accion: '900::mes1', motivo: 'No tiene un celular válido.' })];
+    return { status: 200, body: k.resumen };
+  }
+  if (b.accion === 'probar') return { status: 200, body: { ok: true, enviados: 2 } };
+  if (b.accion === 'plantilla_reintentar') { const p = au.plantillas.find((x) => x.id === b.id); p.estado = 'borrador'; p.motivo = null; return { status: 200, body: p }; }
+  if (b.accion === 'conectar') { Object.assign(au.config, { phone_number_id: 'PN1', waba_id: 'W1', webhook_listo: true }); return { status: 200, body: { numero: '+51 900 000 000' } }; }
+  if (b.accion === 'reenviar') return { status: 200, body: { estado: 'reenviada' } };
+  return { status: 400, body: { error: 'Acción no válida' } };
 }
 
 async function conectar(ctx) {
@@ -380,6 +433,10 @@ async function conectar(ctx) {
       const ok = /^[0-9a-f-]{36}$/i.test(JSON.parse(req.postData() || '{}').codigo || '');
       return route.fulfill({ status: ok ? 200 : 401, headers: Object.assign({ 'content-type': 'application/json' }, CORS),
         body: JSON.stringify(ok ? { ok: true, tipo: 'staff', admin_token: 'tok-1', modulo: 'bienvenida' } : { ok: false, motivo: 'Código inválido.' }) });
+    }
+    if (url.pathname === '/functions/v1/wa-auto') {
+      const r = fnAuto(JSON.parse(req.postData() || '{}'));
+      return route.fulfill({ status: r.status, headers: Object.assign({ 'content-type': 'application/json' }, CORS), body: JSON.stringify(r.body) });
     }
     if (url.pathname.startsWith('/rest/v1/rpc/')) {
       const fn = url.pathname.split('/').pop();
@@ -484,6 +541,76 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(!opciones.some((t) => /Norma No Entra/.test(t)) && opciones.some((t) => /Nadia Nueva Marcar .*por marcar/.test(t)), 'no lista a quien no entra a la secuencia y dice a quién falta marcar', opciones.join(' | '));
     ok(!opciones.some((t) => /Rosa Antigua|Hugo/.test(t)), 'no lista a los de hace más de 45 días ni a los excluidos');
     ok((await page.textContent('#aj-resumen')).includes('Promoción 5'), 'carga la promoción guardada');
+
+    console.log('Servidor: lo mismo que «Para hoy»');
+    {
+      // las reglas del envío automático salen de este mismo index.html (servidor/construir.js)
+      require('../servidor/construir.js').construir();
+      const url = require('url').pathToFileURL(path.join(RAIZ, 'supabase', 'functions', 'wa-auto', 'reglas.js')).href;
+      const { crearReglas } = await import(url);
+      const R = crearReglas({ ahoraMs: AHORA.getTime(), bv: rpc('wa_bv_datos', { p_token: 'tok-1' }).body, cl: rpc('wa_cl_datos', { p_token: 'tok-1' }).body });
+      const items = R.porEnviarHoy();
+      const iguales = (a, b) => JSON.stringify(a.slice().sort()) === JSON.stringify(b.slice().sort());
+      const srvBv = items.filter((i) => /^bv\d$/.test(i.paso)).map((i) => i.ref + ':' + i.paso);
+      const pagBv = await page.$$eval('#bv-hoy ul.hoy li', (l) => l.map((li) => {
+        const b = li.querySelector('[data-id]'), m = /Día (\d)/.exec(li.textContent);
+        return (b ? b.getAttribute('data-id') : '?') + ':bv' + (m ? m[1] : '?');
+      }));
+      ok(srvBv.length === 4 && iguales(srvBv, pagBv), 'bienvenida: el servidor propone lo mismo que «Para hoy»', srvBv.join(' ') + ' | ' + pagBv.join(' '));
+      await page.click('#tab-sg');
+      await esperar(200);
+      const srvSg = items.filter((i) => i.tipo === 'asesor' && !/^bv\d$/.test(i.paso)).map((i) => i.ref + ':' + i.titulo);
+      const pagSg = await page.$$eval('#vista-sg ul.sg-items .sg-nom[data-id]', (l) => l.map((b) => {
+        const h = b.closest('ul').previousElementSibling;
+        return b.getAttribute('data-id') + ':' + (h ? h.textContent.replace(/\s*\d+\s*$/, '').trim() : '');
+      }));
+      ok(srvSg.length >= 8 && iguales(srvSg, pagSg), 'seguimiento: lo mismo, mensaje por mensaje', srvSg.join(' | ') + ' ‖ ' + pagSg.join(' | '));
+      await page.click('#grupo-cl');
+      await page.waitForSelector('#vista-cb section[aria-labelledby="cb-hoy-h"]');
+      const pagCb = await page.$$eval('#vista-cb section[aria-labelledby="cb-hoy-h"] ul.sg-items [data-clave]', (l) => Array.from(new Set(l.map((x) => x.getAttribute('data-clave')))));
+      await page.click('#tab-cs');
+      await page.waitForSelector('#vista-cs section[aria-labelledby="cs-hoy-h"]');
+      const pagCs = await page.$$eval('#vista-cs section[aria-labelledby="cs-hoy-h"] h3.sg-grupo', (hs) => {
+        const out = [];
+        hs.forEach((h) => {
+          if (/^Avisados/.test(h.textContent.trim())) return;
+          const ul = h.nextElementSibling;
+          if (ul) ul.querySelectorAll('[data-clave]').forEach((x) => { if (out.indexOf(x.getAttribute('data-clave')) < 0) out.push(x.getAttribute('data-clave')); });
+        });
+        return out;
+      });
+      const srvCl = items.filter((i) => i.tipo === 'cliente').map((i) => i.accion);
+      ok(srvCl.length >= 5 && iguales(srvCl, pagCb.concat(pagCs)), 'clientes: lo mismo, bienvenida y filtros', srvCl.join(' ') + ' | ' + pagCb.concat(pagCs).join(' '));
+      await page.click('#tab-cb');                         // que Clientes vuelva a abrir en su bienvenida
+      await esperar(150);
+      await page.click('#grupo-as');
+      await page.click('#tab-bv');
+      await esperar(150);
+      // por WhatsApp automático sale el mismo texto, en partes que Meta acepta
+      ok(items.every((i) => !i.problemas.some((p) => /no sale igual|empieza o termina|pasa de 1,024|marcador/.test(p))),
+        'cada mensaje sale por WhatsApp automático igual que en la página', JSON.stringify(items.filter((i) => i.problemas.length).map((i) => [i.nombre, i.paso, i.problemas])));
+      // con los archivos del día subidos (en esta prueba se suben más abajo)
+      const bvCon = JSON.parse(JSON.stringify(rpc('wa_bv_datos', { p_token: 'tok-1' }).body));
+      bvCon.adjuntos.forEach((x) => { if (!x.ruta) Object.assign(x, { ruta: 'bienvenida/d' + x.dia + '/prueba', bytes: 4096, content_type: x.tipo === 'video' ? 'video/mp4' : x.tipo === 'imagen' ? 'image/png' : 'application/pdf' }); });
+      const conArchivos = crearReglas({ ahoraMs: AHORA.getTime(), bv: bvCon, cl: rpc('wa_cl_datos', { p_token: 'tok-1' }).body }).porEnviarHoy();
+      const sinArchivo = items.find((i) => i.ref === 's14');
+      ok(sinArchivo && sinArchivo.avisos.length === 1 && /Va sin «Video del Kit de Inicio», «Video de los utensilios»/.test(sinArchivo.avisos[0]), 'si falta subir un archivo del día, sale igual pero lo avisa', JSON.stringify(sinArchivo && sinArchivo.avisos));
+      const tomas = conArchivos.find((i) => i.ref === 's14');
+      ok(tomas && /Recuerda: nuestras próximas reuniones son \{\{3\}\}\. ¡Te esperamos!$/.test(tomas.partes[0].cuerpo), 'ningún mensaje termina en un dato (Meta no lo acepta)', tomas && tomas.partes[0].cuerpo.slice(-80));
+      const vids = tomas ? tomas.partes.slice(1, 6) : [];
+      ok(tomas && tomas.paso === 'bv2' && tomas.partes.length === 7 && !tomas.partes[0].encabezado && /^📅 \*Día \{\{1\}\} de 30\*/.test(tomas.partes[0].cuerpo) &&
+         tomas.partes[0].params[0] === '3' && vids.every((p) => p.encabezado && p.encabezado.tipo === 'VIDEO' && p.nombre === 'eqa_archivo_video_v1' && p.params.length === 1) &&
+         vids[0].params[0] === 'Video del Kit de Inicio' && vids[1].params[0] === TEXTO_VIDEO.ut && vids[1].texto.includes(TEXTO_VIDEO.ut) &&
+         tomas.partes[6].encabezado.tipo === 'DOCUMENT' && tomas.partes[6].nombre === 'eqa_archivo_documento_v1',
+        'el día 2 sale en 7 partes: el texto del día, y cada archivo con su texto en la plantilla fija de su tipo', JSON.stringify(tomas && tomas.partes.map((p) => [p.nombre, p.encabezado && p.encabezado.tipo, p.cuerpo.slice(0, 40), p.params])));
+      const nombresArchivo = new Set();
+      conArchivos.forEach((i) => i.partes.forEach((p) => { if (p.encabezado) nombresArchivo.add(p.nombre); }));
+      ok(nombresArchivo.size <= 3 && conArchivos.every((i) => i.partes.every((p) => !p.encabezado || (p.params.length === 1 && !/\n/.test(p.params[0])))),
+        'todos los archivos usan solo 3 plantillas fijas, con su texto en una línea', Array.from(nombresArchivo).join(' '));
+      ok(items.every((i) => i.partes.every((p) => p.cuerpo.length <= 1024 && p.texto.length <= 1024 && /^eqa_[a-z0-9_]+$/.test(p.nombre))), 'todas las partes caben en 1,024 y tienen nombre de plantilla válido');
+      const ana = items.find((i) => i.tipo === 'cliente' && /Ana/.test(i.nombre));
+      ok(ana && ana.problemas.some((p) => /celular/.test(p)), 'quien no tiene celular queda avisado, no se manda', JSON.stringify(ana && ana.problemas));
+    }
 
     console.log('Bienvenida · para hoy');
     await page.screenshot({ path: '/tmp/bv-inicio.png', fullPage: true });
@@ -1432,6 +1559,87 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(150);
     ok(await page.isVisible('#vistas-as') && ((await page.isVisible('#vista-bv')) || (await page.isVisible('#vista-sg'))) && await page.isVisible('#horario-panel') && !(await page.isVisible('#vista-cs')), 'volver a Asesores restaura su vista');
 
+    console.log('Automático');
+    ok((await page.textContent('#cuenta-au')).startsWith('1'), 'el grupo Automático cuenta las respuestas por atender (dos mensajes seguidos son una)', await page.textContent('#cuenta-au'));
+    await page.click('#grupo-au');
+    await page.waitForSelector('#vista-ah .estado');
+    ok(await page.isVisible('#vistas-au') && !(await page.isVisible('#horario-panel')) && /Apagado/.test(await page.textContent('#vista-ah')) && /Aún no se revisa lo de hoy/.test(await page.textContent('#vista-ah')),
+      'Hoy dice si está apagado y que aún no se revisa', await page.textContent('#vista-ah'));
+    ok(!(await page.$('#vista-ah [data-au="enviar"]')), 'sin número conectado no ofrece enviar');
+    await page.click('#vista-ah [data-au="revisar"]');
+    await page.waitForFunction(() => /Saldrían/.test(document.querySelector('#vista-ah').textContent));
+    const ahTxt = await page.textContent('#vista-ah');
+    ok(au.llamadas.some((b) => b.accion === 'correr' && b.modo === 'prueba') && /Última revisión: .*3 mensajes para hoy: 2 saldrían, 1 no sale solo/.test(ahTxt), 'Revisar ahora arma lo de hoy sin enviar y dice el resumen', ahTxt.slice(0, 300));
+    ok(/No salen solos/.test(ahTxt) && /No tiene un celular válido/.test(ahTxt) && /Tomas Atrasado/.test(ahTxt) && /2 partes/.test(ahTxt), 'un renglón por mensaje, con sus partes y lo que no sale solo con su motivo');
+    await page.click('#vista-ah li.sg-item:has-text("Tomas Atrasado") details.au-det summary');
+    ok(/🎥 Video del Kit\.mp4/.test(await page.textContent('#vista-ah details.au-det[open]')), 'se puede ver el mensaje con su archivo');
+    await page.keyboard.press('Tab');
+    await page.click('#tab-ar');
+    await page.waitForSelector('#vista-ar .sg-item');
+    ok((await page.$$('#vista-ar .sg-item')).length === 1 && /Por atender \(1\)/.test(await page.textContent('#vista-ar')) && /aún no está aprobado/.test(await page.textContent('#vista-ar')) &&
+       (await page.getAttribute('#vista-ar a.wa-ok', 'href')) === 'https://wa.me/51987000111', 'Respuestas: lo que llegó junto en una tarjeta, con el motivo y su chat', await page.textContent('#vista-ar'));
+    const marcadas = llamadas.length;
+    await page.click('#vista-ar [data-au="atendida"]');
+    await page.waitForFunction(() => /Nada por atender/.test(document.querySelector('#vista-ar').textContent));
+    ok(llamadas.slice(marcadas).filter((l) => l.fn === 'wa_auto_respuesta_marcar' && l.args.p_estado === 'atendida').length === 2 && await page.isHidden('#cuenta-au'), 'Ya la atendí marca las dos y quita la cuenta');
+    await page.click('#vista-ar [data-au="filtro"][data-f="todas"]');
+    ok((await page.$$('#vista-ar .sg-item')).length === 2 && /Se le pasó a ti/.test(await page.textContent('#vista-ar')), 'Todas muestra también lo que ya se pasó');
+    await page.click('#tab-ap');
+    await page.waitForSelector('#vista-ap .sg-item');
+    const apTxt = await page.textContent('#vista-ap');
+    ok((await page.$$('#vista-ap .sg-item')).length === 3 && /1 versión anterior/.test(apTxt) && /Bienvenida · Día 2/.test(apTxt) && /Archivos: videos/.test(apTxt) && /Cliente · .*\(usted\)/.test(apTxt),
+      'Plantillas: la última versión de cada una, con nombre entendible', apTxt.slice(0, 400));
+    ok(/Rechazada/.test(apTxt) && /INVALID_FORMAT/.test(apTxt) && /marketing/.test(apTxt), 'con su estado, motivo y categoría');
+    await page.click('#vista-ap [data-au="reintentar"]');
+    await page.waitForFunction(() => /Por mandar a Meta/.test(document.querySelector('#vista-ap').textContent));
+    ok(au.llamadas.some((b) => b.accion === 'plantilla_reintentar' && b.id === 'p1'), 'una rechazada se vuelve a mandar');
+    await page.click('#tab-aj');
+    await page.waitForSelector('#au-form');
+    ok(await page.isDisabled('#vista-aj [data-au="conectar"]') && /KAPSO_API_KEY/.test(await page.textContent('#vista-aj')), 'sin la clave de Kapso dice dónde ponerla y no deja conectar');
+    await page.check('#au-form input[value="prueba"]');
+    await page.fill('#au-cel', '12345');
+    await page.click('#au-form button[type="submit"]');
+    ok(/9 dígitos/.test(await page.textContent('#au-status')) && !llamadas.some((l) => l.fn === 'wa_auto_config_guardar'), 'un celular mal escrito no se guarda');
+    await page.fill('#au-cel', '987 654 321');
+    await page.uncheck('#au-sol');
+    await page.click('#au-form button[type="submit"]');
+    await page.waitForFunction(() => /Guardado/.test(document.querySelector('#toast').textContent));
+    const g = llamadas.filter((l) => l.fn === 'wa_auto_config_guardar').pop();
+    ok(g && g.args.p_datos.estado === 'prueba' && g.args.p_datos.nelson_celular === '987654321' && g.args.p_datos.responder_solo === false && g.args.p_datos.hora_desde === '08:00',
+      'Ajustes guarda el modo, el celular y lo de responder', JSON.stringify(g && g.args.p_datos));
+    au.kapso = true;
+    await page.click('#tab-ah');
+    await page.click('#vista-ah [data-au="recargar"]');
+    await page.waitForFunction(() => /En prueba/.test(document.querySelector('#vista-ah').textContent));
+    await page.click('#tab-aj');
+    await page.click('#vista-aj [data-au="conectar"]');
+    await page.waitForFunction(() => /Número conectado/.test(document.querySelector('#vista-aj').textContent));
+    ok(au.llamadas.some((b) => b.accion === 'conectar'), 'Conectar toma el número de Kapso');
+    await page.click('#tab-ah');
+    await page.waitForSelector('#vista-ah [data-au="probar"]');
+    await page.click('#vista-ah [data-au="probar"]');
+    await page.waitForFunction(() => /Te lo mandé a tu celular/.test(document.querySelector('#toast').textContent));
+    const pr = au.llamadas.filter((b) => b.accion === 'probar').pop();
+    ok(pr && pr.tipo === 'asesor' && pr.ref === 's14' && pr.paso === 'bv2' && !pr.clave, 'Probármelo manda ese mensaje a tu celular', JSON.stringify(pr));
+    await page.focus('#tab-ah');
+    await page.keyboard.press('ArrowLeft');
+    ok((await page.evaluate(() => document.activeElement.id)) === 'tab-aj', 'las flechas recorren las cuatro pestañas');
+    await page.focus('#grupo-au');
+    await page.keyboard.press('ArrowRight');
+    ok((await page.evaluate(() => document.activeElement.id)) === 'grupo-as', 'y los tres grupos');
+    await page.click('#grupo-au');
+    for (const t of ['ah', 'ar', 'ap', 'aj']) {
+      await page.click('#tab-' + t);
+      await esperar(80);
+      if (!(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))) { ok(false, 'sin desborde horizontal en ' + t); break; }
+    }
+    await page.setViewportSize({ width: 360, height: 800 });
+    await esperar(100);
+    ok(await page.evaluate(() => document.documentElement.scrollWidth <= 360 && document.querySelector('.grupos').scrollWidth <= document.querySelector('.grupos').clientWidth + 1), 'Automático cabe a 360 px, con los tres grupos');
+    await page.setViewportSize({ width: 400, height: 900 });
+    await page.click('#grupo-as');
+    await esperar(150);
+
     console.log('Sesión');
     await page.click('#tab-bv');
     sesionInvalida = true;
@@ -1447,6 +1655,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
   } catch (e) {
     fallas++;
     console.log('  ✗ la prueba se cortó: ' + e.message);
+    if (errores.length) console.log('  errores de JavaScript: ' + errores.slice(0, 5).join(' | '));
   } finally {
     await browser.close();
     server.close();

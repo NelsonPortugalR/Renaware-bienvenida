@@ -1,7 +1,8 @@
 # Bienvenida por WhatsApp · Equipo Arequipa
 
 Todos los mensajes de WhatsApp del equipo, en dos grupos: **Asesores** y
-**Clientes**, cada uno con sus pestañas de Bienvenida y Seguimiento.
+**Clientes**, cada uno con sus pestañas de Bienvenida y Seguimiento, y el
+grupo **Automático**, que los manda solos desde el número del equipo.
 
 ## Asesores
 
@@ -206,10 +207,77 @@ canjea, guarda la sesión y recarga conservando el resto del enlace.
   25 MB cada uno. Nada se borra de verdad: quitar un archivo lo marca
   `borrado` y el archivo queda en el bucket.
 
+## Envío automático
+
+Los mismos mensajes de «Para hoy», enviados solos desde un número del equipo por
+la API oficial de WhatsApp, con Kapso como proveedor. En la página, grupo
+**Automático**: Hoy, Respuestas, Plantillas y Ajustes.
+
+- **Qué manda**: la Edge Function `wa-auto` usa las mismas reglas y textos de la
+  página. `servidor/construir.js` copia los bloques marcados
+  `/* servidor:desde */ … /* servidor:hasta */` de `index.html` a
+  `supabase/functions/wa-auto/reglas.js` (con la hora de Lima). **Si cambia algo
+  dentro de esos bloques**: `node servidor/construir.js` y volver a desplegar
+  `wa-auto`. La función compara su huella con la página publicada y la página
+  avisa si quedó atrás.
+- **Cuándo**: pg_cron `wa-auto` a los :05 de cada hora, de 8:05 a 20:05 de Lima,
+  llama a `wa_auto_cron()`. Si está apagado no hace nada; si no, pide una
+  corrida (`wa_auto_corridas`, con clave de un solo uso) y llama a la función,
+  que responde al toque y trabaja en segundo plano. Una corrida a la vez
+  (`wa_auto_corrida_iniciar`). Solo envía dentro del horario de Ajustes.
+- **Modos**: apagado, prueba (arma lo de hoy y lo deja como «saldría», sin
+  enviar) y encendido.
+- **Plantillas**: cada mensaje es una plantilla de Meta. Lo propio de cada
+  persona va como variable y lo demás queda fijo. El nombre lleva una huella del
+  texto (`eqa_<clave>_<huella>`), así que cambiar un texto crea una versión
+  nueva, que se manda a aprobar sola. Las partes son de hasta 1,024 caracteres.
+  Los archivos van aparte, en 3 plantillas fijas (`eqa_archivo_video_v1`,
+  `eqa_archivo_imagen_v1`, `eqa_archivo_documento_v1`), con su texto como
+  variable. Un video de hasta 16 MB va como video y una imagen jpg o png de
+  hasta 5 MB como imagen; lo demás va como documento (hasta 100 MB). Esas 3
+  piden una muestra del archivo. Si Kapso no la recibe por la API, se crean una
+  sola vez a mano en Kapso con el mismo nombre (la página dice cómo) y la función
+  las reconoce sola.
+- **Envío**:
+  - Un mensaje sale solo si todas sus plantillas están aprobadas. Sale parte por
+    parte, en orden.
+  - Una cosa por persona en cada corrida, y hasta 45 mensajes por corrida.
+  - Al salir se anota como si se hubiera mandado desde la página
+    (`n0_mensajes` o `crm_seguimiento`), así «Para hoy» lo da por hecho. Si
+    luego falla, se anula lo anotado.
+  - Lo que ya llegó no se repite (se miran 8 días).
+  - Si falla:
+    - un error pasajero se reintenta en la corrida siguiente (hasta 4 veces al
+      día);
+    - el tope de publicidad de Meta (131049) se reintenta mañana a las 9:00;
+    - un número sin WhatsApp no se reintenta hasta que se corrija.
+- **Respuestas**: llegan por el webhook de Kapso, firmado con HMAC; el secreto
+  está en Vault (`wa_auto_webhook`).
+  - La de un cliente le llega a su asesor como plantilla, con un botón al chat
+    del cliente. El asesor es el vendedor de su último pedido o, si fue una
+    autocompra, quien lo afilió.
+  - La de un asesor, o de alguien que no está registrado, le llega a Nelson.
+  - A quien escribe se le contesta solo una vez cada 12 horas.
+  - «Baja», «stop» o «no quiero recibir más mensajes» lo sacan de la secuencia
+    (✗).
+  - Todo queda en Automático › Respuestas, para marcarlo como atendido.
+- **Tablas**: `wa_auto_config`, `wa_auto_plantillas`, `wa_auto_envios`,
+  `wa_auto_respuestas` y `wa_auto_corridas`. Tienen RLS y no hay acceso
+  directo.
+  - La página usa `wa_auto_datos`, `wa_auto_config_guardar` y
+    `wa_auto_respuesta_marcar`, con la sesión.
+  - La función usa `wa_auto_insumos`, `wa_auto_anotar_asesor`,
+    `wa_auto_anotar_cliente`, `wa_auto_desanotar`, `wa_auto_contacto`,
+    `wa_auto_baja` y los demás `wa_auto_*`, solo con service role.
+- **Función**: se despliega con `verify_jwt` apagado. Se autentica con la sesión
+  de admin, la clave de cada corrida o la firma del webhook. Su secreto es
+  `KAPSO_API_KEY`, que se guarda en Supabase › Edge Functions › Secrets.
+
 ## Pruebas
 
 ```bash
-node pruebas/prueba.js   # Chromium real con un Supabase falso; 272 aserciones y capturas en /tmp/bv-*.png
+NODE_PATH=$(npm root -g) node pruebas/prueba.js    # Chromium real con un Supabase falso; capturas en /tmp/bv-*.png
+NODE_PATH=$(npm root -g) node pruebas/wa-auto.js   # la función wa-auto con Supabase y Kapso falsos
 ```
 
 ## Despliegue
@@ -217,3 +285,12 @@ node pruebas/prueba.js   # Chromium real con un Supabase falso; 272 aserciones y
 En línea en **https://renaware-bienvenida.pages.dev**. Cloudflare Pages
 conectado a este repo: directorio raíz, sin comando de build; cada push a
 `main` publica. Registrado en `plataforma_modulos` como `bienvenida`.
+
+La función `wa-auto` se despliega aparte, después de `node servidor/construir.js`
+y del push:
+
+- con la CLI: `supabase functions deploy wa-auto --no-verify-jwt`;
+- o con el MCP de Supabase, con `verify_jwt` apagado y un solo `index.ts` que
+  carga el código de un commit fijo de este repo (es público):
+  `import 'https://raw.githubusercontent.com/NelsonPortugalR/renaware-bienvenida/<commit>/supabase/functions/wa-auto/index.ts';`
+  (`reglas.js` sale del mismo commit).
