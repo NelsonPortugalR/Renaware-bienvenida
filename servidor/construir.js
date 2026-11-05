@@ -42,7 +42,7 @@ const PREAMBULO = `
     }
     static now() { return AHORA + DESFASE; }
   }
-  var S = { asesores: [], nivel0: null, plazo: 30, plantillas: [], empieceYa: [], periodos: [], items: [], ajustesData: {} };
+  var S = { asesores: [], nivel0: null, plazo: 30, plantillas: [], empieceYa: [], periodos: [], items: [], ajustesData: {}, clases: [], clasesHasta: null };
   function leerHorario() { return waHorario(); }       // en la página sale del recuadro de horario; aquí, de Nivel Cero
 `;
 
@@ -58,6 +58,8 @@ const CARGA = `
   S.nivel0 = bv.nivel0 || null;
   S.plazo = (S.nivel0 && Number(S.nivel0.plazo)) || 30;
   S.ajustesData = bv.ajustes || {};
+  S.clases = Array.isArray(bv.clases) ? bv.clases : [];
+  S.clasesHasta = bv.clases_hasta || null;
   CL.oficina = cl.oficina || {};
   CL.clientes = Object.create(null);
   (Array.isArray(cl.clientes) ? cl.clientes : []).forEach(function (c) { if (c && c.id) CL.clientes[String(c.id)] = c; });
@@ -67,6 +69,7 @@ const CARGA = `
 
   return {
     hoy: hoyISO, porEnviarHoy: waPorEnviarHoy, itemBv: waItemBv, itemSeg: waItemSeg, itemCl: waItemCl, partes: waPartes,
+    pasosSeg: function () { return PASOS.filter(function (x) { return plantilla(x.k).activo; }).map(function (x) { return x.k; }); },
     marcar: waMarcar, huellaTexto: waHuella, categoria: waCategoria, encabezado: waEncabezado,
     asesorPorId: function (id) { return S.asesores.filter(function (p) { return String(p.id) === String(id); })[0] || null; },
     clientePorId: clientePorId, accionesDe: accionesDe, pila: pila, titulo: titulo, celLocal: celLocal, celularWA: celularWA,

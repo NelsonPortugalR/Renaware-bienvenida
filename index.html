@@ -848,7 +848,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     </summary>
     <div class="panel-body">
       <div class="sched" id="sched"></div>
-      <p class="hint" id="horario-hint">Vale para la bienvenida y el seguimiento. Si una semana cambia, edítalo aquí. Al recargar la página vuelve al horario de Nivel Cero, que es el que usa el envío automático: si el cambio es para todos, hazlo en Nivel Cero.</p>
+      <p class="hint" id="horario-hint">Se cambia solo en Entrenamientos › Horario. De ahí lo toman esta página, Nivel Cero y el envío automático, con lo que cambies o canceles cada semana.</p>
     </div>
   </details>
 
@@ -1147,17 +1147,33 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     var base = plan && plan.getTime() > hoy.getTime() ? plan : hoy;
     var desde = base.getTime() === hoy.getTime() ? ctx.ahora.getTime() + MARGEN_MS : base.getTime();
     var horario = (ctx.horario || []).slice().sort(function (a, b) { return (a.h * 60 + a.m) - (b.h * 60 + b.m); });
-    var out = [];
+    var reales = clasesReales(), out = [];
     for (var i = 0; i < 28 && out.length < cuantas; i++) {
       var d = addDays(base, i);
-      for (var j = 0; j < horario.length && out.length < cuantas; j++) {
-        var s = horario[j];
-        if (s.dow !== d.getDay()) continue;
+      // las clases de cada fecha según el horario de Entrenamientos (con lo que se cambió o se canceló esa semana);
+      // más allá de lo que ya tiene fechas, el horario semanal
+      var delDia = reales && d.getTime() <= reales.hasta.getTime() ? (reales.porDia[isoDe(d)] || [])
+        : horario.filter(function (s) { return s.dow === d.getDay(); });
+      for (var j = 0; j < delDia.length && out.length < cuantas; j++) {
+        var s = delDia[j];
         var t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.h, s.m);
         if (t.getTime() >= desde) out.push({ fecha: t, rel: i, h: s.h, m: s.m });
       }
     }
     return out;
+  }
+  /* Las clases con fecha que cuentan para Nivel Cero (Entrenamientos › Horario), por día, y hasta qué fecha hay. */
+  function clasesReales() {
+    var hasta = parseISO(String(S.clasesHasta || '').slice(0, 10));
+    if (!hasta || !Array.isArray(S.clases)) return null;
+    var porDia = {};
+    S.clases.forEach(function (c) {
+      var f = String(c && c.fecha || '').slice(0, 10), m = /^(\d{1,2}):(\d{2})/.exec(String(c && c.hora || ''));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !m) return;
+      (porDia[f] = porDia[f] || []).push({ h: Number(m[1]), m: Number(m[2]) });
+    });
+    Object.keys(porDia).forEach(function (k) { porDia[k].sort(function (a, b) { return a.h * 60 + a.m - (b.h * 60 + b.m); }); });
+    return { porDia: porDia, hasta: hasta };
   }
   function fraseSesion(s) {
     var hora = aLas(s.h) + ' ' + fmtHora(s.h, s.m);
@@ -1667,8 +1683,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     asesores: [],
     nivel0: null,
     plazo: 30,
-    horarioBase: HORARIO_BASE,
-    horarioListo: false,
+    clases: [],
+    clasesHasta: null,
     ajustesCargados: false,
     editando: null,
     borrando: null,
@@ -1724,38 +1740,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     '</article>';
   }).join('');
 
-  /* ---------------------------------------------------------- horario (vuelve al de Nivel Cero en cada carga) */
-  var OPC_DIAS = '<option value="">Sin capacitación</option>' + [1, 2, 3, 4, 5, 6, 0].map(function (d) {
-    return '<option value="' + d + '">' + DIAS_CAP[d] + '</option>';
-  }).join('');
-  function construirHorario(base) {
-    var filas = Math.max(3, base.length);
-    var html = '';
-    for (var i = 0; i < filas; i++) {
-      html += '<div class="sched-row">' +
-        '<label class="sr-only" for="h-dia-' + i + '">Día de la capacitación ' + (i + 1) + '</label>' +
-        '<select id="h-dia-' + i + '" autocomplete="off">' + OPC_DIAS + '</select>' +
-        '<label class="sr-only" for="h-hora-' + i + '">Hora de la capacitación ' + (i + 1) + '</label>' +
-        '<input id="h-hora-' + i + '" type="time" step="300" autocomplete="off">' +
-      '</div>';
-    }
-    $('sched').innerHTML = html;
-    for (var k = 0; k < filas; k++) {
-      var s = base[k];
-      $('h-dia-' + k).value = s ? String(s.dia) : '';
-      $('h-hora-' + k).value = s ? String(s.hora).slice(0, 5) : '';
-    }
-  }
-  function leerHorario() {
-    var out = [];
-    var filas = $('sched').querySelectorAll('.sched-row').length;
-    for (var i = 0; i < filas; i++) {
-      var dow = $('h-dia-' + i).value;
-      var m = /^(\d{1,2}):(\d{2})/.exec($('h-hora-' + i).value || '');
-      if (dow !== '' && m) out.push({ dow: Number(dow), h: Number(m[1]), m: Number(m[2]) });
-    }
-    return out;
-  }
+  /* ---------------------------------------------------------- horario: se cambia solo en Entrenamientos › Horario;
+     de ahí lo toman esta página, Nivel Cero y el envío automático. Aquí solo se ve. */
+  function leerHorario() { return waHorario(); }
   /* servidor:desde */
   function horarioDeNivel0(n0) {
     var hs = n0 && Array.isArray(n0.horarios) ? n0.horarios : null;
@@ -1764,6 +1751,20 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     return ok.length ? ok : HORARIO_BASE;
   }
   /* servidor:hasta */
+  function pintarHorario() {
+    var hoy = hoyISO(), hasta = sumarISO(hoy, 13);
+    var l = (Array.isArray(S.clases) ? S.clases : []).filter(function (c) { var f = String(c.fecha || '').slice(0, 10); return f >= hoy && f <= hasta; });
+    var hm = function (t) { var m = /^(\d{1,2}):(\d{2})/.exec(String(t || '')); return m ? fmtHora(Number(m[1]), Number(m[2])) : ''; };
+    var k = function (x) { return (x.dow === 0 ? 7 : x.dow) * 1440 + x.h * 60 + x.m; };
+    var h = l.length
+      ? '<p class="flabel">Próximas clases que cuentan para Nivel Cero</p><ul class="hist">' + l.map(function (c) {
+          return '<li><span class="nw">' + esc(fDia(String(c.fecha).slice(0, 10)) + ', ' + hm(c.hora)) + '</span><span>' + esc(c.titulo || '') + '</span></li>';
+        }).join('') + '</ul>'
+      : '<p class="flabel">Cada semana</p><ul class="hist">' + leerHorario().sort(function (a, b) { return k(a) - k(b); }).map(function (x) {
+          return '<li><span>' + esc(DIAS_CAP[x.dow] + ', ' + fmtHora(x.h, x.m)) + '</span></li>';
+        }).join('') + '</ul>';
+    $('sched').innerHTML = h;
+  }
   function renderResumenHorario() {
     var k = function (s) { return (s.dow === 0 ? 7 : s.dow) * 1440 + s.h * 60 + s.m; };
     var hs = leerHorario().sort(function (a, b) { return k(a) - k(b); });
@@ -1772,17 +1773,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     r.innerHTML = t || 'Sin capacitaciones';
     r.classList.toggle('is-miss', !t);
   }
-  /* El horario vale para los dos tipos de mensaje: se repinta todo lo que propone una clase. */
-  function alCambiarHorario() {
-    renderMessages();
-    renderResumenHorario();
-    if (S.vista === 'sg') renderSeg();
-    if (S.modal) refrescarModal();
-  }
-  construirHorario(HORARIO_BASE);
+  pintarHorario();
   renderResumenHorario();
-  $('sched').addEventListener('input', alCambiarHorario);
-  $('sched').addEventListener('change', alCambiarHorario);
 
   /* ---------------------------------------------------------- datos del asesor (solo en este navegador) */
   var nombre = $('nombre');
@@ -2641,10 +2633,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     l.push({ k: 'quedan15', f: sumarISO(p.vence, -15) }, { k: 'quedan7', f: sumarISO(p.vence, -7) }, { k: 'cierre', f: sumarISO(p.vence, 1) });
     return l.filter(function (x) { return x.f > h && plantilla(x.k).activo && !yaMandadoPaso(p, x.k); })[0] || null;
   }
-  /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Solo en sus días 1 a 5. */
+  /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Si se le marcó ✓ unos días tarde, igual recibe
+     los 5 en orden (uno por día): se puede empezar hasta su día 10 y, ya empezada, sigue hasta completarla en su plazo. */
+  var BV_EMPEZAR_HASTA = 9;
   function bvPendiente(p) {
-    if (!enBienvenida(p) || !enSecuencia(p)) return null;
+    if (!activo(p) || !enSecuencia(p)) return null;
     var d = diaDe(p);
+    if (d == null || d < 0 || (d > BV_EMPEZAR_HASTA && !yaMandado(p, 'bv1'))) return null;
     for (var n = 1; n <= d + 1 && n <= DAYS.length; n++) if (!yaMandado(p, 'bv' + n)) return { n: n, atraso: d + 1 - n };
     return null;
   }
@@ -4787,6 +4782,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     else if (c.estado === 'prueba') h.push('<p class="estado mal"><strong>En prueba.</strong> Cada hora arma lo de hoy, pero no envía nada: aquí ves cómo saldría.</p>');
     else h.push('<p class="estado mal"><strong>Apagado.</strong> No sale nada solo. «Revisar ahora» arma lo de hoy para que veas cómo saldría.</p>');
     if (f.error) h.push('<p class="estado urge">No se pudo consultar el envío automático: ' + esc(f.error) + '</p>');
+    if (c.estado === 'encendido' && c.enviar_clientes !== true) h.push('<p class="hint">Los mensajes a clientes aún no salen solos: actívalos en Ajustes cuando estén listos.</p>');
     if (f.al_dia === false) h.push('<p class="estado urge">La página cambió y el envío automático aún usa la versión anterior: hay que actualizarlo (servidor/construir.js y desplegar wa-auto).</p>');
     var esp = ((AU.d && AU.d.plantillas) || []).filter(function (p) { return p.estado === 'enviada'; }).length;
     if (esp && auConectado()) h.push('<p class="hint">' + plural(esp, 'plantilla espera', 'plantillas esperan') + ' la aprobación de Meta (suele tardar minutos).</p>');
@@ -4808,6 +4804,12 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       (c.estado === 'encendido' && auConectado() ? '<button type="button" class="btn-sm wa-ok" data-au="enviar"' + (ocup ? ' disabled' : '') + '>' + (ocup === 'enviar' ? 'Enviando…' : 'Enviar ahora') + '</button>' : '') +
       '<button type="button" class="btn-link" data-au="recargar">Actualizar</button></div>');
     var items = auHoy(), probar = auConectado() && c.nelson_celular;
+    var conSec = S.estado === 'ok' ? S.asesores.filter(enSecuencia).sort(function (a, b) { return String(b.inicio).localeCompare(String(a.inicio)); }) : [];
+    if (conSec.length) h.push('<div class="panel" id="au-prueba"><h3 class="panel-h">Prueba completa</h3>' +
+      '<p class="hint">Te manda a tu celular toda la secuencia de un asesor (los 5 días y cada paso del seguimiento), con sus datos. Lo que Meta aún no aprueba queda pedido: vuelve a probar en un rato.</p>' +
+      '<label class="field"><span class="flabel">Asesor</span><select id="au-sec">' + conSec.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</option>'; }).join('') + '</select></label>' +
+      '<div class="sg-acts"><button type="button" class="btn-sm" data-au="secuencia"' + (probar && !ocup ? '' : ' disabled') + '>' + (ocup === 'secuencia' ? 'Enviando…' : 'Mandarme toda su secuencia') + '</button>' +
+      (probar ? '' : '<span class="hint">Primero conecta el número y pon tu celular en Ajustes.</span>') + '</div></div>');
     var grupos = [['omitido', 'No salen solos', 'Mándalos desde Asesores o Clientes, o corrige lo que falta.'], ['fallo', 'No salieron', ''], ['espera', 'Esperan', ''],
       ['pendiente', 'Saliendo', ''], ['prueba', 'Saldrían', 'Modo prueba: no se envió nada.'], ['enviado', 'Enviados hoy', '']];
     if (!items.length) h.push('<p class="hint">' + (ult ? 'Hoy no hay nada por enviar.' : 'Aún no se revisa lo de hoy. «Revisar ahora» lo arma sin enviar nada.') + '</p>');
@@ -4921,6 +4923,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<div class="grid2"><label class="field"><span class="flabel">Desde</span><input type="time" id="au-desde" value="' + esc(String(c.hora_desde || '08:00').slice(0, 5)) + '"></label>' +
       '<label class="field"><span class="flabel">Hasta</span><input type="time" id="au-hasta" value="' + esc(String(c.hora_hasta || '20:00').slice(0, 5)) + '"></label></div>' +
       '<label class="field"><span class="flabel">Tu celular <span class="opt">(para pasarte respuestas y mandarte pruebas)</span></span><input type="tel" id="au-cel" inputmode="numeric" maxlength="15" placeholder="9XXXXXXXX" value="' + esc(c.nelson_celular || '') + '"></label>' +
+      '<fieldset class="au-radio"><legend class="flabel">¿Qué sale solo?</legend>' +
+      chk('au-gas', c.enviar_asesores, 'Los mensajes a asesores (bienvenida y seguimiento)') +
+      '<label class="chk"><input type="checkbox" id="au-gcl"' + (c.enviar_clientes === true ? ' checked' : '') + '><span>Los mensajes a clientes <span class="opt">(actívalo cuando tengas listos sus textos y archivos; mientras, se ven como en prueba)</span></span></label></fieldset>' +
       chk('au-rcl', c.reenviar_clientes, 'Si un cliente responde, pasarle su mensaje a su asesor') +
       chk('au-ras', c.reenviar_asesores, 'Si un asesor responde, pasarme su mensaje') +
       chk('au-sol', c.responder_solo, 'Contestarle solo «ya le pasé su mensaje a…» a quien escribe') +
@@ -4987,6 +4992,15 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
         }).catch(function () {});
         return;
       }
+      if (que === 'secuencia') {
+        var ref = $('au-sec') && $('au-sec').value;
+        if (!ref) return;
+        auOcupado('secuencia', fnAuto('probar_secuencia', { ref: ref })).then(function (r) {
+          renderAu();
+          aviso('Te mandé ' + plural(r.enviados || 0, 'mensaje', 'mensajes') + (r.esperan ? '; ' + plural(r.esperan, 'espera', 'esperan') + ' que Meta apruebe su plantilla: vuelve a probar en un rato' : '') + '.', !r.enviados && !!r.esperan);
+        }).catch(function () {});
+        return;
+      }
       if (que === 'probar') {
         var it = auHoy()[i];
         if (!it) return;
@@ -5036,6 +5050,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var sel = document.querySelector('input[name="au-estado"]:checked'), st = $('au-status');
     var datos = { estado: sel ? sel.value : auCfg().estado, hora_desde: $('au-desde').value || '08:00', hora_hasta: $('au-hasta').value || '20:00',
                   nelson_celular: celLocal($('au-cel').value), reenviar_clientes: $('au-rcl').checked, reenviar_asesores: $('au-ras').checked, responder_solo: $('au-sol').checked,
+                  enviar_asesores: $('au-gas').checked, enviar_clientes: $('au-gcl').checked,
                   max_atraso: $('au-atraso').value === '' ? 30 : Number($('au-atraso').value) };
     if (!(datos.max_atraso >= 0 && datos.max_atraso <= 365 && datos.max_atraso % 1 === 0)) { st.textContent = 'Los días de atraso van de 0 a 365.'; st.className = 'status is-err'; $('au-atraso').focus(); return; }
     if (datos.nelson_celular && !/^9\d{8}$/.test(datos.nelson_celular)) { st.textContent = 'El celular debe tener 9 dígitos y empezar con 9.'; st.className = 'status is-err'; $('au-cel').focus(); return; }
@@ -5079,12 +5094,10 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       S.periodos = Array.isArray(d.periodos) ? d.periodos : [];
       S.nivel0 = d.nivel0 || null;
       S.plazo = (S.nivel0 && Number(S.nivel0.plazo)) || 30;
-      if (!S.horarioListo) {
-        S.horarioBase = horarioDeNivel0(S.nivel0);
-        construirHorario(S.horarioBase);
-        renderResumenHorario();
-        S.horarioListo = true;
-      }
+      S.clases = Array.isArray(d.clases) ? d.clases : [];
+      S.clasesHasta = d.clases_hasta || null;
+      pintarHorario();
+      renderResumenHorario();
       var meta = (S.nivel0 && Number(S.nivel0.meta)) || 5;
       $('premio-txt').innerHTML = '<strong>Nivel 0:</strong> ' + meta + ' capacitaciones en la oficina dentro de su plazo de ' + S.plazo + ' días y aprobar su test = botella de acero. Viene en todos los niveles de Empiece Ya, por eso se la adelantamos.';
       aplicarAjustes(d.ajustes || {});

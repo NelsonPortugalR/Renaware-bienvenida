@@ -289,6 +289,7 @@ async function corrida(corridaId: string, modo: string) {
   const t0 = Date.now();
   const ins = await rpc('wa_auto_insumos');
   const cfg: Dict = ins.config || {};
+  const activoGrupo = (it: Dict) => (it.tipo === 'cliente' ? cfg.enviar_clientes === true : cfg.enviar_asesores !== false);
   const res: Dict = { modo, hoy: ins.hoy, hora: ins.hora, total: 0, enviados: 0, prueba: 0, espera: 0, no_salen: 0, fallos: 0, ya_hechos: 0, quedan: 0,
                       errores: 0, atrasados: 0, manana: 0, avisos: [] as string[], plantillas_nuevas: 0, plantillas_enviadas: 0, fuera_de_horario: false,
                       kapso: !!llave(), conectado: !!(llave() && cfg.phone_number_id) };
@@ -312,7 +313,8 @@ async function corrida(corridaId: string, modo: string) {
     necesarias.add(p.nombre);
     if (!porNombre.has(p.nombre)) { const f = filaPlantilla(p); nuevas.push(f); porNombre.set(p.nombre, { ...f, estado: 'borrador' }); }
   };
-  for (const it of items) if (!it.problemas.length) for (const p of it.partes) agregar(p);
+  // solo se piden a Meta las plantillas de lo que sale solo (lo de clientes, cuando se active en Ajustes)
+  for (const it of items) if (!it.problemas.length && activoGrupo(it)) for (const p of it.partes) agregar(p);
   Object.keys(AVISOS).forEach((k) => agregar(plantillaAviso(k)));
   if (nuevas.length) {
     const creadas: Dict[] = (await insertar('wa_auto_plantillas?on_conflict=nombre', nuevas, 'return=representation,resolution=ignore-duplicates')) || [];
@@ -346,6 +348,8 @@ async function corrida(corridaId: string, modo: string) {
   const atendidos = new Set<string>();                  // una cosa por persona en cada corrida
   const procesar = async (it: Dict) => {
     const persona = it.tipo + ':' + it.ref;
+    // lo de un grupo que aún no sale solo (Ajustes) se ve como en prueba
+    const pausado = modo === 'encendido' && !activoGrupo(it), modoIt = pausado ? 'prueba' : modo;
     if (it.problemas.length) {                          // no sale solo: queda a la vista en la página
       if (it.atrasado) res.atrasados++; else res.no_salen++;
       const h = hoyDe(it, 1);
@@ -355,7 +359,7 @@ async function corrida(corridaId: string, modo: string) {
     const ultimas = it.partes.map((_: Dict, i: number) => ultimaDe(it, i + 1));
     if (ultimas.every((e: Dict) => e && ENTREGADO.includes(e.estado))) {
       // ya salió todo (p. ej. se cortó antes de anotarlo): se anota y listo
-      if (modo === 'encendido') await anotar(it, filasDe(it).filter((r) => ENTREGADO.includes(r.estado) && !r.anotado_id));
+      if (modoIt === 'encendido') await anotar(it, filasDe(it).filter((r) => ENTREGADO.includes(r.estado) && !r.anotado_id));
       res.ya_hechos++;
       return;
     }
@@ -363,19 +367,20 @@ async function corrida(corridaId: string, modo: string) {
     // (si ya llegó una parte de este mismo mensaje, lo que falta no espera: es la continuación)
     const continua = ultimas.some((e: Dict) => e && ENTREGADO.includes(e.estado));
     const otroHoy = !continua && recientes.some((r) => r.tipo === it.tipo && String(r.ref) === String(it.ref) && r.fecha === ins.hoy && r.paso !== pasoFila(it) &&
-      (ENTREGADO.includes(r.estado) || (modo === 'prueba' && r.estado === 'prueba' && r.corrida_id === corridaId)));
-    if (otroHoy && (modo === 'prueba' || modo === 'encendido')) {
-      const motivo = modo === 'prueba' ? 'Ya tiene otro mensaje hoy: este saldría mañana.' : 'Ya recibió otro mensaje hoy: este sale mañana.';
+      (ENTREGADO.includes(r.estado) || (modoIt === 'prueba' && r.estado === 'prueba' && r.corrida_id === corridaId)));
+    if (otroHoy && (modoIt === 'prueba' || modoIt === 'encendido')) {
+      const motivo = modoIt === 'prueba' ? 'Ya tiene otro mensaje hoy: este saldría mañana.' : 'Ya recibió otro mensaje hoy: este sale mañana.';
       for (let i = 0; i < it.partes.length; i++) if (!ultimas[i] || !ENTREGADO.includes(ultimas[i].estado)) await guardarFila(it, it.partes[i], i + 1, { estado: 'espera', motivo });
       res.manana++;
       return;
     }
-    if (modo === 'prueba') {
-      for (let i = 0; i < it.partes.length; i++) if (!ultimas[i] || !ENTREGADO.includes(ultimas[i].estado)) await guardarFila(it, it.partes[i], i + 1, { estado: 'prueba', motivo: null });
+    if (modoIt === 'prueba') {
+      const motivo = pausado ? 'Los mensajes a ' + (it.tipo === 'cliente' ? 'clientes' : 'asesores') + ' aún no salen solos: se activan en Ajustes.' : null;
+      for (let i = 0; i < it.partes.length; i++) if (!ultimas[i] || !ENTREGADO.includes(ultimas[i].estado)) await guardarFila(it, it.partes[i], i + 1, { estado: 'prueba', motivo });
       res.prueba++;
       return;
     }
-    if (modo !== 'encendido') return;
+    if (modoIt !== 'encendido') return;
     // todas sus plantillas tienen que estar aprobadas: un mensaje no sale a medias
     const pend = it.partes.map((p: Dict) => porNombre.get(p.nombre)).filter((p: Dict | undefined) => !p || p.estado !== 'aprobada');
     const tarde = Date.now() - t0 > PRESUPUESTO_MS || mensajes + it.partes.length > MAX_MENSAJES;
@@ -704,6 +709,51 @@ async function probar(b: Dict) {
   }
   return { ok: true, enviados: n };
 }
+/* Las plantillas de estos mensajes: registra las que falten y manda a Meta las que estén por mandar. */
+async function asegurarPlantillas(cfg: Dict, plantillas: Dict[], items: Dict[], res: Dict) {
+  const porNombre = new Map<string, Dict>(plantillas.map((p) => [p.nombre, p]));
+  const necesarias = new Set<string>(), nuevas: Dict[] = [];
+  for (const it of items) for (const p of it.partes) {
+    necesarias.add(p.nombre);
+    if (!porNombre.has(p.nombre)) { const f = filaPlantilla(p); nuevas.push(f); porNombre.set(p.nombre, { ...f, estado: 'borrador' }); }
+  }
+  if (nuevas.length) {
+    const creadas: Dict[] = (await insertar('wa_auto_plantillas?on_conflict=nombre', nuevas, 'return=representation,resolution=ignore-duplicates')) || [];
+    creadas.forEach((p) => porNombre.set(p.nombre, p));
+    const sinId = nuevas.filter((n) => !porNombre.get(n.nombre)?.id).map((n) => n.nombre);
+    if (sinId.length) ((await leer('wa_auto_plantillas', 'select=*&nombre=in.(' + sinId.map((n) => '"' + n + '"').join(',') + ')')) || []).forEach((p: Dict) => porNombre.set(p.nombre, p));
+  }
+  await sincronizarPlantillas(cfg, Array.from(porNombre.values()), necesarias, res);
+  return porNombre;
+}
+/* La prueba completa: toda la secuencia de un asesor (los 5 días y cada paso del seguimiento), a tu celular.
+   Lo que aún no aprueba Meta queda pedido; se vuelve a probar en un rato. */
+async function probarSecuencia(b: Dict) {
+  const ins = await rpc('wa_auto_insumos');
+  const cfg = ins.config || {};
+  const destino = celPe(cfg.nelson_celular);
+  if (!destino) throw new Error('Pon tu celular en Ajustes para recibir la prueba.');
+  if (!llave() || !cfg.phone_number_id) throw new Error('Falta conectar el número en Kapso.');
+  const R = crearReglas({ bv: ins.bv, cl: ins.cl });
+  const p = R.asesorPorId(b.ref);
+  if (!p) throw new Error('No encontré a ese asesor.');
+  const todos: Dict[] = [1, 2, 3, 4, 5].map((n) => R.itemBv(p, n)).concat(R.pasosSeg().map((k: string) => R.itemSeg(p, k)));
+  const items = todos.filter((it) => !it.problemas.length && it.partes.length);
+  const res: Dict = { plantillas_enviadas: 0, avisos: [] };
+  const porNombre = await asegurarPlantillas(cfg, ins.plantillas || [], items, res);
+  let enviados = 0, esperan = 0;
+  for (const it of items) {
+    if (!it.partes.every((q: Dict) => porNombre.get(q.nombre)?.estado === 'aprobada')) { esperan++; continue; }
+    for (const q of it.partes) {
+      const wamid = await enviarPlantilla(cfg, destino, q.nombre, porNombre.get(q.nombre)?.idioma || 'es', q.params, q.encabezado);
+      await insertar('wa_auto_envios', [{ tipo: 'aviso', ref: 'prueba', paso: 'prueba', titulo: 'Prueba: ' + it.titulo + ' (' + it.nombre + ')', celular: destino, nombre: 'Prueba',
+        plantilla: q.nombre, params: q.params, encabezado: q.encabezado, texto: q.texto, estado: 'enviado', wamid, enviado_en: ahoraISO(), intentos: 1 }]);
+      await dormir(PAUSA_MS);
+    }
+    enviados++;
+  }
+  return { ok: true, mensajes: items.length, enviados, esperan, con_problemas: todos.length - items.length, plantillas_enviadas: res.plantillas_enviadas };
+}
 async function reenviar(b: Dict) {
   const cfg = await config();
   const r = ((await leer('wa_auto_respuestas', 'id=eq.' + encodeURIComponent(b.id) + '&select=*')) || [])[0];
@@ -758,6 +808,7 @@ Deno.serve(async (req: Request) => {
     }
     if (b.accion === 'conectar') return json(await conectar(), 200, h);
     if (b.accion === 'probar') return json(await probar(b), 200, h);
+    if (b.accion === 'probar_secuencia') return json(await probarSecuencia(b), 200, h);
     if (b.accion === 'reenviar') return json(await reenviar(b), 200, h);
     if (b.accion === 'plantilla_reintentar') return json(await plantillaReintentar(b), 200, h);
     return json({ error: 'Acción no válida' }, 400, h);

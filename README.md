@@ -233,8 +233,20 @@ la API oficial de WhatsApp, con Kapso como proveedor. En la página, grupo
   en «Para hoy» es a quien le toca. Cada fila de «Para hoy» dice qué hace el
   envío automático con ese mensaje (saldría, sale más tarde y por qué, no sale
   solo y por qué). Un asesor nuevo «por marcar» no recibe nada hasta que se le
-  marque ✓; Automático › Hoy avisa cuántos hay. El horario que se edita solo en
-  la página no llega al envío automático: se cambia en Nivel Cero.
+  marque ✓; Automático › Hoy avisa cuántos hay. Si se le marca unos días tarde,
+  igual recibe los 5 días de bienvenida, uno por día (se puede empezar hasta su
+  día 10; ya empezada, se completa).
+- **Horario**: una sola fuente, Entrenamientos › Horario (`hor_plantillas` y
+  `hor_eventos`). La página solo lo muestra. Los mensajes proponen las clases con
+  fecha que cuentan para Nivel Cero (`wa_bv_clases`, con lo cambiado o cancelado
+  esa semana; asegura 6 semanas con `hor_materializar`) y, más allá, el horario
+  semanal (`n0_config.horarios`, que Entrenamientos mantiene al día).
+- **Qué sale solo** (Ajustes): mensajes a asesores y, aparte, a clientes (apagado
+  hasta que sus textos y archivos estén listos; mientras, se ven como en prueba y
+  sus plantillas no se piden a Meta). Los clientes salen de pedidos entregados.
+- **Prueba completa**: Automático › Hoy manda al celular de Nelson toda la
+  secuencia de un asesor (los 5 días y cada paso del seguimiento); lo que Meta aún
+  no aprueba queda pedido.
 - **Plantillas**: cada mensaje es una plantilla de Meta. Lo propio de cada
   persona va como variable y lo demás queda fijo. El nombre lleva una huella del
   texto (`eqa_<clave>_<huella>`), así que cambiar un texto crea una versión

@@ -1,6 +1,6 @@
 // Generado por servidor/construir.js a partir de index.html: no se edita a mano.
 // Son las mismas reglas y textos de la página. Si cambian allá, se vuelve a generar y a desplegar wa-auto.
-export const HUELLA = "3def84f251da67f3";
+export const HUELLA = "b7859568365d1314";
 export function crearReglas(entrada) {
 
   'use strict';
@@ -17,7 +17,7 @@ export function crearReglas(entrada) {
     }
     static now() { return AHORA + DESFASE; }
   }
-  var S = { asesores: [], nivel0: null, plazo: 30, plantillas: [], empieceYa: [], periodos: [], items: [], ajustesData: {} };
+  var S = { asesores: [], nivel0: null, plazo: 30, plantillas: [], empieceYa: [], periodos: [], items: [], ajustesData: {}, clases: [], clasesHasta: null };
   function leerHorario() { return waHorario(); }       // en la página sale del recuadro de horario; aquí, de Nivel Cero
 
   var HORARIO_BASE = [{ dia: 2, hora: '09:30' }, { dia: 3, hora: '16:00' }, { dia: 5, hora: '16:30' }];
@@ -77,17 +77,33 @@ export function crearReglas(entrada) {
     var base = plan && plan.getTime() > hoy.getTime() ? plan : hoy;
     var desde = base.getTime() === hoy.getTime() ? ctx.ahora.getTime() + MARGEN_MS : base.getTime();
     var horario = (ctx.horario || []).slice().sort(function (a, b) { return (a.h * 60 + a.m) - (b.h * 60 + b.m); });
-    var out = [];
+    var reales = clasesReales(), out = [];
     for (var i = 0; i < 28 && out.length < cuantas; i++) {
       var d = addDays(base, i);
-      for (var j = 0; j < horario.length && out.length < cuantas; j++) {
-        var s = horario[j];
-        if (s.dow !== d.getDay()) continue;
+      // las clases de cada fecha según el horario de Entrenamientos (con lo que se cambió o se canceló esa semana);
+      // más allá de lo que ya tiene fechas, el horario semanal
+      var delDia = reales && d.getTime() <= reales.hasta.getTime() ? (reales.porDia[isoDe(d)] || [])
+        : horario.filter(function (s) { return s.dow === d.getDay(); });
+      for (var j = 0; j < delDia.length && out.length < cuantas; j++) {
+        var s = delDia[j];
         var t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), s.h, s.m);
         if (t.getTime() >= desde) out.push({ fecha: t, rel: i, h: s.h, m: s.m });
       }
     }
     return out;
+  }
+  /* Las clases con fecha que cuentan para Nivel Cero (Entrenamientos › Horario), por día, y hasta qué fecha hay. */
+  function clasesReales() {
+    var hasta = parseISO(String(S.clasesHasta || '').slice(0, 10));
+    if (!hasta || !Array.isArray(S.clases)) return null;
+    var porDia = {};
+    S.clases.forEach(function (c) {
+      var f = String(c && c.fecha || '').slice(0, 10), m = /^(\d{1,2}):(\d{2})/.exec(String(c && c.hora || ''));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !m) return;
+      (porDia[f] = porDia[f] || []).push({ h: Number(m[1]), m: Number(m[2]) });
+    });
+    Object.keys(porDia).forEach(function (k) { porDia[k].sort(function (a, b) { return a.h * 60 + a.m - (b.h * 60 + b.m); }); });
+    return { porDia: porDia, hasta: hasta };
   }
   function fraseSesion(s) {
     var hora = aLas(s.h) + ' ' + fmtHora(s.h, s.m);
@@ -723,10 +739,13 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     l.push({ k: 'quedan15', f: sumarISO(p.vence, -15) }, { k: 'quedan7', f: sumarISO(p.vence, -7) }, { k: 'cierre', f: sumarISO(p.vence, 1) });
     return l.filter(function (x) { return x.f > h && plantilla(x.k).activo && !yaMandadoPaso(p, x.k); })[0] || null;
   }
-  /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Solo en sus días 1 a 5. */
+  /* Bienvenida: el primer día que falta mandar, si ya le llegó su fecha. Si se le marcó ✓ unos días tarde, igual recibe
+     los 5 en orden (uno por día): se puede empezar hasta su día 10 y, ya empezada, sigue hasta completarla en su plazo. */
+  var BV_EMPEZAR_HASTA = 9;
   function bvPendiente(p) {
-    if (!enBienvenida(p) || !enSecuencia(p)) return null;
+    if (!activo(p) || !enSecuencia(p)) return null;
     var d = diaDe(p);
+    if (d == null || d < 0 || (d > BV_EMPEZAR_HASTA && !yaMandado(p, 'bv1'))) return null;
     for (var n = 1; n <= d + 1 && n <= DAYS.length; n++) if (!yaMandado(p, 'bv' + n)) return { n: n, atraso: d + 1 - n };
     return null;
   }
@@ -1150,6 +1169,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   S.nivel0 = bv.nivel0 || null;
   S.plazo = (S.nivel0 && Number(S.nivel0.plazo)) || 30;
   S.ajustesData = bv.ajustes || {};
+  S.clases = Array.isArray(bv.clases) ? bv.clases : [];
+  S.clasesHasta = bv.clases_hasta || null;
   CL.oficina = cl.oficina || {};
   CL.clientes = Object.create(null);
   (Array.isArray(cl.clientes) ? cl.clientes : []).forEach(function (c) { if (c && c.id) CL.clientes[String(c.id)] = c; });
@@ -1159,6 +1180,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
 
   return {
     hoy: hoyISO, porEnviarHoy: waPorEnviarHoy, itemBv: waItemBv, itemSeg: waItemSeg, itemCl: waItemCl, partes: waPartes,
+    pasosSeg: function () { return PASOS.filter(function (x) { return plantilla(x.k).activo; }).map(function (x) { return x.k; }); },
     marcar: waMarcar, huellaTexto: waHuella, categoria: waCategoria, encabezado: waEncabezado,
     asesorPorId: function (id) { return S.asesores.filter(function (p) { return String(p.id) === String(id); })[0] || null; },
     clientePorId: clientePorId, accionesDe: accionesDe, pila: pila, titulo: titulo, celLocal: celLocal, celularWA: celularWA,

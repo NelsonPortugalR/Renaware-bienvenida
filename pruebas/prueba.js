@@ -415,6 +415,7 @@ function fnAuto(b) {
     return { status: 200, body: k.resumen };
   }
   if (b.accion === 'probar') return { status: 200, body: { ok: true, enviados: 2 } };
+  if (b.accion === 'probar_secuencia') return { status: 200, body: { ok: true, mensajes: 9, enviados: 7, esperan: 2 } };
   if (b.accion === 'plantilla_reintentar') { const p = au.plantillas.find((x) => x.id === b.id); p.estado = 'borrador'; p.motivo = null; return { status: 200, body: p }; }
   if (b.accion === 'conectar') { Object.assign(au.config, { phone_number_id: 'PN1', waba_id: 'W1', webhook_listo: true }); return { status: 200, body: { numero: '+51 900 000 000' } }; }
   if (b.accion === 'reenviar') return { status: 200, body: { estado: 'reenviada' } };
@@ -534,7 +535,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.$$eval('.file', (l) => l.length)) === 12, 'muestra los 12 espacios de archivos');
     ok((await page.$$eval('#files-2 .file', (l) => l.length)) === 6 && !/Folleto/.test(await page.textContent('#files-2')), 'el día 2 tiene 6 archivos, sin folletos');
     ok(/Video del extractor[^]*?Va con el video, debajo:\s*El Nutrex Press Elite/.test(await page.textContent('#files-2')), 'cada video muestra el texto que va con él', (await page.textContent('#files-2')).slice(0, 400));
-    ok((await page.$eval('#h-dia-0', (e) => e.value)) === '2' && (await page.$eval('#h-hora-0', (e) => e.value)) === '09:30', 'el horario viene de Nivel Cero');
+    ok(/Martes, 9:30 a\. m\./.test(await page.textContent('#sched')) && !(await page.$('#sched select, #sched input')) && /Se cambia solo en Entrenamientos/.test(await page.textContent('#horario-hint')),
+      'el horario se ve, pero se cambia solo en Entrenamientos', await page.textContent('#sched'));
     ok((await page.textContent('#horario-resumen')) === 'Mar 9:30 a. m. · Mié 4:00 p. m. · Vie 4:30 p. m.', 'el horario se resume arriba', await page.textContent('#horario-resumen'));
     const opciones = await page.$$eval('#asesor-sel option', (l) => l.map((o) => o.textContent));
     ok(opciones.length === 18, 'para elegir: los 17 nuevos de los últimos 45 días que pueden entrar, más «a mano»', opciones.length);
@@ -556,7 +558,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
         const b = li.querySelector('[data-id]'), m = /Día (\d)/.exec(li.textContent);
         return (b ? b.getAttribute('data-id') : '?') + ':bv' + (m ? m[1] : '?');
       }));
-      ok(srvBv.length === 4 && iguales(srvBv, pagBv), 'bienvenida: el servidor propone lo mismo que «Para hoy»', srvBv.join(' ') + ' | ' + pagBv.join(' '));
+      ok(srvBv.length === 6 && iguales(srvBv, pagBv), 'bienvenida: el servidor propone lo mismo que «Para hoy»', srvBv.join(' ') + ' | ' + pagBv.join(' '));
       await page.click('#tab-sg');
       await esperar(200);
       const srvSg = items.filter((i) => i.tipo === 'asesor' && !/^bv\d$/.test(i.paso)).map((i) => i.ref + ':' + i.titulo);
@@ -611,17 +613,30 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
       ok(items.filter((i) => i.tipo === 'cliente').every((i) => Number.isInteger(i.atraso) && i.atraso >= 0 && typeof i.ciclo === 'boolean') && items.some((i) => i.tipo === 'cliente' && i.atraso > 0) &&
          items.some((i) => i.ciclo) && items.some((i) => i.tipo === 'cliente' && !i.ciclo),
         'cada mensaje de cliente dice cuántos días va atrasado', JSON.stringify(items.filter((i) => i.tipo === 'cliente').map((i) => i.atraso)));
+      // el horario de Entrenamientos con fechas: si se cancela la clase de hoy, se propone la siguiente
+      const bvClases = JSON.parse(JSON.stringify(rpc('wa_bv_datos', { p_token: 'tok-1' }).body));
+      const clases = [];
+      for (let i = -1; i <= 14; i++) {
+        const f = sumar(HOY, i), dow = new Date(f + 'T12:00:00').getDay();
+        (bvClases.nivel0.horarios || []).forEach((h) => { if (Number(h.dia) === dow && !(f === HOY && h.hora === '16:00')) clases.push({ fecha: f, hora: h.hora, titulo: 'Clase' }); });
+      }
+      Object.assign(bvClases, { clases, clases_hasta: sumar(HOY, 14) });
+      const conClases = crearReglas({ ahoraMs: AHORA.getTime(), bv: bvClases, cl: rpc('wa_cl_datos', { p_token: 'tok-1' }).body }).porEnviarHoy();
+      const saulSin = conClases.find((i) => i.ref === 's3' && i.tipo === 'asesor' && !/^bv/.test(i.paso)), saulCon = items.find((i) => i.ref === 's3' && i.tipo === 'asesor' && !/^bv/.test(i.paso));
+      ok(saulSin && saulCon && /(Te|Le) esperamos el viernes 23 a las 4:30 p\. m\.$/.test(saulSin.texto) && /hoy a las 4:00 p\. m\./.test(saulCon.texto),
+        'si en Entrenamientos se cancela la clase de hoy, el mensaje propone la siguiente', saulSin && saulSin.texto.slice(-80));
       const ana = items.find((i) => i.tipo === 'cliente' && /Ana/.test(i.nombre));
       ok(ana && ana.problemas.some((p) => /celular/.test(p)), 'quien no tiene celular queda avisado, no se manda', JSON.stringify(ana && ana.problemas));
     }
 
     console.log('Bienvenida · para hoy');
     await page.screenshot({ path: '/tmp/bv-inicio.png', fullPage: true });
-    ok((await page.textContent('#cuenta-bv')).startsWith('5') && (await page.textContent('#cuenta-sg')).startsWith('10'), 'las pestañas cuentan lo de hoy: 4 de bienvenida + 1 por marcar, y 8 de seguimiento + 2 por marcar',
+    ok((await page.textContent('#cuenta-bv')).startsWith('7') && (await page.textContent('#cuenta-sg')).startsWith('10'), 'las pestañas cuentan lo de hoy: 6 de bienvenida + 1 por marcar, y 8 de seguimiento + 2 por marcar',
       (await page.textContent('#cuenta-bv')) + ' / ' + (await page.textContent('#cuenta-sg')));
     const hoyBv = await page.$$eval('#bv-hoy .hoy-row', (l) => l.map((x) => x.innerText.replace(/\s+/g, ' ')));
-    ok(hoyBv.length === 4 && /Teresa Dos Dias Día 2 · Kit y material digital · tocaba el lun 19 oct/.test(hoyBv[0]) && /Tomas Atrasado Día 2 · Kit y material digital · tocaba ayer/.test(hoyBv[1]),
-      'primero los atrasados, con el día que les falta', hoyBv.join(' | '));
+    ok(hoyBv.length === 6 && /Sara Uno Semana Día 1 · Bienvenida, código y horario · tocaba el lun 12 oct/.test(hoyBv[0]) && /María Pérez Soto Día 1 .* tocaba el jue 15 oct/.test(hoyBv[1]) &&
+       /Teresa Dos Dias Día 2 · Kit y material digital · tocaba el lun 19 oct/.test(hoyBv[2]) && /Tomas Atrasado Día 2 · Kit y material digital · tocaba ayer/.test(hoyBv[3]),
+      'primero los atrasados, con el día que les falta (a quien se marcó ✓ tarde, igual le toca su día 1)', hoyBv.join(' | '));
     ok(hoyBv.some((t) => /Ana Maria Quispe Lopez Día 1 · Bienvenida, código y horario/.test(t)) && hoyBv.some((t) => /Susana Seis Nueva Día 4 · Empiece Ya/.test(t)),
       'a cada uno el día que le toca, según lo ya enviado', hoyBv.join(' | '));
     await page.click('#bv-hoy [data-sg="preparar"][data-id="s14"]');
@@ -646,7 +661,7 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok(vivos('s14', 'bv3').length === 0 && !!(await page.$('#bv-hoy [data-id="s14"]')), 'deshacer lo devuelve');
     await page.click('#bvst-3 [data-sg="bvMarcar"]');
     await esperar(500);
-    ok((await page.textContent('#cuenta-bv')).startsWith('4'), 'la pestaña se actualiza');
+    ok((await page.textContent('#cuenta-bv')).startsWith('6'), 'la pestaña se actualiza');
     await page.click('#bv-hoy .sg-nom[data-id="s6"]');
     await esperar(250);
     const fichaS = await page.textContent('.modal');
@@ -1043,14 +1058,6 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     ok((await page.$$('#sg-lista .sg-row')).length === 1 && (await page.evaluate(() => document.activeElement.id)) === 'sg-busca', 'busca sin perder el foco');
     await page.fill('#sg-busca', '');
     ok(/1 asesor está en sus primeros 5 días|asesores están en sus primeros 5 días/.test(await page.textContent('#vista-sg')), 'avisa cuántos van en bienvenida');
-    await page.click('#horario-panel summary');
-    await page.selectOption('#h-dia-1', '');
-    await esperar(200);
-    const prevSaul2 = await page.$eval('#vista-sg .sg-nom[data-id="s3"]', (b) => b.closest('.sg-item').querySelector('.sg-prev').textContent);
-    ok(/Te esperamos el viernes 23 a las 4:30 p\. m\.$/.test(prevSaul2), 'sin la clase de hoy, propone la siguiente del horario', prevSaul2);
-    ok((await page.textContent('#horario-resumen')) === 'Mar 9:30 a. m. · Vie 4:30 p. m.', 'y el resumen del horario cambia');
-    await page.selectOption('#h-dia-1', '3');
-    await page.click('#horario-panel summary');
 
     console.log('Secuencia · asesores');
     await page.click('#tab-bv');
@@ -1609,7 +1616,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.click('#au-form button[type="submit"]');
     await page.waitForFunction(() => /Guardado/.test(document.querySelector('#toast').textContent));
     const g = llamadas.filter((l) => l.fn === 'wa_auto_config_guardar').pop();
-    ok(g && g.args.p_datos.estado === 'prueba' && g.args.p_datos.nelson_celular === '987654321' && g.args.p_datos.responder_solo === false && g.args.p_datos.hora_desde === '08:00' && g.args.p_datos.max_atraso === 15,
+    ok(g && g.args.p_datos.estado === 'prueba' && g.args.p_datos.nelson_celular === '987654321' && g.args.p_datos.responder_solo === false && g.args.p_datos.hora_desde === '08:00' && g.args.p_datos.max_atraso === 15 &&
+       g.args.p_datos.enviar_asesores === true && g.args.p_datos.enviar_clientes === false,
       'Ajustes guarda el modo, el celular y lo de responder', JSON.stringify(g && g.args.p_datos));
     au.kapso = true;
     await page.click('#tab-ah');
@@ -1625,6 +1633,11 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await page.waitForFunction(() => /Te lo mandé a tu celular/.test(document.querySelector('#toast').textContent));
     const pr = au.llamadas.filter((b) => b.accion === 'probar').pop();
     ok(pr && pr.tipo === 'asesor' && pr.ref === 's14' && pr.paso === 'bv2' && !pr.clave, 'Probármelo manda ese mensaje a tu celular', JSON.stringify(pr));
+    await page.waitForSelector('#vista-ah [data-au="secuencia"]:not([disabled])');
+    await page.click('#vista-ah [data-au="secuencia"]');
+    await page.waitForFunction(() => /Te mandé 7 mensajes; 2 esperan que Meta apruebe/.test(document.querySelector('#toast').textContent));
+    const ps = au.llamadas.filter((b) => b.accion === 'probar_secuencia').pop();
+    ok(ps && ps.ref === await page.$eval('#au-sec', (e) => e.value), 'la prueba completa manda la secuencia del asesor elegido', JSON.stringify(ps));
     await page.focus('#tab-ah');
     await page.keyboard.press('ArrowLeft');
     ok((await page.evaluate(() => document.activeElement.id)) === 'tab-aj', 'las flechas recorren las cuatro pestañas');

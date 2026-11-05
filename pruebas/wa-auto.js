@@ -196,18 +196,21 @@ function itemsDeHoy() {
   ];
 }
 let hoyLista = itemsDeHoy;
+const otro = (p, paso) => ({ tipo: 'asesor', ref: p.id, paso, titulo: paso, nombre: 'Ana Quispe', celular: '911111111', texto: paso + ' Ana.', problemas: [], avisos: [],
+  partes: [parte('eqa_' + paso + '_t', paso + ' para {{1}}.', ['Ana'])] });
 globalThis.__reglas = () => ({
   porEnviarHoy: () => hoyLista(),
   asesorPorId: (id) => ({ id }),
-  itemBv: (p, n) => itemsDeHoy().find((i) => i.ref === p.id && i.paso === 'bv' + n),
-  itemSeg: (p, k) => itemsDeHoy().find((i) => i.ref === p.id && i.paso === k),
+  pasosSeg: () => ['n0_clase', 'quedan7'],
+  itemBv: (p, n) => itemsDeHoy().find((i) => i.ref === p.id && i.paso === 'bv' + n) || otro(p, 'bv' + n),
+  itemSeg: (p, k) => itemsDeHoy().find((i) => i.ref === p.id && i.paso === k) || otro(p, k),
   CL: { acciones: itemsDeHoy().filter((i) => i.accion).map((i) => ({ clave: i.accion })) },
   itemCl: (a) => itemsDeHoy().find((i) => i.accion === a.clave)
 });
 
 (async function () {
   await cargar();
-  db.wa_auto_config.push({ id: 'vigente', estado: 'apagado', hora_desde: '08:00:00', hora_hasta: '20:00:00', nelson_celular: '999999999', reenviar_clientes: true,
+  db.wa_auto_config.push({ id: 'vigente', estado: 'apagado', enviar_asesores: true, enviar_clientes: true, hora_desde: '08:00:00', hora_hasta: '20:00:00', nelson_celular: '999999999', reenviar_clientes: true,
     reenviar_asesores: true, responder_solo: true, phone_number_id: null, waba_id: null, kapso_base: KB });
 
   console.log('Sin sesión, nada');
@@ -403,6 +406,20 @@ globalThis.__reglas = () => ({
   ok(vieja.estado === 'espera' && !!plant('eqa_cl_semana1_usted_z'), 'si en Ajustes se permite más atraso, sigue su camino', vieja.estado);
   hoyLista = itemsDeHoy;
 
+  console.log('Clientes aún no');
+  cfg.enviar_clientes = false;
+  hoyLista = () => [{ tipo: 'cliente', ref: 'cli-nuevo', paso: 'bienvenida', accion: '800::bienvenida', n_orden: 800, titulo: 'Al recibir su pedido', nombre: 'Nuevo',
+    celular: '968888888', texto: 'Bienvenido.', atraso: 2, ciclo: false, problemas: [], avisos: [], partes: [parte('eqa_cl_bienvenida_usted_nuevo', 'Bienvenido {{1}} a la familia.', ['Nuevo'])] }];
+  const n8 = K.mensajes.length;
+  r = await correr('encendido');
+  const nuevo = env().find((e) => e.ref === 'cli-nuevo');
+  ok(K.mensajes.length === n8 && nuevo.estado === 'prueba' && /clientes aún no salen solos/.test(nuevo.motivo) && !plant('eqa_cl_bienvenida_usted_nuevo'),
+    'con los clientes apagados en Ajustes, sus mensajes se ven como en prueba y no se piden a Meta', JSON.stringify(nuevo));
+  cfg.enviar_clientes = true;
+  r = await correr('encendido');
+  ok(nuevo.estado === 'espera' && !!plant('eqa_cl_bienvenida_usted_nuevo'), 'al activarlos, siguen su camino', nuevo.estado);
+  hoyLista = itemsDeHoy;
+
   console.log('Desde la página');
   const rr = db.wa_auto_respuestas.find((x) => x.wamid === 'in6');
   const n5 = K.mensajes.length;
@@ -426,6 +443,17 @@ globalThis.__reglas = () => ({
   r = await llamar({ accion: 'probar', token: TOKEN, tipo: 'asesor', ref: 'ins-ana', paso: 'bv2', clave: null });
   ok(r.status === 200 && r.body.enviados === 2 && K.mensajes.slice(-2).every((m) => m.to === '51999999999'), 'el día 2 de Ana te llega en sus dos partes', JSON.stringify(r.body));
   ok(db.wa_auto_envios.filter((e) => e.ref === 'prueba').length === 3 && db.wa_auto_envios.filter((e) => e.ref === 'prueba').every((e) => e.tipo === 'aviso'), 'las pruebas quedan registradas aparte');
+
+  console.log('Prueba completa');
+  const n9 = K.mensajes.length;
+  r = await llamar({ accion: 'probar_secuencia', token: TOKEN, ref: 'ins-ana' });
+  ok(r.status === 200 && r.body.mensajes === 7 && r.body.enviados === 2 && r.body.esperan === 5 && K.mensajes.slice(n9).every((m) => m.to === '51999999999'),
+    'la prueba completa te manda lo aprobado y pide a Meta lo demás', JSON.stringify(r.body));
+  ok(['bv1', 'bv3', 'bv4', 'bv5', 'quedan7'].every((k) => K.plantillas.has('eqa_' + k + '_t')), 'las plantillas que faltaban quedan pedidas');
+  K.plantillas.forEach((t) => { t.status = 'APPROVED'; });
+  const n10 = K.mensajes.length;
+  r = await llamar({ accion: 'probar_secuencia', token: TOKEN, ref: 'ins-ana' });
+  ok(r.body.enviados === 7 && r.body.esperan === 0 && K.mensajes.length === n10 + 8, 'ya aprobadas, te llega toda la secuencia (el día 2 en sus dos partes)', JSON.stringify(r.body) + ' ' + (K.mensajes.length - n10));
 
   console.log('\n' + (total - fallas) + '/' + total + ' pasan');
   process.exit(fallas ? 1 : 0);
