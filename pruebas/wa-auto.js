@@ -216,9 +216,11 @@ globalThis.__reglas = () => ({
   console.log('Modo prueba, sin Kapso');
   let r = await correr('prueba');
   const env = () => db.wa_auto_envios.filter((e) => ['asesor', 'cliente'].includes(e.tipo));
-  ok(r.status === 200 && r.body.total === 5 && r.body.prueba === 4 && r.body.no_salen === 1, 'arma lo de hoy sin enviar', JSON.stringify(r.body));
-  ok(env().filter((e) => e.estado === 'prueba').length === 5 && env().some((e) => e.estado === 'omitido' && /celular/.test(e.motivo)), 'cada parte queda como «saldría»; sin celular, «no sale»',
+  ok(r.status === 200 && r.body.total === 5 && r.body.prueba === 2 && r.body.manana === 2 && r.body.no_salen === 1, 'arma lo de hoy sin enviar', JSON.stringify(r.body));
+  ok(env().filter((e) => e.estado === 'prueba').length === 3 && env().some((e) => e.estado === 'omitido' && /celular/.test(e.motivo)), 'cada parte queda como «saldría»; sin celular, «no sale»',
     env().map((e) => e.ref + ':' + e.paso + ':' + e.parte + ':' + e.estado).join(' '));
+  ok(env().filter((e) => e.estado === 'espera').map((e) => e.paso).sort().join() === '901::bienvenida,n0_clase' && env().filter((e) => e.estado === 'espera').every((e) => /saldría mañana/.test(e.motivo)),
+    'un mensaje por persona al día: el segundo de Ana y el de la otra orden de Rosa quedan para mañana');
   ok(env().filter((e) => e.ref === 'cli-rosa').map((e) => e.paso).sort().join() === '900::bienvenida,901::bienvenida', 'dos órdenes del mismo cliente no se pisan');
   ok(db.wa_auto_plantillas.length === 7 && db.wa_auto_plantillas.every((p) => p.estado === 'borrador') && db.wa_auto_plantillas.filter((p) => /^eqa_aviso_/.test(p.nombre)).length === 3,
     'registra las plantillas que faltan (4 de hoy y los 3 avisos)', db.wa_auto_plantillas.map((p) => p.nombre).join(' '));
@@ -271,7 +273,12 @@ globalThis.__reglas = () => ({
      anot.some((l) => l.fn === 'wa_auto_anotar_cliente' && l.args.p_n_orden === 900 && l.args.p_tipo === 'bienvenida'), 'queda anotado como enviado en la página', JSON.stringify(anot));
   ok(env().filter((e) => e.estado === 'enviado').every((e) => e.wamid && e.anotado_id), 'cada parte enviada guarda su wamid y lo anotado');
 
+  r = await correr('encendido');
+  ok(K.mensajes.filter((m) => m.to === '51911111111').length === 2 && env().find((e) => e.paso === 'n0_clase').motivo.includes('sale mañana'),
+    'otra corrida el mismo día tampoco le manda el segundo');
+
   console.log('Lo que ya salió no se repite');
+  HOY = '2026-11-06';                                                          // al día siguiente
   const antes = K.mensajes.length;
   hoyLista = () => itemsDeHoy().filter((i) => !(i.paso === 'bv2'));       // la página ya lo da por hecho
   r = await correr('encendido');
@@ -299,7 +306,7 @@ globalThis.__reglas = () => ({
   e2.reintentar_desde = new Date(Date.now() - 1000).toISOString();            // ya se corrigió
   r = await correr('encendido');
   const re = K.mensajes.slice(antes3);
-  ok(re.length === 1 && re[0].template.name === 'eqa_archivo_video_v1' && e2.estado === 'enviado' && e2.intentos === 1 + 1, 'al reintentar sale solo la parte que faltaba', JSON.stringify(re.map((m) => m.template.name)) + ' ' + e2.estado + ' ' + e2.intentos);
+  ok(re.length === 1 && re[0].template.name === 'eqa_archivo_video_v1' && (env().find((e) => e.paso === 'bv2' && e.parte === 2 && e.fecha === HOY) || {}).estado === 'enviado', 'al reintentar sale solo la parte que faltaba', JSON.stringify(re.map((m) => m.template.name)) + ' ' + e2.estado + ' ' + e2.intentos);
 
   console.log('Si Kapso no responde, se reintenta después');
   hoyLista = () => [{ tipo: 'asesor', ref: 'ins-beto', paso: 'bv1', titulo: 'Día 1', nombre: 'Beto', celular: '933333333', texto: 'Hola Beto.', problemas: [], avisos: [],
@@ -382,13 +389,16 @@ globalThis.__reglas = () => ({
 
   console.log('Atrasados');
   hoyLista = () => [{ tipo: 'cliente', ref: 'cli-vieja', paso: 'semana1', accion: '500::semana1', n_orden: 500, titulo: 'Una semana', nombre: 'Vieja', celular: '966666666',
-    texto: 'Hola.', atraso: 30, problemas: [], avisos: [], partes: [parte('eqa_cl_semana1_usted_z', 'Hola {{1}}.', ['Vieja'])] }];
+    texto: 'Hola.', atraso: 45, ciclo: false, problemas: [], avisos: [], partes: [parte('eqa_cl_semana1_usted_z', 'Hola {{1}}.', ['Vieja'])] },
+    { tipo: 'cliente', ref: 'cli-filtro', paso: 'prefiltro', accion: '501::prefiltro', n_orden: 501, titulo: 'Cambio de pre-filtro', nombre: 'Filtro', celular: '967777777',
+    texto: 'Hola.', atraso: 120, ciclo: true, problemas: [], avisos: [], partes: [parte('eqa_cl_prefiltro_usted_z', 'Hola {{1}}, su prefiltro.', ['Filtro'])] }];
   const n7 = K.mensajes.length;
   r = await correr('encendido');
-  const vieja = env().find((e) => e.ref === 'cli-vieja');
-  ok(K.mensajes.length === n7 && vieja.estado === 'omitido' && /30 días de atraso/.test(vieja.motivo) && !plant('eqa_cl_semana1_usted_z'),
-    'un mensaje de cliente con más de 7 días de atraso no sale solo (ni pide plantilla)', JSON.stringify(vieja));
-  cfg.max_atraso = 45;
+  const vieja = env().find((e) => e.ref === 'cli-vieja'), filtro = env().find((e) => e.ref === 'cli-filtro');
+  ok(K.mensajes.length === n7 && vieja.estado === 'omitido' && /45 días de atraso/.test(vieja.motivo) && /hasta 30/.test(vieja.motivo) && !plant('eqa_cl_semana1_usted_z'),
+    'un mensaje de cliente de una sola vez con más de 30 días de atraso no sale solo (ni pide plantilla)', JSON.stringify(vieja));
+  ok(filtro && filtro.estado !== 'omitido' && !!plant('eqa_cl_prefiltro_usted_z'), 'el de cambio de filtro sigue aunque vaya tarde: aún sirve', JSON.stringify(filtro));
+  cfg.max_atraso = 60;
   r = await correr('encendido');
   ok(vieja.estado === 'espera' && !!plant('eqa_cl_semana1_usted_z'), 'si en Ajustes se permite más atraso, sigue su camino', vieja.estado);
   hoyLista = itemsDeHoy;

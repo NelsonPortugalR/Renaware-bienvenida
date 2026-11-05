@@ -227,6 +227,14 @@ la API oficial de WhatsApp, con Kapso como proveedor. En la página, grupo
   (`wa_auto_corrida_iniciar`). Solo envía dentro del horario de Ajustes.
 - **Modos**: apagado, prueba (arma lo de hoy y lo deja como «saldría», sin
   enviar) y encendido.
+- **De la mano con la página**: la función lee lo mismo que la página (asesores
+  de Nivel Cero, pedidos de clientes, ✓/✗ de la secuencia, trato, textos
+  editados, promoción, archivos y horario de Nivel Cero), así que quien aparece
+  en «Para hoy» es a quien le toca. Cada fila de «Para hoy» dice qué hace el
+  envío automático con ese mensaje (saldría, sale más tarde y por qué, no sale
+  solo y por qué). Un asesor nuevo «por marcar» no recibe nada hasta que se le
+  marque ✓; Automático › Hoy avisa cuántos hay. El horario que se edita solo en
+  la página no llega al envío automático: se cambia en Nivel Cero.
 - **Plantillas**: cada mensaje es una plantilla de Meta. Lo propio de cada
   persona va como variable y lo demás queda fijo. El nombre lleva una huella del
   texto (`eqa_<clave>_<huella>`), así que cambiar un texto crea una versión
@@ -241,13 +249,17 @@ la API oficial de WhatsApp, con Kapso como proveedor. En la página, grupo
 - **Envío**:
   - Un mensaje sale solo si todas sus plantillas están aprobadas. Sale parte por
     parte, en orden.
-  - Una cosa por persona en cada corrida, y hasta 45 mensajes por corrida.
+  - Un mensaje por persona al día (lo demás sale al día siguiente, salvo las
+    partes que falten de un mensaje ya empezado), y hasta 45 mensajes por
+    corrida.
   - Al salir se anota como si se hubiera mandado desde la página
     (`n0_mensajes` o `crm_seguimiento`), así «Para hoy» lo da por hecho. Si
     luego falla, se anula lo anotado.
   - Lo que ya llegó no se repite (se miran 8 días).
-  - Un mensaje de cliente con más días de atraso que los de Ajustes (7 si no se
-    cambia) no sale solo y queda en la página, para decidir si aún sirve.
+  - Un mensaje de cliente de una sola vez (bienvenida, semana, mes, fin de
+    cuotas) con más días de atraso que los de Ajustes (30 si no se cambia, porque
+    los pedidos se cargan al cerrar cada período) no sale solo y queda en la
+    página. Los de cambio de filtro y botella salen aunque vayan tarde.
   - Si falla:
     - un error pasajero se reintenta en la corrida siguiente (hasta 4 veces al
       día);

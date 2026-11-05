@@ -848,7 +848,7 @@ textarea#mTexto { min-height: 150px; font-family: var(--font-chat); font-size: 1
     </summary>
     <div class="panel-body">
       <div class="sched" id="sched"></div>
-      <p class="hint" id="horario-hint">Vale para la bienvenida y el seguimiento. Si una semana cambia, edítalo aquí. Al recargar la página vuelve al horario de Nivel Cero.</p>
+      <p class="hint" id="horario-hint">Vale para la bienvenida y el seguimiento. Si una semana cambia, edítalo aquí. Al recargar la página vuelve al horario de Nivel Cero, que es el que usa el envío automático: si el cambio es para todos, hazlo en Nivel Cero.</p>
     </div>
   </details>
 
@@ -3030,12 +3030,32 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
 
   /* ---------- bienvenida: para hoy y lo enviado en cada día */
+  /* Lo que hace el envío automático con un mensaje de «Para hoy» (si está en prueba o encendido y ya revisó hoy). */
+  function auLinea(tipo, ref, paso, accion, cls) {
+    if (!AU || AU.estado !== 'ok' || !AU.d || auCfg().estado === 'apagado') return '';
+    var k = tipo === 'cliente' ? 'cliente|' + accion : 'asesor|' + ref + '|' + paso, it = auPorClave()[k];
+    if (!it) return '';
+    var prueba = auCfg().estado !== 'encendido', mal = it.estado === 'fallo' || it.estado === 'omitido';
+    var t = it.estado === 'prueba' ? 'Saldría solo (está en prueba)' : it.estado === 'espera' ? (prueba ? 'Saldría solo más tarde' : 'Sale solo más tarde') + (it.motivo ? ': ' + it.motivo : '')
+      : it.estado === 'pendiente' ? 'Saliendo solo…' : it.estado === 'omitido' ? 'No sale solo: ' + it.motivo : it.estado === 'fallo' ? 'No salió solo: ' + it.motivo
+      : it.estado === 'leido' ? 'Enviado solo · leído ✓✓' : it.estado === 'entregado' ? 'Enviado solo · entregado ✓✓' : 'Enviado solo ✓';
+    return '<p class="' + (cls || 'sg-sub') + ' au-linea' + (mal ? ' urge' : '') + '">⚙️ ' + esc(t) + '</p>';
+  }
+  var auMapa = { gen: -1, d: null, m: {} };
+  function auPorClave() {
+    if (auMapa.d === AU.d) return auMapa.m;
+    var m = {};
+    auHoy().forEach(function (it) { m[it.tipo === 'cliente' ? 'cliente|' + it.accion : 'asesor|' + it.ref + '|' + it.paso] = it; });
+    auMapa = { d: AU.d, m: m };
+    return m;
+  }
   function filaBvHoy(y) {
     var p = y.p, n = y.x.n, f = sumarISO(p.inicio, n - 1);
     var tarde = y.x.atraso === 1 ? 'tocaba ayer' : y.x.atraso > 1 ? 'tocaba el ' + fDia(f) : '';
     return '<li class="hoy-row"><div><p class="hoy-nom"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button></p>' +
       lineaAfiliador(p, 'p', 'hoy-sub') +
-      '<p class="hoy-sub">' + esc(nombrePaso('bv' + n)) + (tarde ? ' · <span class="tarde">' + esc(tarde) + '</span>' : '') + (celularWA(p) ? '' : ' · sin celular') + '</p></div>' +
+      '<p class="hoy-sub">' + esc(nombrePaso('bv' + n)) + (tarde ? ' · <span class="tarde">' + esc(tarde) + '</span>' : '') + (celularWA(p) ? '' : ' · sin celular') + '</p>' +
+      auLinea('asesor', p.id, 'bv' + n, null, 'hoy-sub') + '</div>' +
       '<button type="button" class="btn-sm primary" data-sg="preparar" data-id="' + esc(p.id) + '" data-n="' + n + '">Preparar</button></li>';
   }
   function renderBvHoy() {
@@ -3132,6 +3152,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="ficha" data-id="' + esc(p.id) + '">' + esc(titulo(p.nombre)) + '</button>' + puntos(Math.min(p.validas || 0, metaClases())) + '</div>' +
       lineaAfiliador(p, 'p', 'sg-sub') +
       '<p class="sg-sub' + (e.cls === 'urge' ? ' urge' : '') + '">' + esc(e.txt + (celularWA(p) ? '' : ' · sin celular')) + '</p>' +
+      auLinea('asesor', p.id, k) +
       '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoPaso(k, p)) + '</span></p>' +
       '<div class="sg-acts">' + botonesPaso(p, k, true) + '</div></li>';
   }
@@ -4100,7 +4121,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function waItemCl(a) {
     var c = clientePorId(a.cliente_id), tr = tratoCl(c), x = pasoCl(a), t = plantilla(x.k)[tr];
     var m = waMarcar(t, RE_MARCA, claveMarca, valoresCl(a, tr), limpiarTextoCl);
-    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t, atraso: Math.max(0, -(Number(a.dias) || 0)),
+    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t, atraso: Math.max(0, -(Number(a.dias) || 0)), ciclo: a.clase === 'ciclo',
                     nombre: titulo((c && c.nombre) || a.cliente), celular: celCl(a), trato: tr, texto: llenarCl(t, a, tr), vacios: waVacios(x.dia),
                     partes: waPartes(x.k + '.' + tr, waCategoria(x.k), m.s, m.datos, waArchivos(x.dia)) });
   }
@@ -4185,14 +4206,14 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function itemUno(a) {
     return '<li class="sg-item">' +
       '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' + esc(titulo(a.cliente)) + '</button>' + tagEstado(a) + '</div>' +
-      '<p class="sg-sub">' + esc(lineaUno(a) + (celCl(a) ? '' : ' · sin celular')) + '</p>' +
+      '<p class="sg-sub">' + esc(lineaUno(a) + (celCl(a) ? '' : ' · sin celular')) + '</p>' + auLinea('cliente', a.cliente_id, a.tipo, a.clave) +
       '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoCl(a)) + '</span></p>' +
       '<div class="sg-acts">' + botonesUno(a, true) + '</div></li>';
   }
   function itemCiclo(a) {
     return '<li class="sg-item">' +
       '<div class="sg-cab"><button type="button" class="sg-nom" data-sg="fichaCl" data-id="' + esc(a.cliente_id) + '">' + esc(titulo(a.cliente)) + '</button>' + tagEstado(a) + '</div>' +
-      '<p class="sg-sub">' + esc(lineaCiclo(a) + (celCl(a) ? '' : ' · sin celular')) + '</p>' +
+      '<p class="sg-sub">' + esc(lineaCiclo(a) + (celCl(a) ? '' : ' · sin celular')) + '</p>' + auLinea('cliente', a.cliente_id, a.tipo, a.clave) +
       (a.estado === 'avisado' ? '' : '<p class="sg-prev" data-sg="expandir"><span>' + esc(textoCl(a)) + '</span></p>') +
       '<div class="sg-acts">' + botonesCiclo(a) + '</div></li>';
   }
@@ -4689,8 +4710,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       AU.fn = x[1] || {};
       AU.estado = 'ok';
       AU.error = '';
-      renderTabs();
-      if (grupoDe(S.vista) === 'au' && !auEscribiendo()) renderAu();
+      if (escribiendo()) { renderTabs(); return; }
+      repintar();                                       // también las filas de «Para hoy», que dicen qué sale solo
     }).catch(function (e) {
       if (!S.token || gen !== AU.gen) return;
       if (AU.estado !== 'ok') { AU.estado = 'error'; AU.error = bonito(e.message); }
@@ -4753,6 +4774,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     if (r.prueba) t.push(plural(r.prueba, 'saldría', 'saldrían'));
     if (r.espera) t.push(plural(r.espera, 'espera', 'esperan'));
     if (r.quedan) t.push(r.quedan + ' para la siguiente');
+    if (r.manana) t.push(r.manana + ' para mañana (uno por persona al día)');
     if (r.no_salen) t.push(r.no_salen + ' no ' + (r.no_salen === 1 ? 'sale' : 'salen') + ' solo' + (r.no_salen === 1 ? '' : 's'));
     if (r.atrasados) t.push(r.atrasados + (r.atrasados === 1 ? ' muy atrasado queda' : ' muy atrasados quedan') + ' para la página');
     if (r.fallos) t.push(plural(r.fallos, 'falló', 'fallaron'));
@@ -4778,6 +4800,9 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   }
   function renderAuHoy() {
     var c = auCfg(), h = [auCaja()], ult = auUltimaCorrida(), ocup = AU.ocupado;
+    var pm = S.estado === 'ok' ? porMarcarDe('bv').length + porMarcarDe('sg').length : 0;
+    if (pm) h.push('<p class="estado mal" id="au-pormarcar">' + (pm === 1 ? 'Hay 1 asesor nuevo por marcar' : 'Hay ' + pm + ' asesores nuevos por marcar') +
+      ' (✓ o ✗) en Asesores: hasta que lo decidas no le sale nada solo.</p>');
     if (ult) h.push('<p class="hint" id="au-ultima">' + esc(auResumen(ult)) + (ult.error ? ' <strong>' + esc(ult.error) + '</strong>' : '') + '</p>');
     h.push('<div class="sg-acts"><button type="button" class="btn-sm" data-au="revisar"' + (ocup ? ' disabled' : '') + '>' + (ocup === 'revisar' ? 'Revisando…' : 'Revisar ahora') + '</button>' +
       (c.estado === 'encendido' && auConectado() ? '<button type="button" class="btn-sm wa-ok" data-au="enviar"' + (ocup ? ' disabled' : '') + '>' + (ocup === 'enviar' ? 'Enviando…' : 'Enviar ahora') + '</button>' : '') +
@@ -4899,8 +4924,8 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       chk('au-rcl', c.reenviar_clientes, 'Si un cliente responde, pasarle su mensaje a su asesor') +
       chk('au-ras', c.reenviar_asesores, 'Si un asesor responde, pasarme su mensaje') +
       chk('au-sol', c.responder_solo, 'Contestarle solo «ya le pasé su mensaje a…» a quien escribe') +
-      '<label class="field"><span class="flabel">Mensajes de clientes atrasados <span class="opt">(salen solos si tienen hasta estos días de atraso; los demás quedan en Clientes para que decidas)</span></span>' +
-      '<input type="number" id="au-atraso" inputmode="numeric" min="0" max="365" step="1" value="' + esc(c.max_atraso == null ? 7 : c.max_atraso) + '"></label>' +
+      '<label class="field"><span class="flabel">Mensajes de clientes atrasados <span class="opt">(bienvenida, semana, mes y fin de cuotas salen solos si tienen hasta estos días de atraso; los demás quedan en Clientes para que decidas. Los de cambio de filtro salen siempre)</span></span>' +
+      '<input type="number" id="au-atraso" inputmode="numeric" min="0" max="365" step="1" value="' + esc(c.max_atraso == null ? 30 : c.max_atraso) + '"></label>' +
       '<div class="sg-acts"><button type="submit" class="btn-sm primary"' + (ocup === 'guardar' ? ' disabled' : '') + '>' + (ocup === 'guardar' ? 'Guardando…' : 'Guardar') + '</button></div>' +
       '<p class="status" id="au-status" role="status"></p></form>');
     var linea = function (ok, t) { return '<li><span>' + (ok ? '✅ ' : '⬜ ') + t + '</span></li>'; };
@@ -5011,7 +5036,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
     var sel = document.querySelector('input[name="au-estado"]:checked'), st = $('au-status');
     var datos = { estado: sel ? sel.value : auCfg().estado, hora_desde: $('au-desde').value || '08:00', hora_hasta: $('au-hasta').value || '20:00',
                   nelson_celular: celLocal($('au-cel').value), reenviar_clientes: $('au-rcl').checked, reenviar_asesores: $('au-ras').checked, responder_solo: $('au-sol').checked,
-                  max_atraso: $('au-atraso').value === '' ? 7 : Number($('au-atraso').value) };
+                  max_atraso: $('au-atraso').value === '' ? 30 : Number($('au-atraso').value) };
     if (!(datos.max_atraso >= 0 && datos.max_atraso <= 365 && datos.max_atraso % 1 === 0)) { st.textContent = 'Los días de atraso van de 0 a 365.'; st.className = 'status is-err'; $('au-atraso').focus(); return; }
     if (datos.nelson_celular && !/^9\d{8}$/.test(datos.nelson_celular)) { st.textContent = 'El celular debe tener 9 dígitos y empezar con 9.'; st.className = 'status is-err'; $('au-cel').focus(); return; }
     if (datos.hora_desde >= datos.hora_hasta) { st.textContent = 'La hora de inicio debe ser antes que la de fin.'; st.className = 'status is-err'; $('au-desde').focus(); return; }

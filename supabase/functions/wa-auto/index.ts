@@ -290,15 +290,16 @@ async function corrida(corridaId: string, modo: string) {
   const ins = await rpc('wa_auto_insumos');
   const cfg: Dict = ins.config || {};
   const res: Dict = { modo, hoy: ins.hoy, hora: ins.hora, total: 0, enviados: 0, prueba: 0, espera: 0, no_salen: 0, fallos: 0, ya_hechos: 0, quedan: 0,
-                      errores: 0, atrasados: 0, avisos: [] as string[], plantillas_nuevas: 0, plantillas_enviadas: 0, fuera_de_horario: false,
+                      errores: 0, atrasados: 0, manana: 0, avisos: [] as string[], plantillas_nuevas: 0, plantillas_enviadas: 0, fuera_de_horario: false,
                       kapso: !!llave(), conectado: !!(llave() && cfg.phone_number_id) };
   const R = crearReglas({ bv: ins.bv, cl: ins.cl });
   const items: Dict[] = R.porEnviarHoy();
   res.total = items.length;
-  // un mensaje de cliente muy atrasado no sale solo: queda en la página, para decidir si aún sirve
-  const maxAtraso = Number.isFinite(Number(cfg.max_atraso)) ? Number(cfg.max_atraso) : 7;
+  // un mensaje de cliente de una sola vez muy atrasado no sale solo: queda en la página, para decidir si aún sirve
+  // (los pedidos se cargan al cerrar cada período; los de cambio de filtro siguen valiendo aunque vayan tarde)
+  const maxAtraso = cfg.max_atraso != null && Number.isFinite(Number(cfg.max_atraso)) ? Number(cfg.max_atraso) : 30;
   for (const it of items) {
-    if (it.tipo === 'cliente' && Number(it.atraso) > maxAtraso && !it.problemas.length) {
+    if (it.tipo === 'cliente' && !it.ciclo && Number(it.atraso) > maxAtraso && !it.problemas.length) {
       it.atrasado = true;
       it.problemas = ['Tiene ' + it.atraso + ' días de atraso: no sale solo (en Ajustes, hasta ' + maxAtraso + '). Si aún sirve, mándalo desde Clientes.'];
     }
@@ -356,6 +357,17 @@ async function corrida(corridaId: string, modo: string) {
       // ya salió todo (p. ej. se cortó antes de anotarlo): se anota y listo
       if (modo === 'encendido') await anotar(it, filasDe(it).filter((r) => ENTREGADO.includes(r.estado) && !r.anotado_id));
       res.ya_hechos++;
+      return;
+    }
+    // un mensaje por persona al día: si ya recibió otro hoy (o en prueba, si ya saldría otro), este sale mañana
+    // (si ya llegó una parte de este mismo mensaje, lo que falta no espera: es la continuación)
+    const continua = ultimas.some((e: Dict) => e && ENTREGADO.includes(e.estado));
+    const otroHoy = !continua && recientes.some((r) => r.tipo === it.tipo && String(r.ref) === String(it.ref) && r.fecha === ins.hoy && r.paso !== pasoFila(it) &&
+      (ENTREGADO.includes(r.estado) || (modo === 'prueba' && r.estado === 'prueba' && r.corrida_id === corridaId)));
+    if (otroHoy && (modo === 'prueba' || modo === 'encendido')) {
+      const motivo = modo === 'prueba' ? 'Ya tiene otro mensaje hoy: este saldría mañana.' : 'Ya recibió otro mensaje hoy: este sale mañana.';
+      for (let i = 0; i < it.partes.length; i++) if (!ultimas[i] || !ENTREGADO.includes(ultimas[i].estado)) await guardarFila(it, it.partes[i], i + 1, { estado: 'espera', motivo });
+      res.manana++;
       return;
     }
     if (modo === 'prueba') {

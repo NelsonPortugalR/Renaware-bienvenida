@@ -1,6 +1,6 @@
 // Generado por servidor/construir.js a partir de index.html: no se edita a mano.
 // Son las mismas reglas y textos de la página. Si cambian allá, se vuelve a generar y a desplegar wa-auto.
-export const HUELLA = "486ab287ac15facb";
+export const HUELLA = "3def84f251da67f3";
 export function crearReglas(entrada) {
 
   'use strict';
@@ -1121,7 +1121,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
   function waItemCl(a) {
     var c = clientePorId(a.cliente_id), tr = tratoCl(c), x = pasoCl(a), t = plantilla(x.k)[tr];
     var m = waMarcar(t, RE_MARCA, claveMarca, valoresCl(a, tr), limpiarTextoCl);
-    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t, atraso: Math.max(0, -(Number(a.dias) || 0)),
+    return waItem({ tipo: 'cliente', ref: a.cliente_id, paso: a.tipo, accion: a.clave, n_orden: a.n_orden, titulo: x.t, atraso: Math.max(0, -(Number(a.dias) || 0)), ciclo: a.clase === 'ciclo',
                     nombre: titulo((c && c.nombre) || a.cliente), celular: celCl(a), trato: tr, texto: llenarCl(t, a, tr), vacios: waVacios(x.dia),
                     partes: waPartes(x.k + '.' + tr, waCategoria(x.k), m.s, m.datos, waArchivos(x.dia)) });
   }

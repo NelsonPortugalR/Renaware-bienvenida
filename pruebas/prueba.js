@@ -608,7 +608,8 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
       ok(nombresArchivo.size <= 3 && conArchivos.every((i) => i.partes.every((p) => !p.encabezado || (p.params.length === 1 && !/\n/.test(p.params[0])))),
         'todos los archivos usan solo 3 plantillas fijas, con su texto en una línea', Array.from(nombresArchivo).join(' '));
       ok(items.every((i) => i.partes.every((p) => p.cuerpo.length <= 1024 && p.texto.length <= 1024 && /^eqa_[a-z0-9_]+$/.test(p.nombre))), 'todas las partes caben en 1,024 y tienen nombre de plantilla válido');
-      ok(items.filter((i) => i.tipo === 'cliente').every((i) => Number.isInteger(i.atraso) && i.atraso >= 0) && items.some((i) => i.tipo === 'cliente' && i.atraso > 0),
+      ok(items.filter((i) => i.tipo === 'cliente').every((i) => Number.isInteger(i.atraso) && i.atraso >= 0 && typeof i.ciclo === 'boolean') && items.some((i) => i.tipo === 'cliente' && i.atraso > 0) &&
+         items.some((i) => i.ciclo) && items.some((i) => i.tipo === 'cliente' && !i.ciclo),
         'cada mensaje de cliente dice cuántos días va atrasado', JSON.stringify(items.filter((i) => i.tipo === 'cliente').map((i) => i.atraso)));
       const ana = items.find((i) => i.tipo === 'cliente' && /Ana/.test(i.nombre));
       ok(ana && ana.problemas.some((p) => /celular/.test(p)), 'quien no tiene celular queda avisado, no se manda', JSON.stringify(ana && ana.problemas));
@@ -1640,8 +1641,24 @@ const vivos = (ins, paso) => db.mensajes.filter((m) => m.ins === ins && m.paso =
     await esperar(100);
     ok(await page.evaluate(() => document.documentElement.scrollWidth <= 360 && document.querySelector('.grupos').scrollWidth <= document.querySelector('.grupos').clientWidth + 1), 'Automático cabe a 360 px, con los tres grupos');
     await page.setViewportSize({ width: 400, height: 900 });
+    // en «Para hoy» de Asesores, cada mensaje dice qué hace el envío automático con él
     await page.click('#grupo-as');
+    await page.click('#tab-bv');
     await esperar(150);
+    const prep = await page.$('#bv-hoy [data-sg="preparar"]');
+    if (prep) {
+      const pid = await prep.getAttribute('data-id'), pn = await prep.getAttribute('data-n');
+      au.envios.push({ id: 'e-fila', fecha: HOY, corrida_id: au.corridas[0].id, tipo: 'asesor', ref: pid, paso: 'bv' + pn, titulo: 'Día ' + pn, nombre: 'X', parte: 1, partes: 1, estado: 'prueba', texto: 'Hola' });
+      await page.click('#grupo-au');
+      await page.click('#tab-ah');
+      await page.click('#vista-ah [data-au="recargar"]');
+      await esperar(400);
+      await page.click('#grupo-as');
+      await page.click('#tab-bv');
+      await esperar(200);
+      const fila = await page.$eval('#bv-hoy [data-sg="preparar"][data-id="' + pid + '"]', (b) => b.closest('li').innerText);
+      ok(/⚙️ Saldría solo \(está en prueba\)/.test(fila), 'en «Para hoy» cada mensaje dice qué hace el envío automático con él', fila);
+    } else ok(false, 'hay alguien en «Para hoy» de bienvenida para ver la línea del envío automático');
 
     console.log('Sesión');
     await page.click('#tab-bv');
