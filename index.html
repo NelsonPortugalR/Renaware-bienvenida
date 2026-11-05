@@ -4999,7 +4999,7 @@ No te preocupes por hacer la presentación perfecta: el objetivo es que practiqu
       }
       if (que === 'conectar') {
         auOcupado('conectar', fnAuto('conectar')).then(function (r) {
-          aviso('Conectado' + (r.numero ? ': ' + r.numero : '') + '.');
+          aviso('Conectado' + (r.numero ? ': ' + r.numero : '') + (r.perfil === false ? '. El perfil del número llénalo en Kapso.' : '.'), r.perfil === false);
           return cargarAu(true);
         }).catch(function () {});
       }

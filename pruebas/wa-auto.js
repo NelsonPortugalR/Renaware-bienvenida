@@ -19,7 +19,8 @@ function ok(c, t, extra) { total++; if (c) console.log('  ✓ ' + t); else { fal
 
 /* ---------------- base de datos falsa (lo justo de PostgREST) */
 const uuid = () => crypto.randomUUID();
-const db = { wa_auto_config: [], wa_auto_plantillas: [], wa_auto_envios: [], wa_auto_respuestas: [], wa_auto_corridas: [] };
+const db = { wa_auto_config: [], wa_auto_plantillas: [], wa_auto_envios: [], wa_auto_respuestas: [], wa_auto_corridas: [],
+  wa_bv_ajustes: [{ id: 'vigente', data: { direccion: 'Av. Cayma 628, Of. 502', referencia: 'a media cuadra de la Av. Ejército' } }] };
 const DEF = {
   wa_auto_plantillas: () => ({ id: uuid(), estado: 'borrador', idioma: 'es', ejemplos: [], botones: [], creado_en: new Date().toISOString() }),
   wa_auto_envios: () => ({ id: uuid(), fecha: HOY, parte: 1, partes: 1, params: [], estado: 'pendiente', intentos: 0, creado_en: new Date().toISOString() }),
@@ -100,7 +101,7 @@ function supabase(url, init) {
 }
 
 /* ---------------- Kapso falso */
-const K = { plantillas: new Map(), mensajes: [], subidaFalla: true, fallarEnvio: null, hooks: [], numeros: [{ id: 'k1', phone_number_id: 'PN1', business_account_id: 'WABA1', display_phone_number: '+51 900 000 000', verified_name: 'Equipo Arequipa' }] };
+const K = { perfil: { about: 'Hola', vertical: 'UNDEFINED' }, perfilCambios: [], plantillas: new Map(), mensajes: [], subidaFalla: true, fallarEnvio: null, hooks: [], numeros: [{ id: 'k1', phone_number_id: 'PN1', business_account_id: 'WABA1', display_phone_number: '+51 900 000 000', verified_name: 'Equipo Arequipa' }] };
 let nWamid = 0;
 function kapso(url, init) {
   const u = new URL(url), metodo = (init && init.method) || 'GET';
@@ -116,6 +117,8 @@ function kapso(url, init) {
     if (m && metodo === 'PATCH') { const w = K.hooks.find((x) => x.id === m[3]); Object.assign(w, cuerpo.whatsapp_webhook); return [200, { data: w }]; }
     return [404, { error: 'no ' + p }];
   }
+  if (p === '/PN1/whatsapp_business_profile' && metodo === 'GET') return [200, { data: [Object.assign({}, K.perfil)] }];
+  if (p === '/PN1/whatsapp_business_profile' && metodo === 'POST') { K.perfilCambios.push(cuerpo); Object.assign(K.perfil, cuerpo); delete K.perfil.messaging_product; return [200, { success: true }]; }
   if (p === '/WABA1/message_templates' && metodo === 'GET') return [200, { data: Array.from(K.plantillas.values()), paging: { cursors: { after: 'x' } } }];
   if (p === '/WABA1/message_templates' && metodo === 'POST') {
     if (K.plantillas.has(cuerpo.name)) return [400, { error: { message: 'Message template already exists', code: 100 } }];
@@ -230,8 +233,10 @@ globalThis.__reglas = () => ({
   ok(r.status === 200 && cfg.phone_number_id === 'PN1' && cfg.waba_id === 'WABA1' && cfg.webhook_listo, 'toma el número y la cuenta de Kapso', JSON.stringify(r.body));
   ok(K.hooks.length === 1 && K.hooks[0].url === SB + '/functions/v1/wa-auto' && secretoVault.length === 64 && K.hooks[0].secret_key === secretoVault &&
      K.hooks[0].events.includes('whatsapp.message.received') && K.hooks[0].buffer_window_seconds === 60, 'crea el webhook firmado, con el secreto guardado');
+  ok(r.body.perfil === true && K.perfilCambios.length === 1 && K.perfil.about === 'Hola' && K.perfil.vertical === 'RETAIL' && /Equipo Arequipa/.test(K.perfil.description) &&
+     !('about' in K.perfilCambios[0]) && K.perfil.address === 'Av. Cayma 628, Of. 502, Arequipa (a media cuadra de la Av. Ejército)', 'llena el perfil del número sin tocar lo que ya tenía', JSON.stringify(K.perfilCambios));
   await llamar({ accion: 'conectar', token: TOKEN });
-  ok(K.hooks.length === 1, 'conectar otra vez no duplica el webhook');
+  ok(K.hooks.length === 1 && K.perfilCambios.length === 1, 'conectar otra vez no duplica el webhook ni vuelve a cambiar el perfil');
 
   console.log('Encendido: primero se aprueban las plantillas');
   cfg.estado = 'encendido';

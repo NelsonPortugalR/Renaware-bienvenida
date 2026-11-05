@@ -220,7 +220,7 @@ async function sincronizarPlantillas(cfg: Dict, todas: Dict[], necesarias: Set<s
       if (t.id && String(t.id) !== String(p.meta_id || '')) cambios.meta_id = String(t.id);
       if (t.language && t.language !== (p.idioma || 'es')) cambios.idioma = t.language;
       if (motivo !== (p.motivo || null)) cambios.motivo = motivo;
-    } else if (p.estado === 'borrador' && necesarias.has(p.nombre) && enviadas < 15) {
+    } else if (p.estado === 'borrador' && necesarias.has(p.nombre) && enviadas < 40) {   // Meta acepta hasta 100 por hora
       enviadas++;
       try {
         const d = await mandarARevision(cfg, p);
@@ -635,7 +635,28 @@ async function conectar() {
   if (existe) await kapso(PLATAFORMA, '/whatsapp/phone_numbers/' + phone + '/webhooks/' + existe.id, { whatsapp_webhook: def }, 'PATCH');
   else await kapso(PLATAFORMA, '/whatsapp/phone_numbers/' + phone + '/webhooks', { whatsapp_webhook: def });
   await actualizar('wa_auto_config', 'id=eq.vigente', { webhook_listo: true });
-  return { phone_number_id: phone, waba_id: waba, numero: n.display_phone_number || n.phone_number || null, nombre: n.verified_name || n.display_name || n.name || null };
+  const perfil = await llenarPerfil(cfg.kapso_base, phone);
+  return { phone_number_id: phone, waba_id: waba, numero: n.display_phone_number || n.phone_number || null, nombre: n.verified_name || n.display_name || n.name || null, ...perfil };
+}
+/* El perfil del número (lo que ve la gente al tocar el nombre): solo se llena lo que esté vacío, con la dirección
+   de la oficina guardada en la página. Si Kapso no lo acepta, no pasa nada: se puede llenar en Kapso o en Meta. */
+const PERFIL = { about: 'Equipo Arequipa · Rena Ware',
+                 description: 'Avisos y seguimiento del Equipo Arequipa de Rena Ware para asesores y clientes. Las respuestas le llegan a cada asesor.',
+                 vertical: 'RETAIL' };
+async function llenarPerfil(base: string, phone: string) {
+  try {
+    const aj = (((await leer('wa_bv_ajustes', 'id=eq.vigente&select=data')) || [])[0] || {}).data || {};
+    const dir = String(aj.direccion || '').trim();
+    const quiero: Dict = { ...PERFIL, ...(dir ? { address: (dir + ', Arequipa' + (aj.referencia ? ' (' + String(aj.referencia).trim() + ')' : '')).slice(0, 256) } : {}) };
+    const ya = await kapso(base, '/' + phone + '/whatsapp_business_profile?fields=about,address,description,vertical', undefined, 'GET');
+    const actual: Dict = (ya && ya.data && ya.data[0]) || {};
+    const falta: Dict = {};
+    Object.keys(quiero).forEach((k) => { if (!String(actual[k] || '').trim() || (k === 'vertical' && actual[k] === 'UNDEFINED')) falta[k] = quiero[k]; });
+    if (Object.keys(falta).length) await kapso(base, '/' + phone + '/whatsapp_business_profile', { messaging_product: 'whatsapp', ...falta });
+    return { perfil: true, perfil_campos: Object.keys(falta) };
+  } catch (e) {
+    return { perfil: false, perfil_error: plano(msj(e), 160) };
+  }
 }
 /* Una prueba: el mensaje de una persona, pero a tu celular (sus plantillas tienen que estar aprobadas). */
 async function probar(b: Dict) {
